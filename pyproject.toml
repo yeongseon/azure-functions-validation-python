@@ -1,0 +1,146 @@
+# ---------------------------------------------
+# 📦 Project Metadata
+# ---------------------------------------------
+[project]
+name = "azure-functions-validation"
+description = "Validation and serialization layer for Python-based Azure Functions"
+authors = [{ name = "Yeongseon Choe", email = "yeongseon.choe@gmail.com" }]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dynamic = ["version"]
+
+dependencies = [
+    "azure-functions",
+    "pydantic>=2.0,<3.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "black==26.1.0",
+    "build",
+    "coverage",
+    "hatch",
+    "mypy==1.19.1",
+    "pre-commit",
+    "pytest",
+    "ruff==0.14.13",
+    "pytest-cov",
+    "git-changelog",
+    "bandit==1.9.3"
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material"
+]
+
+# ---------------------------------------------
+# 🛠️ Build System Configuration
+# ---------------------------------------------
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ----------------------------------------
+# 🏗️ Hatch Build Configuration
+# ----------------------------------------
+[tool.hatch.build]
+sources = ["src"]
+
+[tool.hatch.build.targets.wheel]
+# The package name will be resolved under "src/"
+# No need to set "packages" explicitly unless necessary
+
+[tool.hatch.version]
+path = "src/azure_functions_validation/__init__.py"
+
+# ----------------------------------------
+# 🚀 Hatch Publish Configuration
+# ----------------------------------------
+[tool.hatch.publish.index]
+default = "pypi"
+
+[tool.hatch.publish.index.repos.pypi]
+url = "https://upload.pypi.org/legacy/"
+
+[tool.hatch.publish.index.repos.test]
+url = "https://test.pypi.org/legacy/"
+
+# ----------------------------------------
+# 🧪 Hatch Environments
+# ----------------------------------------
+
+[tool.hatch.envs.default]
+python = "3.10"
+features = ["dev", "docs"]
+
+[tool.hatch.envs.default.scripts]
+format = "ruff format src tests && black src tests"
+style = "ruff check src tests"
+typecheck = "mypy src tests"
+lint = "hatch run style && hatch run typecheck"
+test = "PYTHONPATH=. pytest -v tests"
+cov = "PYTHONPATH=. pytest --cov=src/azure_functions_validation --cov-report=term-missing --cov-report=html --cov-report=xml tests/"
+docs = "mkdocs serve"
+precommit = "pre-commit run --all-files"
+precommit-install = "pre-commit install"
+
+# ---------------------------------------------
+# 🎨 Code Formatting - Black
+# ---------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+
+# ---------------------------------------------
+# 🔍 Linting - Ruff
+# ---------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["azure_functions_validation"]
+force-sort-within-sections = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# ---------------------------------------------
+# 🧪 Type Checking - Mypy
+# ---------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+exclude = "examples/"
+show_error_codes = true
+pretty = true
+
+# ---------------------------------------------
+# 🧪 Testing - Pytest
+# ---------------------------------------------
+[tool.pytest.ini_options]
+addopts = "--cov=src/azure_functions_validation --cov-report=xml --cov-report=term-missing -ra -q"
+testpaths = ["tests"]
+pythonpath = ["src", "examples"]
+
+# ---------------------------------------------
+# 📊 Coverage Reporting
+# ---------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["src/azure_functions_validation"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+# ---------------------------------------------
+# 🔐 Security - Bandit
+# ---------------------------------------------
+[tool.bandit]
+exclude_dirs = ["tests"]
