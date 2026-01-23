@@ -209,6 +209,58 @@ def main(req: MyRequest) -> dict:
 - If the returned dict does not match `MyResponse` schema → raises `ResponseValidationError`
 - Results in HTTP 500 Internal Server Error (not 422, since this is a server-side contract violation)
 
+### 9.5 Error Handling Behavior Matrix
+
+All error payloads in v0.1 use the FastAPI-style `detail` array with `loc`, `msg`, and `type` fields. No additional top-level fields are added.
+
+Allowed `type` values in v0.1 (enumerated):
+- `json_invalid`
+- `missing`
+- `invalid_type`
+- `value_error`
+- `string_too_short`
+- `string_too_long`
+- `number_too_small`
+- `number_too_large`
+- `response_validation_error`
+
+Pydantic v2 error types are mapped into this set:
+- `missing` and `missing_required` -> `missing`
+- `type_error.*` -> `invalid_type`
+- `value_error.*` -> `value_error`
+- `string_too_short` -> `string_too_short`
+- `string_too_long` -> `string_too_long`
+- `greater_than`/`greater_than_equal`/`too_large` -> `number_too_large`
+- `less_than`/`less_than_equal`/`too_small` -> `number_too_small`
+- any unmapped Pydantic type -> `value_error`
+
+| Scenario | Status | Error Payload |
+|----------|--------|---------------|
+| Invalid JSON body | 400 Bad Request | `{ "detail": [{ "loc": ["body"], "msg": "Invalid JSON", "type": "json_invalid" }] }` |
+| Missing JSON body with body model | 422 Unprocessable Entity | `{ "detail": [{ "loc": ["body"], "msg": "Field required", "type": "missing" }] }` |
+| Input validation error | 422 Unprocessable Entity | `{ "detail": [{ "loc": ["body"], "msg": "...", "type": "..." }] }` |
+| Response validation error | 500 Internal Server Error | `{ "detail": [{ "loc": ["response"], "msg": "Response validation error", "type": "response_validation_error" }] }` |
+| Handler raises exception | 500 Internal Server Error | Default Functions error handling (no standard payload in v0.1) |
+| Handler returns HttpResponse | Pass-through | Bypass validation and return as-is |
+
+### 9.6 Response Serialization Defaults
+
+- `response_model` provided:
+  - model/dict/list are validated and serialized to JSON
+  - default `Content-Type`: `application/json`
+- `response_model` omitted:
+  - `dict`/`list` serialized to JSON, `Content-Type`: `application/json`
+  - `str` serialized as-is, `Content-Type`: `text/plain; charset=utf-8`
+  - `bytes` returned as-is, `Content-Type`: `application/octet-stream`
+- If handler returns `HttpResponse`, no serialization or validation is applied
+
+### 9.7 Input Model Precedence and Sources
+
+- `request_model` is shorthand for **body model only**
+- `body/query/path/headers` can be provided explicitly for split models
+- `request_model` cannot be combined with `body/query/path/headers` in the same decorator (configuration error)
+- Path parameters are sourced from `HttpRequest.route_params`
+
 ---
 
 ## 10. Architecture
