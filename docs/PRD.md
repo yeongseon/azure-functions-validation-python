@@ -99,7 +99,7 @@ As a developer, I want to define models once and reuse them both for:
 
 | Dependency | Version |
 |------------|---------|
-| Python | 3.9+ |
+| Python | 3.10+ |
 | Azure Functions Core Tools | 4.x |
 | Pydantic | 2.x (v2 only) |
 | Azure Functions Python Library | v2 programming model |
