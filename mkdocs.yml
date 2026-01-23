@@ -1,0 +1,39 @@
+site_name: Azure Functions Validation
+site_description: Validation and serialization for Python-based Azure Functions
+site_author: Yeongseon Choe
+repo_url: https://github.com/yeongseon/azure-functions-validation
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - PRD: PRD.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - tables
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.tabbed
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.emoji
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yeongseon/azure-functions-validation
+  copyright: |
+    © 2026 Yeongseon Choe – MIT Licensed
