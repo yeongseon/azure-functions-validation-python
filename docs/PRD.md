@@ -164,6 +164,10 @@ def main(req: MyRequest) -> MyResponse:
     return MyResponse(message=f"Hello {req.name}")
 ```
 
+Notes:
+- `request_model` is a shorthand for body-only validation in v0.1.
+- For clarity, `body=MyRequest` is preferred in new code, but `request_model` remains supported for parity with `azure-functions-openapi`.
+
 ### 9.2 Split Models (Body / Query / Path / Headers)
 
 ```python
@@ -179,6 +183,10 @@ from azure_functions_validation import validate_http
 def main(body: BodyModel, query: QueryModel, path: PathModel, headers: HeaderModel) -> ResponseModel:
     ...
 ```
+
+Parameter injection rule (MVP):
+- Name-based mapping only. Decorator keys must match handler argument names.
+- Example: `body=BodyModel` must map to `def main(body: BodyModel, ...)`.
 
 ### 9.3 Accessing Original HttpRequest
 
@@ -398,6 +406,7 @@ Often focused on request parsing/validation (primarily input) and handler conven
 ### v0.2
 - Query/Path/Header model support
 - Custom error formatter hook
+- Validation error handler registration (global, opt-in)
 
 ### v0.3
 - Deeper `azure-functions-openapi` integration (e.g., 422 schema)
@@ -443,7 +452,15 @@ Often focused on request parsing/validation (primarily input) and handler conven
 
 ---
 
-## 17. Glossary
+## 17. Implementation Notes (DX + Runtime)
+
+- **Type hinting DX**: Preserve handler parameter types via generics/TypeVar so IDE autocompletion remains accurate.
+- **Async support**: Detect coroutine handlers (e.g., `inspect.iscoroutinefunction`) and await them; sync handlers run directly.
+- **HttpResponse bypass**: If the handler returns `func.HttpResponse`, skip validation/serialization.
+
+---
+
+## 18. Glossary
 
 | Term | Definition |
 |------|------------|
