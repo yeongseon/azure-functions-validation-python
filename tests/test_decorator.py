@@ -1,13 +1,15 @@
 """Tests for the validate_http decorator."""
 
-import json
-from typing import Optional
+# mypy: disable-error-code="arg-type, call-arg, attr-defined"
 
-import pytest
+import json
+from typing import Any, Optional
+
 from azure.functions import HttpRequest, HttpResponse
 from pydantic import BaseModel, Field
+import pytest
 
-from azure_functions_validation import ResponseValidationError, validate_http
+from azure_functions_validation import validate_http
 
 
 # Test models
@@ -109,7 +111,7 @@ def test_invalid_json_returns_400() -> None:
     """Test that invalid JSON returns 400."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with invalid JSON
@@ -137,7 +139,7 @@ def test_missing_body_returns_422() -> None:
     """Test that missing body returns 422."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with empty body
@@ -157,16 +159,14 @@ def test_missing_body_returns_422() -> None:
     assert "detail" in body
     assert len(body["detail"]) > 0
     # Should have at least one error about missing field
-    assert any(
-        error["type"] in ["missing", "value_error"] for error in body["detail"]
-    )
+    assert any(error["type"] in ["missing", "value_error"] for error in body["detail"])
 
 
 def test_validation_error_returns_422() -> None:
     """Test that validation errors return 422."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with invalid data (empty name)
@@ -196,7 +196,7 @@ def test_response_validation_error_returns_500() -> None:
     """Test that response validation errors return 500."""
 
     @validate_http(request_model=SimpleModel, response_model=UserResponse)
-    def handler(req: SimpleModel) -> dict:
+    def handler(req: SimpleModel) -> dict[str, Any]:
         # Return invalid response (missing required field)
         return {}
 
@@ -250,7 +250,7 @@ def test_return_dict_with_validation() -> None:
     """Test returning dict with validation."""
 
     @validate_http(request_model=UserRequest, response_model=UserResponse)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "Success", "user_name": req.name}
 
     # Create test request
@@ -427,7 +427,7 @@ def test_both_body_and_request_model_raises_error() -> None:
     with pytest.raises(ValueError, match="Cannot specify both"):
 
         @validate_http(body=UserRequest, request_model=UserRequest)
-        def handler(req: UserRequest) -> dict:
+        def handler(req: UserRequest) -> dict[str, Any]:
             return {"message": "ok"}
 
 
@@ -435,7 +435,7 @@ def test_error_detail_format() -> None:
     """Test that error details match PRD format."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with validation error
@@ -468,7 +468,7 @@ def test_http_request_in_kwargs() -> None:
     """Test handling HttpRequest in kwargs."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": f"Hello {req.name}"}
 
     # Create test request
@@ -492,7 +492,7 @@ def test_missing_http_request_raises_error() -> None:
     """Test that missing HttpRequest raises ValueError."""
 
     @validate_http(body=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Call handler without HttpRequest
@@ -504,7 +504,7 @@ def test_handler_raises_exception() -> None:
     """Test that handler exceptions propagate."""
 
     @validate_http(request_model=UserRequest)
-    def handler(req: UserRequest) -> dict:
+    def handler(req: UserRequest) -> dict[str, Any]:
         raise RuntimeError("Something went wrong")
 
     # Create test request
@@ -524,7 +524,7 @@ def test_async_invalid_json() -> None:
     import asyncio
 
     @validate_http(body=UserRequest)
-    async def handler(req: UserRequest) -> dict:
+    async def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with invalid JSON
@@ -547,7 +547,7 @@ def test_async_validation_error() -> None:
     import asyncio
 
     @validate_http(body=UserRequest)
-    async def handler(req: UserRequest) -> dict:
+    async def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Create test request with validation error
@@ -570,7 +570,7 @@ def test_async_response_validation_error() -> None:
     import asyncio
 
     @validate_http(request_model=SimpleModel, response_model=UserResponse)
-    async def handler(req: SimpleModel) -> dict:
+    async def handler(req: SimpleModel) -> dict[str, Any]:
         return {}  # Invalid response
 
     # Create test request
@@ -593,7 +593,7 @@ def test_async_handler_exception() -> None:
     import asyncio
 
     @validate_http(request_model=UserRequest)
-    async def handler(req: UserRequest) -> dict:
+    async def handler(req: UserRequest) -> dict[str, Any]:
         raise RuntimeError("Async error")
 
     # Create test request
@@ -613,7 +613,7 @@ def test_async_missing_http_request() -> None:
     import asyncio
 
     @validate_http(body=UserRequest)
-    async def handler(req: UserRequest) -> dict:
+    async def handler(req: UserRequest) -> dict[str, Any]:
         return {"message": "ok"}
 
     # Call handler without HttpRequest

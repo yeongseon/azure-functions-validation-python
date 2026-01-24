@@ -1,10 +1,9 @@
 """HTTP validation decorator for Azure Functions."""
 
 import asyncio
-import inspect
-import json
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, Union
+import json
+from typing import Any, Callable, Optional, TypeVar
 
 from azure.functions import HttpRequest, HttpResponse
 from pydantic import BaseModel, ValidationError
@@ -67,9 +66,7 @@ def validate_http(
 
             @wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
-                return _process_request(
-                    func, args, kwargs, body_model, response_model, adapter
-                )
+                return _process_request(func, args, kwargs, body_model, response_model, adapter)
 
             return sync_wrapper  # type: ignore
 
@@ -147,7 +144,7 @@ def _process_request(
             status_code=500,
             mimetype="application/json",
         )
-    except Exception as e:
+    except Exception:
         # Let other exceptions propagate
         raise
 
@@ -223,14 +220,12 @@ async def _process_request_async(
             status_code=500,
             mimetype="application/json",
         )
-    except Exception as e:
+    except Exception:
         # Let other exceptions propagate
         raise
 
 
-def _find_http_request(
-    args: tuple[Any, ...], kwargs: dict[str, Any]
-) -> Optional[HttpRequest]:
+def _find_http_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Optional[HttpRequest]:
     """Find HttpRequest in function arguments.
 
     Args:

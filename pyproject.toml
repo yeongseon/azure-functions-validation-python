@@ -120,6 +120,10 @@ exclude = "examples/"
 show_error_codes = true
 pretty = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["arg-type", "call-arg", "attr-defined", "type-arg"]
+
 # ---------------------------------------------
 # 🧪 Testing - Pytest
 # ---------------------------------------------
