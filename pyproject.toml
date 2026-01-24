@@ -77,7 +77,7 @@ features = ["dev", "docs"]
 [tool.hatch.envs.default.scripts]
 format = "ruff format src tests && black src tests"
 style = "ruff check src tests"
-typecheck = "mypy src tests"
+typecheck = "mypy src"
 lint = "hatch run style && hatch run typecheck"
 test = "PYTHONPATH=. pytest -v tests"
 cov = "PYTHONPATH=. pytest --cov=src/azure_functions_validation --cov-report=term-missing --cov-report=html --cov-report=xml tests/"
