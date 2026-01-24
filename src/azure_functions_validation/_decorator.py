@@ -2,6 +2,7 @@
 
 from functools import wraps
 import inspect
+import json
 from typing import Any, Callable, TypeVar
 
 from azure.functions import HttpRequest, HttpResponse
@@ -73,6 +74,41 @@ def validate_http(
     return decorator
 
 
+def _handle_exceptions(adapter: PydanticAdapter) -> Callable[[Exception], HttpResponse]:
+    """Return exception handler function for validation errors."""
+
+    def handle(exc: Exception) -> HttpResponse:
+        """Handle validation and JSON parsing exceptions."""
+        if isinstance(exc, ValidationError):
+            # Request validation error (422)
+            error_dict = adapter.format_error(exc)
+            return _build_error_response(error_dict, 422)
+        if isinstance(exc, ValueError) and "Invalid JSON" in str(exc):
+            # JSON parsing error (400)
+            return _build_error_response(
+                {"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "json_invalid"}]},
+                400,
+            )
+        if isinstance(exc, ResponseValidationError):
+            # Response validation error (500)
+            return _build_error_response(
+                {
+                    "detail": [
+                        {
+                            "loc": ["response"],
+                            "msg": "Response validation error",
+                            "type": "response_validation_error",
+                        }
+                    ]
+                },
+                500,
+            )
+        # Re-raise unhandled exceptions
+        raise exc
+
+    return handle
+
+
 def _process_request(
     func: Callable[..., Any],
     args: tuple[Any, ...],
@@ -82,6 +118,7 @@ def _process_request(
     adapter: PydanticAdapter,
 ) -> HttpResponse:
     """Process request synchronously."""
+    handler = _handle_exceptions(adapter)
     try:
         # Find HttpRequest in args
         http_request = _find_http_request(args, kwargs)
@@ -103,32 +140,8 @@ def _process_request(
         # Validate and serialize response
         return _build_response(result, response_model, adapter)
 
-    except ValidationError as e:
-        # Request validation error (422)
-        error_dict = adapter.format_error(e)
-        return _build_error_response(error_dict, 422)
-    except ValueError as e:
-        # JSON parsing error (400)
-        if "Invalid JSON" in str(e):
-            return _build_error_response(
-                {"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "json_invalid"}]},
-                400,
-            )
-        raise
-    except ResponseValidationError:
-        # Response validation error (500)
-        return _build_error_response(
-            {
-                "detail": [
-                    {
-                        "loc": ["response"],
-                        "msg": "Response validation error",
-                        "type": "response_validation_error",
-                    }
-                ]
-            },
-            500,
-        )
+    except (ValidationError, ValueError, ResponseValidationError) as e:
+        return handler(e)
     except Exception:
         # Let other exceptions propagate (Azure Functions will handle them)
         raise
@@ -143,6 +156,7 @@ async def _process_request_async(
     adapter: PydanticAdapter,
 ) -> HttpResponse:
     """Process request asynchronously."""
+    handler = _handle_exceptions(adapter)
     try:
         # Find HttpRequest in args
         http_request = _find_http_request(args, kwargs)
@@ -164,32 +178,8 @@ async def _process_request_async(
         # Validate and serialize response
         return _build_response(result, response_model, adapter)
 
-    except ValidationError as e:
-        # Request validation error (422)
-        error_dict = adapter.format_error(e)
-        return _build_error_response(error_dict, 422)
-    except ValueError as e:
-        # JSON parsing error (400)
-        if "Invalid JSON" in str(e):
-            return _build_error_response(
-                {"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "json_invalid"}]},
-                400,
-            )
-        raise
-    except ResponseValidationError:
-        # Response validation error (500)
-        return _build_error_response(
-            {
-                "detail": [
-                    {
-                        "loc": ["response"],
-                        "msg": "Response validation error",
-                        "type": "response_validation_error",
-                    }
-                ]
-            },
-            500,
-        )
+    except (ValidationError, ValueError, ResponseValidationError) as e:
+        return handler(e)
     except Exception:
         # Let other exceptions propagate (Azure Functions will handle them)
         raise
@@ -283,7 +273,5 @@ def _build_response(
 
 def _build_error_response(error_dict: dict[str, Any], status_code: int) -> HttpResponse:
     """Build error HttpResponse."""
-    import json
-
     body = json.dumps(error_dict)
     return HttpResponse(body=body, mimetype="application/json", status_code=status_code)

@@ -1,5 +1,6 @@
 """Validation adapter interface and Pydantic implementation."""
 
+import json
 from typing import Any, Protocol
 
 from azure.functions import HttpRequest
@@ -70,8 +71,6 @@ class PydanticAdapter:
         if isinstance(obj, BaseModel):
             return obj.model_dump_json(), "application/json"
         if isinstance(obj, (dict, list)):
-            import json
-
             return json.dumps(obj), "application/json"
         if isinstance(obj, str):
             return obj, "text/plain; charset=utf-8"
