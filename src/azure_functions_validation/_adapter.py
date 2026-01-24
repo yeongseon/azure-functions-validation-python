@@ -1,5 +1,6 @@
 """Validation adapter layer for request/response validation."""
 
+import json
 from typing import Any, Protocol
 
 from azure.functions import HttpRequest
@@ -102,8 +103,6 @@ class PydanticAdapter:
         # Parse JSON
         try:
             body_str = body.decode("utf-8")
-            import json
-
             data = json.loads(body_str)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ValueError("Invalid JSON") from e
@@ -156,8 +155,6 @@ class PydanticAdapter:
             content_type = "application/json"
         elif isinstance(obj, (dict, list)):
             # Serialize dict/list to JSON
-            import json
-
             content = json.dumps(obj)
             content_type = "application/json"
         elif isinstance(obj, str):
