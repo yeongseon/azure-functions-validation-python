@@ -290,6 +290,10 @@ class TestErrorTypeMapping:
         # Should map to 'invalid_type'
         assert any(e["type"] == "invalid_type" for e in result["detail"])
 
+    # Direct mapping tests
+    # Note: Testing private method _map_error_type directly to ensure comprehensive coverage
+    # of all error type mappings defined in the PRD. This is acceptable for critical mapping
+    # logic that needs to be exhaustively tested.
     def test_direct_map_missing_type(self, adapter: PydanticAdapter) -> None:
         """Test direct mapping of 'missing' type."""
         assert adapter._map_error_type("missing") == "missing"
