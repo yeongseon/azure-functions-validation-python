@@ -16,6 +16,7 @@ repos:
     hooks:
       - id: mypy
         language: python
+        files: "^src/"
         args:
           [
             "--config-file=pyproject.toml",

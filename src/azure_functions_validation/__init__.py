@@ -1,5 +1,7 @@
 """azure-functions-validation package."""
 
-__all__ = ["__version__"]
+from ._decorator import ResponseValidationError, validate_http
 
-__version__ = "0.0.0"
+__all__ = ["__version__", "validate_http", "ResponseValidationError"]
+
+__version__ = "0.1.0"
