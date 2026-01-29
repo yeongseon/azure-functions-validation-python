@@ -6,7 +6,7 @@ from typing import Any, Optional
 from azure.functions import HttpRequest
 from pydantic import BaseModel, ValidationError
 
-from ._exceptions import ResponseValidationError
+from .exceptions import ResponseValidationError
 
 
 class PydanticAdapter:

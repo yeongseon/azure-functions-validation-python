@@ -8,8 +8,8 @@ from typing import Any, Callable, Optional, TypeVar
 from azure.functions import HttpRequest, HttpResponse
 from pydantic import BaseModel, ValidationError
 
-from ._adapter import PydanticAdapter
-from ._exceptions import ResponseValidationError
+from .adapter import PydanticAdapter
+from .exceptions import ResponseValidationError
 
 # Type variable for generic function signatures
 F = TypeVar("F", bound=Callable[..., Any])
