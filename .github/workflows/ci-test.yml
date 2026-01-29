@@ -33,12 +33,16 @@ jobs:
         run: ls -lh coverage.xml
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.10'
+        if: >
+          matrix.python-version == '3.10' &&
+          secrets.CODECOV_TOKEN != '' &&
+          (github.event_name == 'push' ||
+           github.event.pull_request.head.repo.full_name == github.repository)
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           verbose: true
-          fail_ci_if_error: true
+          fail_ci_if_error: false
         env:
           CODECOV_RETRIES: 3
