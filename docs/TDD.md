@@ -195,7 +195,8 @@ The library will differentiate between client-side and server-side errors.
         - Successful validation of body, query, path, and headers.
         - Correct 422 error responses for all input types.
         - Correct 400 error for malformed JSON.
-        - Correct 500 error for response validation failures.
+        - Verify that an invalid handler return value (vs. the response_model) triggers an HTTP 500 error.
+        - Verify that a handler returning a raw HttpResponse bypasses all response validation.
         - Correct handling of both `sync` and `async` handlers.
         - Passthrough of manually created `HttpResponse` objects.
 

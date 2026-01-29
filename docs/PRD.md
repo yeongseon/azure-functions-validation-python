@@ -251,6 +251,26 @@ Pydantic v2 error types are mapped into this set:
 | Handler raises exception | 500 Internal Server Error | Default Functions error handling (no standard payload in v0.1) |
 | Handler returns HttpResponse | Pass-through | Bypass validation and return as-is |
 
+### 9.5.1 Implementation & Test Checklist
+
+This checklist verifies that the error handling behaviors defined above are explicitly covered by the technical design and testing strategy outlined in the TDD.
+
+- [x] **Invalid JSON (400 Bad Request)**:
+  - **TDD Mapping:** The `PydanticV2Adapter` is designed to catch `json.JSONDecodeError` and format it as a `json_invalid` error type.
+  - **Test Coverage:** The TDD's "Testing Strategy" explicitly includes a test case for "Correct 400 error for malformed JSON."
+
+- [x] **Missing/Invalid Request Fields (422 Unprocessable Entity)**:
+  - **TDD Mapping:** The `PydanticV2Adapter` maps `pydantic.ValidationError` on input to a 422 response with detailed error types (`missing`, `value_error`, etc.).
+  - **Test Coverage:** The TDD's "Testing Strategy" includes a test case for "Correct 422 error responses for all input types."
+
+- [x] **Response Validation Failure (500 Internal Server Error)**:
+  - **TDD Mapping:** The design specifies that a `ResponseValidationError` will be raised and handled by the decorator, resulting in a 500 error with a `response_validation_error` type.
+  - **Test Coverage:** The TDD's "Testing Strategy" now explicitly includes verifying that an invalid return value triggers an HTTP 500 error.
+
+- [x] **`HttpResponse` Passthrough**:
+  - **TDD Mapping:** The decorator's logic flow is designed to check if the handler's return value is an `HttpResponse` and, if so, return it directly without attempting validation or serialization.
+  - **Test Coverage:** The TDD's "Testing Strategy" now explicitly includes verifying that a handler returning a raw `HttpResponse` bypasses validation.
+
 ### 9.6 Response Serialization Defaults
 
 - `response_model` provided:
