@@ -4,7 +4,7 @@ import json
 from typing import Any, Protocol
 
 from azure.functions import HttpRequest
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
 
@@ -111,28 +111,8 @@ class PydanticAdapter:
         return model.model_validate(data)
 
     def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
-        """Validate response object.
-
-        Args:
-            obj: Response object (BaseModel instance or dict)
-            model: Pydantic model class to validate against
-
-        Returns:
-            Validated model instance
-
-        Raises:
-            PydanticValidationError: If validation fails
-            TypeError: If response type is invalid
-        """
-        if isinstance(obj, model):
-            # Already a valid instance
-            return obj
-        elif isinstance(obj, dict):
-            # Validate dict against model
-            return model.model_validate(obj)
-        else:
-            # Invalid response type - raise TypeError
-            raise TypeError(f"Expected {model.__name__} or dict, got {type(obj).__name__}")
+        """Validate response object using TypeAdapter for generic type support."""
+        return TypeAdapter(model).validate_python(obj)
 
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:
         """Serialize response object.
