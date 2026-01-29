@@ -24,7 +24,7 @@ dev = [
     "mypy==1.19.1",
     "pre-commit",
     "pytest",
-    "ruff==0.14.13",
+    "ruff==0.14.14",
     "pytest-cov",
     "git-changelog",
     "bandit==1.9.3"
