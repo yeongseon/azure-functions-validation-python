@@ -1,5 +1,6 @@
 """azure-functions-validation package."""
 
+from .contract import contract_test, verify_contracts
 from .decorator import ErrorFormatter, validate_http
 from .exceptions import ResponseValidationError
 from .openapi import generate_422_error_schema, get_validation_error_examples
@@ -14,6 +15,8 @@ __all__ = [
     "clear_global_error_handlers",
     "generate_422_error_schema",
     "get_validation_error_examples",
+    "contract_test",
+    "verify_contracts",
 ]
 
 __version__ = "0.2.0"
