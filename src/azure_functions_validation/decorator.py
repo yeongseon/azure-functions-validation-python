@@ -2,12 +2,11 @@
 
 import inspect
 import json
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
-from azure.functions import HttpRequest, HttpResponse
+from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
-from .exceptions import ResponseValidationError
 
 
 def validate_http(
@@ -19,7 +18,7 @@ def validate_http(
     request_model: Optional[Any] = None,
     response_model: Optional[Any] = None,
     adapter: Optional[ValidationAdapter] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     """Decorator for validating HTTP requests and responses in Azure Functions.
 
     Args:
@@ -47,7 +46,7 @@ def validate_http(
     if adapter is None:
         adapter = PydanticAdapter()
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # Check if function is async
         is_async = inspect.iscoroutinefunction(func)
 
@@ -66,7 +65,7 @@ def validate_http(
                 f"(parameter name should be 'req' or 'http_request')"
             )
 
-        def wrapper(*args, **kwargs) -> HttpResponse:
+        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
             # Extract HttpRequest from args
             http_request = None
             for arg in args:
@@ -209,7 +208,7 @@ def validate_http(
                         return HttpResponse(
                             body=content, status_code=200, headers={"Content-Type": content_type}
                         )
-                    except Exception as e:
+                    except Exception:
                         # Response validation error - return 500
                         error_response = {
                             "detail": [

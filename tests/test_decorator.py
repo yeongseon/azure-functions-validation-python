@@ -3,13 +3,12 @@
 import json
 from unittest.mock import Mock
 
-import pytest
 from azure.functions import HttpRequest, HttpResponse
+from pydantic import BaseModel, Field
+import pytest
 
 from azure_functions_validation import validate_http
 from azure_functions_validation.adapter import PydanticAdapter
-from pydantic import BaseModel, Field
-from pydantic import ValidationError as PydanticValidationError
 
 
 # Test models
@@ -98,7 +97,6 @@ class TestSuccessfulValidation:
 
     def test_body_validation_async(self, mock_request_factory):
         """Test successful body validation with async handler."""
-        import asyncio
 
         @validate_http(body=UserModel, response_model=ResponseModel)
         async def async_handler(req: HttpRequest, body: UserModel) -> ResponseModel:

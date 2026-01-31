@@ -1,11 +1,12 @@
-import azure.functions as func
 import json
-from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+import os
 
 # Import the validation decorator
 import sys
-import os
+from typing import List, Optional
+
+import azure.functions as func
+from pydantic import BaseModel, Field, field_validator
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 

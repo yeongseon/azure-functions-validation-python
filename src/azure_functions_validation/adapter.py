@@ -1,7 +1,7 @@
 """Validation adapter layer for request/response validation."""
 
 import json
-from typing import Any, Protocol, Tuple, Union, get_origin, get_args
+from typing import Any, Protocol, Tuple, Union, get_args, get_origin
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel

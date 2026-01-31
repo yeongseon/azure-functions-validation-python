@@ -1,8 +1,6 @@
 import json
-import pytest
-import sys
 import os
-from unittest.mock import MagicMock, Mock
+import sys
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -10,12 +8,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_test_app"))
 
 import azure.functions as func
 from function_app import (
-    create_user,
-    create_post,
     create_comment,
-    update_user,
+    create_post,
+    create_user,
     create_user_async,
     create_user_direct_response,
+    update_user,
 )
 
 
@@ -61,7 +59,7 @@ class MockHttpRequest:
             return None
         try:
             return json.loads(self._body.decode("utf-8"))
-        except:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return None
 
 
@@ -255,7 +253,6 @@ class TestIntegration:
 
     def test_create_user_async_success(self):
         """Test successful async user creation"""
-        import asyncio
 
         request = func.HttpRequest(
             method="POST",
@@ -325,7 +322,9 @@ class TestIntegration:
         request = func.HttpRequest(
             method="POST",
             url="/api/users",
-            body=b'{"name": "John", "email": "john@example.com", "age": 30',  # Missing closing brace
+            body=(
+                b'{"name": "John", "email": "john@example.com", "age": 30'  # Missing closing brace
+            ),
             headers={"Content-Type": "application/json"},
         )
 
