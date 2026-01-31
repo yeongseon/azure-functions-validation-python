@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
 import pytest
 
-from azure_functions_validation._adapter import PydanticAdapter
+from azure_functions_validation.adapter import PydanticAdapter
 
 
 # Test models
@@ -149,7 +149,7 @@ class TestValidateResponse:
         with pytest.raises(TypeError) as exc_info:
             adapter.validate_response("invalid", UserModel)
 
-        assert "Expected UserModel or dict, got str" in str(exc_info.value)
+        assert "Expected UserModel, dict, or list, got str" in str(exc_info.value)
 
 
 # Test serialize

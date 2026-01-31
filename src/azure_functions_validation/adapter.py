@@ -1,7 +1,7 @@
 """Validation adapter layer for request/response validation."""
 
 import json
-from typing import Any, Protocol
+from typing import Any, Protocol, Tuple, Union, get_origin, get_args
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel
@@ -27,11 +27,11 @@ class ValidationAdapter(Protocol):
         """
         ...
 
-    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
-        """Validate response object against model.
+    def parse_query(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate query parameters.
 
         Args:
-            obj: Response object (BaseModel instance or dict)
+            req: Azure Functions HttpRequest
             model: Pydantic model class to validate against
 
         Returns:
@@ -42,7 +42,53 @@ class ValidationAdapter(Protocol):
         """
         ...
 
-    def serialize(self, obj: Any) -> tuple[str | bytes, str]:
+    def parse_path(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate path parameters.
+
+        Args:
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        ...
+
+    def parse_headers(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate headers.
+
+        Args:
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        ...
+
+    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
+        """Validate response object against model.
+
+        Args:
+            obj: Response object (BaseModel instance, dict, list, etc.)
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            ValidationError: If validation fails
+            TypeError: If response type is invalid
+        """
+        ...
+
+    def serialize(self, obj: Any) -> Tuple[Union[str, bytes], str]:
         """Serialize response object to content and content-type.
 
         Args:
@@ -101,8 +147,21 @@ class PydanticAdapter:
             )
 
         # Parse JSON
+        body_str = body.decode("utf-8")
+        if not body_str.strip():
+            # Empty JSON string - this is a missing body, not invalid JSON
+            raise PydanticValidationError.from_exception_data(
+                "ValidationError",
+                [
+                    {
+                        "type": "missing",
+                        "loc": ("body",),
+                        "input": None,
+                    }
+                ],
+            )
+
         try:
-            body_str = body.decode("utf-8")
             data = json.loads(body_str)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ValueError("Invalid JSON") from e
@@ -110,11 +169,84 @@ class PydanticAdapter:
         # Validate with Pydantic
         return model.model_validate(data)
 
-    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
-        """Validate response object.
+    def parse_query(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate query parameters.
 
         Args:
-            obj: Response object (BaseModel instance or dict)
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            PydanticValidationError: If validation fails
+        """
+        # Parse query parameters
+        query_params = req.params or {}
+
+        # Convert MultiDict to regular dict
+        query_data = {}
+        for key, value in query_params.items():
+            if isinstance(value, list):
+                query_data[key] = value[0] if len(value) == 1 else value
+            else:
+                query_data[key] = value
+
+        # Validate with Pydantic
+        return model.model_validate(query_data)
+
+    def parse_path(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate path parameters.
+
+        Args:
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            PydanticValidationError: If validation fails
+        """
+        # Parse route parameters
+        route_params = req.route_params or {}
+
+        # Validate with Pydantic
+        return model.model_validate(route_params)
+
+    def parse_headers(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate headers.
+
+        Args:
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            PydanticValidationError: If validation fails
+        """
+        # Parse headers
+        headers = req.headers or {}
+
+        # Convert to regular dict and handle multi-value headers
+        header_data = {}
+        for key, value in headers.items():
+            if isinstance(value, list):
+                header_data[key] = value[0] if len(value) == 1 else value
+            else:
+                header_data[key] = value
+
+        # Validate with Pydantic
+        return model.model_validate(header_data)
+
+    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
+        """Validate response object against model.
+
+        Args:
+            obj: Response object (BaseModel instance, dict, list, etc.)
             model: Pydantic model class to validate against
 
         Returns:
@@ -130,15 +262,31 @@ class PydanticAdapter:
         elif isinstance(obj, dict):
             # Validate dict against model
             return model.model_validate(obj)
+        elif isinstance(obj, list):
+            # Validate list against model (for List[model] types)
+            model_origin = get_origin(model)
+            model_args = get_args(model)
+
+            if model_origin is list:
+                # This is a List[Model] type
+                if model_args:
+                    item_model = model_args[0]
+                    return [item_model.model_validate(item) for item in obj]
+                else:
+                    # Plain list, just return as-is
+                    return obj
+            else:
+                # Model is not a list type, but we have a list - validate each item
+                return [model.model_validate(item) for item in obj]
         else:
             # Invalid response type - raise TypeError
-            raise TypeError(f"Expected {model.__name__} or dict, got {type(obj).__name__}")
+            raise TypeError(f"Expected {model.__name__}, dict, or list, got {type(obj).__name__}")
 
-    def serialize(self, obj: Any) -> tuple[str | bytes, str]:
-        """Serialize response object.
+    def serialize(self, obj: Any) -> Tuple[Union[str, bytes], str]:
+        """Serialize response object to content and content-type.
 
         Args:
-            obj: Object to serialize
+            obj: Object to serialize (BaseModel, dict, list, str, bytes)
 
         Returns:
             Tuple of (content, content_type)
@@ -146,7 +294,7 @@ class PydanticAdapter:
         Raises:
             TypeError: If object type is not supported
         """
-        content: str | bytes
+        content: Union[str, bytes]
         content_type: str
 
         if isinstance(obj, BaseModel):
