@@ -28,6 +28,14 @@
 - [ ] I have updated documentation (if applicable)
 - [ ] My changes do not introduce new warnings
 
+## Version Management
+
+- [ ] If adding new features, I have bumped the version in `src/azure_functions_validation/__init__.py`
+- [ ] I have updated `docs/PRD.md` roadmap section if features were completed
+- [ ] I have updated `CHANGELOG.md` with detailed changes
+
+**Note:** See `CONTRIBUTING.md` for version management guidelines.
+
 ## Related Issues
 
 <!-- Link to related issues: Closes #123, Fixes #456 -->

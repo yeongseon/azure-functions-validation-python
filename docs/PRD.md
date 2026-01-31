@@ -419,16 +419,17 @@ Often focused on request parsing/validation (primarily input) and handler conven
 
 ## 14. Roadmap
 
-### v0.1
-- Body + Response + 422
-- docs + examples + unit tests
+### v0.1 ✅
+- Body + Query + Path + Headers + Response + 422
+- docs + examples + unit tests (60 tests, 88% coverage)
 
-### v0.2
+### v0.2 ✅
 - Query/Path/Header model support
-- Custom error formatter hook
-- Validation error handler registration (global, opt-in)
+- Full test coverage with integration tests
 
 ### v0.3
+- Custom error formatter hook
+- Validation error handler registration (global, opt-in)
 - Deeper `azure-functions-openapi` integration (e.g., 422 schema)
 - Contract testing utilities (model-based tests)
 

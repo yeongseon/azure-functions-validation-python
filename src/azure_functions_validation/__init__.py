@@ -5,4 +5,4 @@ from .exceptions import ResponseValidationError
 
 __all__ = ["__version__", "validate_http", "ResponseValidationError"]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
