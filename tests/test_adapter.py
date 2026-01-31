@@ -123,7 +123,7 @@ def test_parse_headers_validation_error():
     req = HttpRequest(
         method="GET",
         url="/",
-        headers={"authorization": "Bearer token123"},  # Missing 'content-type'
+        headers={"authorization": "Bearer token123"},  # Missing 'content_type'
         params={},
         route_params={},
         body=None,
