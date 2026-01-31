@@ -8,6 +8,8 @@ from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
 
+ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
+
 
 def validate_http(
     *,
@@ -18,24 +20,8 @@ def validate_http(
     request_model: Optional[Any] = None,
     response_model: Optional[Any] = None,
     adapter: Optional[ValidationAdapter] = None,
+    error_formatter: Optional["ErrorFormatter"] = None,
 ) -> Callable[..., Any]:
-    """Decorator for validating HTTP requests and responses in Azure Functions.
-
-    Args:
-        body: Model class for request body validation
-        query: Model class for query parameter validation
-        path: Model class for path parameter validation
-        headers: Model class for header validation
-        request_model: Shorthand for body model only (alias for body)
-        response_model: Model class for response validation
-        adapter: Validation adapter instance (defaults to PydanticAdapter)
-
-    Returns:
-        Decorator function
-
-    Raises:
-        ValueError: If both request_model and body/query/path/headers are provided
-    """
     # Handle request_model shorthand
     if request_model is not None:
         if any([body, query, path, headers]):
@@ -45,6 +31,17 @@ def validate_http(
     # Use default adapter if none provided
     if adapter is None:
         adapter = PydanticAdapter()
+
+    def format_error_response(exception: Exception, status_code: int) -> HttpResponse:
+        if error_formatter is not None:
+            error_response = error_formatter(exception, status_code)
+        else:
+            error_response = adapter.format_error(exception)
+        return HttpResponse(
+            body=json.dumps(error_response),
+            status_code=status_code,
+            headers={"Content-Type": "application/json"},
+        )
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         # Check if function is async
@@ -108,33 +105,14 @@ def validate_http(
                                     break
 
                     except Exception as e:
-                        # Handle different types of errors
                         from pydantic import ValidationError as PydanticValidationError
 
                         if isinstance(e, PydanticValidationError):
-                            # Pydantic validation error - return 422
-                            error_response = adapter.format_error(e)
-                            return HttpResponse(
-                                body=json.dumps(error_response),
-                                status_code=422,
-                                headers={"Content-Type": "application/json"},
-                            )
+                            return format_error_response(e, 422)
                         elif isinstance(e, ValueError):
-                            # JSON parsing error - return 400
-                            error_response = adapter.format_error(e)
-                            return HttpResponse(
-                                body=json.dumps(error_response),
-                                status_code=400,
-                                headers={"Content-Type": "application/json"},
-                            )
+                            return format_error_response(e, 400)
                         else:
-                            # Other validation error - return 422
-                            error_response = adapter.format_error(e)
-                            return HttpResponse(
-                                body=json.dumps(error_response),
-                                status_code=422,
-                                headers={"Content-Type": "application/json"},
-                            )
+                            return format_error_response(e, 422)
 
                 # Parse query parameters
                 if query is not None:
@@ -145,12 +123,7 @@ def validate_http(
                         if "query" in func_params:
                             parsed_inputs["query"] = adapter.parse_query(http_request, query)
                     except Exception as e:
-                        error_response = adapter.format_error(e)
-                        return HttpResponse(
-                            body=json.dumps(error_response),
-                            status_code=422,
-                            headers={"Content-Type": "application/json"},
-                        )
+                        return format_error_response(e, 422)
 
                 # Parse path parameters
                 if path is not None:
@@ -161,12 +134,7 @@ def validate_http(
                         if "path" in func_params:
                             parsed_inputs["path"] = adapter.parse_path(http_request, path)
                     except Exception as e:
-                        error_response = adapter.format_error(e)
-                        return HttpResponse(
-                            body=json.dumps(error_response),
-                            status_code=422,
-                            headers={"Content-Type": "application/json"},
-                        )
+                        return format_error_response(e, 422)
 
                 # Parse headers
                 if headers is not None:
@@ -177,12 +145,7 @@ def validate_http(
                         if "headers" in func_params:
                             parsed_inputs["headers"] = adapter.parse_headers(http_request, headers)
                     except Exception as e:
-                        error_response = adapter.format_error(e)
-                        return HttpResponse(
-                            body=json.dumps(error_response),
-                            status_code=422,
-                            headers={"Content-Type": "application/json"},
-                        )
+                        return format_error_response(e, 422)
 
                 # Add original HttpRequest if requested
                 if "http_request" in func_params:
@@ -208,17 +171,19 @@ def validate_http(
                         return HttpResponse(
                             body=content, status_code=200, headers={"Content-Type": content_type}
                         )
-                    except Exception:
-                        # Response validation error - return 500
-                        error_response = {
-                            "detail": [
-                                {
-                                    "loc": ["response"],
-                                    "msg": "Response validation error",
-                                    "type": "response_validation_error",
-                                }
-                            ]
-                        }
+                    except Exception as e:
+                        if error_formatter is not None:
+                            error_response = error_formatter(e, 500)
+                        else:
+                            error_response = {
+                                "detail": [
+                                    {
+                                        "loc": ["response"],
+                                        "msg": "Response validation error",
+                                        "type": "response_validation_error",
+                                    }
+                                ]
+                            }
                         return HttpResponse(
                             body=json.dumps(error_response),
                             status_code=500,
@@ -232,13 +197,7 @@ def validate_http(
                     )
 
             except Exception as e:
-                # Unhandled exception - return 500
-                error_response = adapter.format_error(e)
-                return HttpResponse(
-                    body=json.dumps(error_response),
-                    status_code=500,
-                    headers={"Content-Type": "application/json"},
-                )
+                return format_error_response(e, 500)
 
         return wrapper
 

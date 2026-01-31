@@ -435,3 +435,103 @@ class TestSerialization:
         assert response.status_code == 200
         assert "application/octet-stream" in response.headers.get("Content-Type", "")
         assert response.get_body() == b"Data for Kate"
+
+
+# Test custom error formatter
+class TestCustomErrorFormatter:
+    """Tests for custom error formatter functionality."""
+
+    def test_custom_formatter_for_validation_error(self, mock_request_factory):
+        """Test custom error formatter for validation errors."""
+
+        def custom_formatter(exc: Exception, status_code: int) -> dict:
+            return {
+                "custom": True,
+                "code": f"ERR_{status_code}",
+                "message": str(exc),
+            }
+
+        @validate_http(body=UserModel, error_formatter=custom_formatter)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+
+        data = json.loads(response.get_body().decode())
+        assert data["custom"] is True
+        assert data["code"] == "ERR_422"
+        assert "string_too_short" in data["message"] or "min_length" in data["message"]
+
+    def test_custom_formatter_for_json_error(self, mock_request_factory):
+        """Test custom error formatter for JSON parsing errors."""
+
+        def custom_formatter(exc: Exception, status_code: int) -> dict:
+            return {
+                "error": "JSON_ERROR",
+                "status": status_code,
+                "details": str(exc),
+            }
+
+        @validate_http(body=UserModel, error_formatter=custom_formatter)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b"invalid json")
+        response = handler(request)
+
+        assert response.status_code == 400
+
+        data = json.loads(response.get_body().decode())
+        assert data["error"] == "JSON_ERROR"
+        assert data["status"] == 400
+
+    def test_default_formatter_when_not_provided(self, mock_request_factory):
+        """Test default FastAPI-style formatter when custom formatter not provided."""
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
+        assert len(data["detail"]) > 0
+        assert "loc" in data["detail"][0]
+        assert "msg" in data["detail"][0]
+        assert "type" in data["detail"][0]
+
+    def test_custom_formatter_for_response_validation_error(self, mock_request_factory):
+        """Test custom error formatter for response validation errors."""
+
+        def custom_formatter(exc: Exception, status_code: int) -> dict:
+            return {
+                "error_type": "CONTRACT_VIOLATION",
+                "http_status": status_code,
+            }
+
+        class ResponseModel(BaseModel):
+            message: str
+
+        @validate_http(
+            body=UserModel,
+            response_model=ResponseModel,
+            error_formatter=custom_formatter,
+        )
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"invalid": "data"}
+
+        request = mock_request_factory(body=b'{"name": "Frank", "age": 40}')
+        response = handler(request)
+
+        assert response.status_code == 500
+
+        data = json.loads(response.get_body().decode())
+        assert data["error_type"] == "CONTRACT_VIOLATION"
+        assert data["http_status"] == 500
