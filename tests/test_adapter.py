@@ -2,7 +2,7 @@
 import json
 
 from azure.functions import HttpRequest
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 import pytest
 
 from azure_functions_validation.adapter import PydanticAdapter
@@ -17,7 +17,12 @@ class SimpleModel(BaseModel):
 def test_parse_body_success():
     adapter = PydanticAdapter()
     req = HttpRequest(
-        method="POST", url="/", body=json.dumps({"name": "John", "age": 30}).encode()
+        method="POST",
+        url="/",
+        headers={},
+        params={},
+        route_params={},
+        body=json.dumps({"name": "John", "age": 30}).encode(),
     )
     model = adapter.parse_body(req, SimpleModel)
     assert isinstance(model, SimpleModel)
@@ -26,7 +31,9 @@ def test_parse_body_success():
 
 def test_parse_body_invalid_json_raises_value_error():
     adapter = PydanticAdapter()
-    req = HttpRequest(method="POST", url="/", body=b"{'bad json")
+    req = HttpRequest(
+        method="POST", url="/", headers={}, params={}, route_params={}, body=b"{'bad json"
+    )
     with pytest.raises(ValueError, match="Invalid JSON"):
         adapter.parse_body(req, SimpleModel)
 
@@ -34,7 +41,12 @@ def test_parse_body_invalid_json_raises_value_error():
 def test_parse_body_validation_error():
     adapter = PydanticAdapter()
     req = HttpRequest(
-        method="POST", url="/", body=json.dumps({"name": "John"}).encode()
+        method="POST",
+        url="/",
+        headers={},
+        params={},
+        route_params={},
+        body=json.dumps({"name": "John"}).encode(),
     )  # Missing 'age'
     with pytest.raises(ValidationError):
         adapter.parse_body(req, SimpleModel)
@@ -42,10 +54,82 @@ def test_parse_body_validation_error():
 
 def test_parse_query():
     adapter = PydanticAdapter()
-    req = HttpRequest(method="GET", url="/", params={"name": "Jane", "age": "25"}, body=None)
+    req = HttpRequest(
+        method="GET",
+        url="/",
+        headers={},
+        params={"name": "Jane", "age": "25"},
+        route_params={},
+        body=None,
+    )
     model = adapter.parse_query(req, SimpleModel)
     assert model.name == "Jane"
     assert model.age == 25
+
+
+def test_parse_path():
+    adapter = PydanticAdapter()
+    req = HttpRequest(
+        method="GET",
+        url="/",
+        headers={},
+        params={},
+        route_params={"name": "PathUser", "age": "50"},
+        body=None,
+    )
+    model = adapter.parse_path(req, SimpleModel)
+    assert model.name == "PathUser"
+    assert model.age == 50
+
+
+def test_parse_path_validation_error():
+    adapter = PydanticAdapter()
+    req = HttpRequest(
+        method="GET",
+        url="/",
+        headers={},
+        params={},
+        route_params={"name": "PathUser"},  # Missing 'age'
+        body=None,
+    )
+    with pytest.raises(ValidationError):
+        adapter.parse_path(req, SimpleModel)
+
+
+class HeaderModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    authorization: str
+    content_type: str
+
+
+def test_parse_headers():
+    adapter = PydanticAdapter()
+    req = HttpRequest(
+        method="GET",
+        url="/",
+        headers={"authorization": "Bearer token123", "content_type": "application/json"},
+        params={},
+        route_params={},
+        body=None,
+    )
+    model = adapter.parse_headers(req, HeaderModel)
+    assert model.authorization == "Bearer token123"
+    assert model.content_type == "application/json"
+
+
+def test_parse_headers_validation_error():
+    adapter = PydanticAdapter()
+    req = HttpRequest(
+        method="GET",
+        url="/",
+        headers={"authorization": "Bearer token123"},  # Missing 'content-type'
+        params={},
+        route_params={},
+        body=None,
+    )
+    with pytest.raises(ValidationError):
+        adapter.parse_headers(req, HeaderModel)
 
 
 def test_validate_response_success():
