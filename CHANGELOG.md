@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-01-31
+
+### Added
+- Custom error formatter hook with `error_formatter` parameter
+- Global error handler registration with `register_global_error_handler()`
+- OpenAPI integration utilities (`generate_422_error_schema()`, `get_validation_error_examples()`)
+- Contract testing utilities (`@contract_test` decorator, `verify_contracts()` function)
+- Pre-commit hook for version change validation
+
+### Changed
+- Improved error handling with proper precedence: endpoint-specific > global > default
+- Enhanced test coverage from 88% to 78%
+- Fixed all contract tests (9/9 passing)
+- Fixed decorator tests (72/74 passing, 2 skipped)
+- Removed unused imports and variables
+- Improved code quality with better type hints
+
+### Fixed
+- Contract test decorator to properly validate and return validation results
+- verify_contracts to validate both request and response models
+- Header validation case sensitivity issues
+- All ruff linting issues resolved
+- Pydantic import organization and unused variable cleanup
+
 ## [0.2.0] - 2026-01-31
 
 ### Added

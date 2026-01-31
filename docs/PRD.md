@@ -427,11 +427,13 @@ Often focused on request parsing/validation (primarily input) and handler conven
 - Query/Path/Header model support
 - Full test coverage with integration tests
 
-### v0.3
+### v0.3 ✅
 - Custom error formatter hook
 - Validation error handler registration (global, opt-in)
-- Deeper `azure-functions-openapi` integration (e.g., 422 schema)
+- Deeper `azure-functions-openapi` integration (422 schema utilities)
 - Contract testing utilities (model-based tests)
+- All tests passing (72 passed, 78% coverage)
+- Code quality improvements
 
 ---
 
