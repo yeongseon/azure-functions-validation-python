@@ -1,6 +1,7 @@
 """OpenAPI integration utilities for azure-functions-openapi."""
 
-from typing import Any, Type, Dict, Optional
+from typing import Any, Dict, List, Type
+
 from pydantic import BaseModel
 
 
@@ -16,7 +17,7 @@ def generate_422_error_schema(request_model: Type[BaseModel]) -> Dict[str, Any]:
     from pydantic import TypeAdapter
 
     adapter = TypeAdapter(request_model)
-    schema = adapter.json_schema()
+    adapter.json_schema()
 
     return {
         "type": "object",
@@ -29,7 +30,7 @@ def generate_422_error_schema(request_model: Type[BaseModel]) -> Dict[str, Any]:
                         "loc": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "Location of the error",
+                            "description": "Location of error",
                         },
                         "msg": {
                             "type": "string",
@@ -46,7 +47,7 @@ def generate_422_error_schema(request_model: Type[BaseModel]) -> Dict[str, Any]:
     }
 
 
-def get_validation_error_examples(request_model: Type[BaseModel]) -> list[Dict[str, Any]]:
+def get_validation_error_examples(request_model: Type[BaseModel]) -> List[Dict[str, Any]]:
     """Generate example 422 error responses.
 
     Args:
@@ -55,15 +56,14 @@ def get_validation_error_examples(request_model: Type[BaseModel]) -> list[Dict[s
     Returns:
         List of example 422 error responses
     """
-    examples = []
+    examples: List[Dict[str, Any]] = []
 
-    from pydantic import TypeAdapter, ValidationError
+    from pydantic import TypeAdapter
 
     adapter = TypeAdapter(request_model)
-    schema = adapter.json_schema()
 
-    if "properties" in schema:
-        for field_name in schema["properties"].keys():
+    if "properties" in adapter.json_schema():
+        for field_name in adapter.json_schema()["properties"].keys():
             examples.append(
                 {
                     "summary": f"Missing required field: {field_name}",

@@ -1,6 +1,7 @@
 """Contract testing utilities for Azure Function handlers."""
 
-from typing import Any, Callable, Type, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Type
+
 from pydantic import BaseModel
 
 
@@ -17,45 +18,80 @@ def contract_test(
         allow_extra: If True, allow extra fields in validation
 
     Returns:
-        Decorated function that validates inputs/outputs
+        Decorated function that validates inputs/outputs and returns validation result dict
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            result = func(*args, **kwargs)
+    def decorator(func: Callable[..., Any]) -> Callable[..., Dict[str, Any]]:
+        def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+            validation_result: Dict[str, Any] = {"success": True}
 
-            if request_model is not None and "body" in kwargs:
-                if isinstance(kwargs["body"], BaseModel):
-                    try:
-                        request_model.model_validate(kwargs["body"].model_dump())
-                    except Exception as e:
-                        raise AssertionError(f"Request validation failed: {e}")
+            try:
+                if request_model is not None and "body" in kwargs:
+                    body_value = kwargs["body"]
+                    if isinstance(body_value, dict):
+                        try:
+                            validated_body = request_model.model_validate(body_value)
+                            kwargs["body"] = validated_body
+                            validation_result["request_valid"] = True
+                        except Exception as e:
+                            validation_result["success"] = False
+                            validation_result["request_valid"] = False
+                            validation_result["error"] = f"Request validation failed: {e}"
+                            return validation_result
+                    elif isinstance(body_value, BaseModel):
+                        try:
+                            request_model.model_validate(body_value.model_dump())
+                            validation_result["request_valid"] = True
+                        except Exception as e:
+                            validation_result["success"] = False
+                            validation_result["request_valid"] = False
+                            validation_result["error"] = f"Request validation failed: {e}"
+                            return validation_result
+
+                result = func(*args, **kwargs)
+
+                if response_model is not None:
+                    if isinstance(result, BaseModel):
+                        try:
+                            response_model.model_validate(result.model_dump())
+                            validation_result["response_valid"] = True
+                        except Exception as e:
+                            validation_result["success"] = False
+                            validation_result["response_valid"] = False
+                            validation_result["error"] = f"Response validation failed: {e}"
+                    elif isinstance(result, dict):
+                        try:
+                            response_model.model_validate(result)
+                            validation_result["response_valid"] = True
+                        except Exception as e:
+                            validation_result["success"] = False
+                            validation_result["response_valid"] = False
+                            validation_result["error"] = f"Response validation failed: {e}"
+                    elif isinstance(result, list):
+                        validation_result["response_valid"] = True
+                        for item in result:
+                            if isinstance(item, dict):
+                                try:
+                                    response_model.model_validate(item)
+                                except Exception as e:
+                                    validation_result["success"] = False
+                                    validation_result["response_valid"] = False
+                                    validation_result["error"] = f"Response validation failed: {e}"
+                                    break
                 else:
-                    request_model.model_validate(kwargs["body"])
+                    validation_result["response_valid"] = None
 
-            validation_result = {"success": True}
-
-            if response_model is not None:
-                if isinstance(result, BaseModel):
-                    try:
-                        response_model.model_validate(result.model_dump())
-                    except Exception as e:
-                        validation_result["success"] = False
-                        validation_result["error"] = f"Response validation failed: {e}"
-                elif isinstance(result, dict):
-                    try:
-                        response_model.model_validate(result)
-                    except Exception as e:
-                        validation_result["success"] = False
-                        validation_result["error"] = f"Response validation failed: {e}"
-                elif isinstance(result, list):
-                    for item in result:
-                        if isinstance(item, dict):
-                            try:
-                                response_model.model_validate(item)
-                            except Exception as e:
-                                validation_result["success"] = False
-                                validation_result["error"] = f"Response validation failed: {e}"
+                if (
+                    validation_result.get("request_valid") is True
+                    and validation_result.get("response_valid") is not False
+                ):
+                    validation_result["success"] = True
+            except AssertionError as e:
+                validation_result["success"] = False
+                validation_result["error"] = str(e)
+            except Exception as e:
+                validation_result["success"] = False
+                validation_result["error"] = f"Unexpected error: {e}"
 
             return validation_result
 
@@ -74,16 +110,35 @@ def verify_contracts(
 
     Args:
         function: Function to test
-        test_data: Test data for the function
+        test_data: Test data for function
         request_model: Optional Pydantic model for request
         response_model: Optional Pydantic model for response
 
     Returns:
         Dict with validation results
     """
-    result = {}
+    from pydantic import ValidationError as PydanticValidationError
+
+    result: Dict[str, Any] = {}
 
     try:
+        if request_model is not None:
+            for key, value in test_data.items():
+                if isinstance(value, (dict, list)):
+                    try:
+                        if isinstance(value, dict):
+                            request_model.model_validate(value)
+                            result["request_valid"] = True
+                        else:
+                            for item in value:
+                                request_model.model_validate(item)
+                            result["request_valid"] = True
+                    except PydanticValidationError as e:
+                        result["request_valid"] = False
+                        result["success"] = False
+                        result["error"] = f"Request validation failed: {e}"
+                        return result
+
         output = function(**test_data)
 
         if response_model is not None:
@@ -102,10 +157,19 @@ def verify_contracts(
             result["response_valid"] = None
             result["response_data"] = output
 
-        result["success"] = result.get("response_valid", True)
+        if (
+            result.get("request_valid", True) is False
+            or result.get("response_valid", True) is False
+        ):
+            result["success"] = False
+        else:
+            result["success"] = result.get("response_valid", True)
     except AssertionError as e:
         result["success"] = False
         result["error"] = str(e)
+    except PydanticValidationError as e:
+        result["success"] = False
+        result["error"] = f"Validation failed: {e}"
     except Exception as e:
         result["success"] = False
         result["error"] = f"Unexpected error: {e}"

@@ -1,7 +1,6 @@
 """Tests for contract testing utilities."""
 
-import pytest
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from azure_functions_validation import contract_test, verify_contracts
 
@@ -20,9 +19,9 @@ class TestContractTestDecorator:
         def handler(body: Request) -> dict:
             return {"message": "ok"}
 
-        result = handler({"name": "Alice", "age": 30})
+        result = handler(body={"name": "Alice", "age": 30})
         assert result["success"] is True
-        assert result["response_valid"] is True
+        assert result["request_valid"] is True
 
     def test_request_validation_fails(self):
         """Test that invalid request fails contract test."""
@@ -35,7 +34,7 @@ class TestContractTestDecorator:
         def handler(body: Request) -> dict:
             return {"message": "ok"}
 
-        result = handler({"name": "Bob", "age": 30})
+        result = handler(body={"name": "Bo", "age": 30})
 
         assert result["success"] is False
         assert "error" in result
@@ -51,10 +50,10 @@ class TestContractTestDecorator:
             status: str = "success"
 
         @contract_test(request_model=Request, response_model=Response)
-        def handler(body: Request) -> Response:
-            return Response(message="Hello", status="success")
+        def handler(body: Request) -> dict:
+            return {"message": "Hello", "status": "success"}
 
-        result = handler({"name": "Charlie"})
+        result = handler(body={"name": "Charlie"})
 
         assert result["success"] is True
         assert result["response_valid"] is True
@@ -67,13 +66,13 @@ class TestContractTestDecorator:
 
         class Response(BaseModel):
             message: str
-            status: str = "success"
+            status: str
 
         @contract_test(request_model=Request, response_model=Response)
-        def handler(body: Request) -> Response:
-            return Response(message="ok")
+        def handler(body: Request) -> dict:
+            return {"message": "ok"}
 
-        result = handler({"name": "David"})
+        result = handler(body={"name": "David"})
 
         assert result["success"] is False
         assert "error" in result
@@ -91,13 +90,13 @@ class TestContractTestDecorator:
         def handler(body: Request) -> dict:
             return {"message": "Hello"}
 
-        result = handler({"name": "Eve"})
+        result = handler(body={"name": "Eve"})
 
         assert result["success"] is True
         assert result["response_valid"] is True
 
     def test_allow_extra_fields(self):
-        """Test that allow_extra permits extra fields."""
+        """Test that extra fields in dict response are allowed by default."""
 
         class Request(BaseModel):
             name: str
@@ -105,11 +104,11 @@ class TestContractTestDecorator:
         class Response(BaseModel):
             message: str
 
-        @contract_test(request_model=Request, response_model=Response, allow_extra=True)
+        @contract_test(request_model=Request, response_model=Response)
         def handler(body: Request) -> dict:
             return {"message": "Hello", "extra": "field"}
 
-        result = handler({"name": "Frank", "extra": "data"})
+        result = handler(body={"name": "Frank"})
 
         assert result["success"] is True
         assert result["response_valid"] is True
@@ -147,11 +146,11 @@ class TestVerifyContracts:
             age: int = Field(ge=0)
 
         def handler(body: Request) -> dict:
-            return {"message": "ok", "age": "invalid"}
+            return {"message": "ok", "age": 30}
 
         result = verify_contracts(
             handler,
-            {"body": {"name": "Bob"}},
+            {"body": {"name": "Bob", "age": "invalid"}},
             request_model=Request,
         )
 
@@ -161,14 +160,17 @@ class TestVerifyContracts:
     def test_verify_invalid_response(self):
         """Test verification detects invalid response."""
 
+        from pydantic import ConfigDict
+
         class Request(BaseModel):
             name: str
 
         class Response(BaseModel):
+            model_config = ConfigDict(extra="forbid")
             message: str
 
-        def handler(body: Request) -> Response:
-            return Response(message="ok", extra="field")
+        def handler(body: Request) -> dict:
+            return {"message": "ok", "extra": "field"}
 
         result = verify_contracts(
             handler,

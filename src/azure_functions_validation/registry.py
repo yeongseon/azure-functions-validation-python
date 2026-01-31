@@ -1,6 +1,6 @@
 """Global error handler registry for centralized error handling."""
 
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 if TYPE_CHECKING:
     from azure.functions import HttpResponse

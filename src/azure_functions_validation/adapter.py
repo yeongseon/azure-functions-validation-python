@@ -57,6 +57,21 @@ class ValidationAdapter(Protocol):
         """
         ...
 
+    def parse_headers(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        """Parse and validate headers.
+
+        Args:
+            req: Azure Functions HttpRequest
+            model: Pydantic model class to validate against
+
+        Returns:
+            Validated model instance
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        ...
+
     def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
         """Validate response object against model.
 
