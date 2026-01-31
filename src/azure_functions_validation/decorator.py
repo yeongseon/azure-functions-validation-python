@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
+from .registry import GlobalErrorHandlerRegistry
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 
@@ -36,7 +37,11 @@ def validate_http(
         if error_formatter is not None:
             error_response = error_formatter(exception, status_code)
         else:
+            global_handler = GlobalErrorHandlerRegistry.get_handler(exception)
+            if global_handler is not None:
+                return global_handler(exception)
             error_response = adapter.format_error(exception)
+
         return HttpResponse(
             body=json.dumps(error_response),
             status_code=status_code,

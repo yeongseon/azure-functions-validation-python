@@ -535,3 +535,126 @@ class TestCustomErrorFormatter:
         data = json.loads(response.get_body().decode())
         assert data["error_type"] == "CONTRACT_VIOLATION"
         assert data["http_status"] == 500
+
+
+# Test global error handlers
+class TestGlobalErrorHandlers:
+    """Tests for global error handler registration."""
+
+    def setup_method(self):
+        """Clear global handlers before each test."""
+        from azure_functions_validation import clear_global_error_handlers
+
+        clear_global_error_handlers()
+
+    def teardown_method(self):
+        """Clear global handlers after each test."""
+        from azure_functions_validation import clear_global_error_handlers
+
+        clear_global_error_handlers()
+
+    def test_global_handler_for_validation_error(self, mock_request_factory):
+        """Test global error handler for validation errors."""
+
+        from azure_functions_validation import register_global_error_handler
+
+        def global_handler(exc: Exception) -> HttpResponse:
+            return HttpResponse(
+                body=json.dumps({"global": True, "message": str(exc)}),
+                status_code=422,
+                headers={"Content-Type": "application/json"},
+            )
+
+        register_global_error_handler(Exception, global_handler)
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+
+        data = json.loads(response.get_body().decode())
+        assert data["global"] is True
+
+    def test_endpoint_specific_overrides_global(self, mock_request_factory):
+        """Test endpoint-specific error formatter overrides global handler."""
+
+        from azure_functions_validation import register_global_error_handler
+
+        def global_handler(exc: Exception) -> HttpResponse:
+            return HttpResponse(
+                body=json.dumps({"source": "global"}),
+                status_code=422,
+                headers={"Content-Type": "application/json"},
+            )
+
+        def endpoint_formatter(exc: Exception, status_code: int) -> dict:
+            return {"source": "endpoint"}
+
+        register_global_error_handler(Exception, global_handler)
+
+        @validate_http(body=UserModel, error_formatter=endpoint_formatter)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+
+        data = json.loads(response.get_body().decode())
+        assert data["source"] == "endpoint"
+
+    def test_global_handler_precedence_with_default(self, mock_request_factory):
+        """Test that global handlers work when no endpoint-specific formatter is provided."""
+
+        from pydantic import ValidationError as PydanticValidationError
+
+        from azure_functions_validation import register_global_error_handler
+
+        def global_handler(exc: Exception) -> HttpResponse:
+            return HttpResponse(
+                body=json.dumps({"handled": "globally"}),
+                status_code=422,
+                headers={"Content-Type": "application/json"},
+            )
+
+        register_global_error_handler(PydanticValidationError, global_handler)
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict:
+            return {"message": "ok"}
+
+        request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+
+        data = json.loads(response.get_body().decode())
+        assert data["handled"] == "globally"
+
+    def test_clear_global_handlers(self):
+        """Test clearing all global error handlers."""
+
+        from azure_functions_validation import (
+            clear_global_error_handlers,
+            register_global_error_handler,
+        )
+
+        def dummy_handler(exc: Exception) -> HttpResponse:
+            return HttpResponse("dummy")
+
+        register_global_error_handler(Exception, dummy_handler)
+
+        from azure_functions_validation.registry import GlobalErrorHandlerRegistry
+
+        initial_count = len(GlobalErrorHandlerRegistry._handlers)
+        assert initial_count > 0
+
+        clear_global_error_handlers()
+
+        final_count = len(GlobalErrorHandlerRegistry._handlers)
+        assert final_count == 0
