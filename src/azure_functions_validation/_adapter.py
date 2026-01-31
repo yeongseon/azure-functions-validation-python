@@ -234,7 +234,10 @@ class PydanticAdapter:
             obj: Object to serialize
 
         Returns:
-            Tuple of (content, content_type)
+            Tuple of (content, content_type) where:
+            - BaseModel/dict/list: JSON string and "application/json"
+            - str: Original string and "text/plain; charset=utf-8"
+            - bytes: Original bytes and "application/octet-stream"
 
         Raises:
             TypeError: If object type is not supported

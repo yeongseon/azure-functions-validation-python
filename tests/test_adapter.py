@@ -396,4 +396,5 @@ class TestParseHeaders:
             adapter.parse_headers(req, UserModel)
 
         errors = exc_info.value.errors()
+        # Check for raw Pydantic error types (before _map_error_type transformation)
         assert any(e["type"] in ("less_than_equal", "less_than") for e in errors)
