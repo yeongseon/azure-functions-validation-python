@@ -12,7 +12,23 @@ theme:
 
 nav:
   - Home: index.md
-  - PRD: PRD.md
+  - Getting Started:
+      - Installation: installation.md
+      - Quickstart: usage.md
+      - Development: development.md
+      - Testing: testing.md
+  - API Reference: api.md
+  - Architecture: architecture.md
+  - Examples:
+      - Basic Validation: examples/basic_validation.md
+      - Query/Path/Header: examples/query_validation.md
+  - Troubleshooting: troubleshooting.md
+  - Security: security.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md
+  - Specs:
+      - PRD: specs/PRD.md
+      - TDD: specs/TDD.md
 
 markdown_extensions:
   - admonition

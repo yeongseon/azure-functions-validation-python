@@ -1,14 +1,16 @@
 # Azure Functions Validation
 
-`azure-functions-validation` provides typed request parsing and response validation
-for Python Azure Functions HTTP triggers.
+Lightweight validation and serialization for Python Azure Functions HTTP triggers.
+This package provides typed request parsing and response validation with a decorator-first API.
 
-## Goals
+## Highlights
 
-- FastAPI-like developer experience in Azure Functions
-- Typed request parsing (body, query, path, headers)
-- Response validation and serialization
-- Consistent 422 validation errors
+- Pydantic-based request/response validation
+- Query/path/header parsing
+- Standardized 400/422 validation responses
+- Unexpected exceptions bubble to Azure Functions runtime logging
+- Contract testing utilities
+- Optional custom/global error handlers for validation errors
 
 ## Quick Example
 
@@ -16,16 +18,17 @@ for Python Azure Functions HTTP triggers.
 from pydantic import BaseModel
 from azure_functions_validation import validate_http
 
-
-class RequestModel(BaseModel):
+class CreateUserRequest(BaseModel):
     name: str
+    email: str
 
-
-class ResponseModel(BaseModel):
+class CreateUserResponse(BaseModel):
     message: str
+    status: str = "success"
 
-
-@validate_http(body=RequestModel, response_model=ResponseModel)
-def main(body: RequestModel) -> ResponseModel:
-    return ResponseModel(message=f"Hello {body.name}")
+@validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
+def main(body: CreateUserRequest) -> CreateUserResponse:
+    return CreateUserResponse(message=f"Hello {body.name}")
 ```
+
+See **Usage** for full examples and advanced options.
