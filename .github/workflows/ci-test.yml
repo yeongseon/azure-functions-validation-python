@@ -1,6 +1,10 @@
 name: Test and Coverage
 
-on: [push, pull_request]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -10,14 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # Python 3.14 is stable and required in this matrix (not allow-fail).
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -33,16 +38,12 @@ jobs:
         run: ls -lh coverage.xml
 
       - name: Upload coverage to Codecov
-        if: >
-          matrix.python-version == '3.10' &&
-          secrets.CODECOV_TOKEN != '' &&
-          (github.event_name == 'push' ||
-           github.event.pull_request.head.repo.full_name == github.repository)
-        uses: codecov/codecov-action@v5
+        if: matrix.python-version == '3.10' && github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           verbose: true
-          fail_ci_if_error: false
+          fail_ci_if_error: true
         env:
           CODECOV_RETRIES: 3

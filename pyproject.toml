@@ -26,7 +26,7 @@ dev = [
     "pytest",
     "ruff==0.14.14",
     "pytest-cov",
-    "git-changelog",
+    "git-cliff",
     "bandit==1.9.3"
 ]
 docs = [
@@ -77,13 +77,14 @@ features = ["dev", "docs"]
 [tool.hatch.envs.default.scripts]
 format = "ruff format src tests && black src tests"
 style = "ruff check src tests"
-typecheck = "mypy src"
+typecheck = "mypy src tests"
 lint = "hatch run style && hatch run typecheck"
 test = "PYTHONPATH=. pytest -v tests"
 cov = "PYTHONPATH=. pytest --cov=src/azure_functions_validation --cov-report=term-missing --cov-report=html --cov-report=xml tests/"
 docs = "mkdocs serve"
 precommit = "pre-commit run --all-files"
 precommit-install = "pre-commit install"
+security = "python -m bandit -r src"
 
 # ---------------------------------------------
 # 🎨 Code Formatting - Black
