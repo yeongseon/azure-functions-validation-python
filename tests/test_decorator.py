@@ -1,6 +1,7 @@
 """Tests for the @validate_http decorator."""
 
 import json
+from typing import Callable, Dict, Optional, TypeAlias
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest, HttpResponse
@@ -9,6 +10,7 @@ import pytest
 
 from azure_functions_validation import validate_http
 
+RequestFactory: TypeAlias = Callable[..., HttpRequest]
 
 # Test models
 class UserModel(BaseModel):
@@ -47,12 +49,17 @@ class HeaderModel(BaseModel):
 
 # Fixtures
 @pytest.fixture
-def mock_request_factory():
+def mock_request_factory() -> Callable[..., HttpRequest]:
     """Create a mock HttpRequest factory."""
 
     def _create_request(
-        method="GET", url="http://example.com", body=b"", params=None, route_params=None
-    ):
+        method: str = "GET",
+        url: str = "http://example.com",
+        body: bytes = b"",
+        params: Optional[Dict[str, str]] = None,
+        route_params: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> HttpRequest:
         """Create mock HttpRequest."""
         mock_req = Mock(spec=HttpRequest)
         mock_req.method = method
@@ -60,7 +67,7 @@ def mock_request_factory():
         mock_req.get_body.return_value = body
         mock_req.params = params or {}
         mock_req.route_params = route_params or {}
-        mock_req.headers = {}
+        mock_req.headers = headers or {}
 
         return mock_req
 
@@ -71,7 +78,7 @@ def mock_request_factory():
 class TestSuccessfulValidation:
     """Tests for successful request/response validation."""
 
-    def test_basic_body_validation(self, mock_request_factory):
+    def test_basic_body_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test basic body validation."""
 
         @validate_http(body=UserModel)
@@ -85,7 +92,7 @@ class TestSuccessfulValidation:
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Alice"
 
-    def test_query_validation(self, mock_request_factory):
+    def test_query_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test query parameter validation."""
 
         @validate_http(body=UserModel, query=QueryModel)
@@ -100,7 +107,7 @@ class TestSuccessfulValidation:
 
         assert response.status_code == 200
 
-    def test_path_validation(self, mock_request_factory):
+    def test_path_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test path parameter validation."""
 
         @validate_http(body=UserModel, path=PathModel)
@@ -114,15 +121,17 @@ class TestSuccessfulValidation:
 
         assert response.status_code == 200
 
-    def test_headers_validation(self, mock_request_factory):
+    def test_headers_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test headers validation."""
 
         @validate_http(body=UserModel, headers=HeaderModel)
         def handler(req: HttpRequest, body: UserModel, headers: HeaderModel) -> ResponseModel:
             return ResponseModel(message=f"Hello, {body.name}")
 
-        request = mock_request_factory(body=b'{"name": "David", "age": 28}')
-        request.headers = {"authorization": "Bearer token123", "user_agent": "Mozilla"}
+        request = mock_request_factory(
+            body=b'{"name": "David", "age": 28}',
+            headers={"authorization": "Bearer token123", "user_agent": "Mozilla"},
+        )
         response = handler(request)
 
         assert response.status_code == 200
@@ -132,7 +141,7 @@ class TestSuccessfulValidation:
 class TestValidationErrors:
     """Tests for validation error responses."""
 
-    def test_body_validation_error(self, mock_request_factory):
+    def test_body_validation_error(self, mock_request_factory: RequestFactory) -> None:
         """Test 422 error for invalid body."""
 
         @validate_http(body=UserModel)
@@ -151,7 +160,7 @@ class TestValidationErrors:
             for error in data["detail"]
         )
 
-    def test_query_validation_error(self, mock_request_factory):
+    def test_query_validation_error(self, mock_request_factory: RequestFactory) -> None:
         """Test 422 error for invalid query params."""
 
         @validate_http(query=QueryModel)
@@ -166,7 +175,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_path_validation_error(self, mock_request_factory):
+    def test_path_validation_error(self, mock_request_factory: RequestFactory) -> None:
         """Test 422 error for invalid path params."""
 
         @validate_http(path=PathModel)
@@ -181,7 +190,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_headers_validation_error(self, mock_request_factory):
+    def test_headers_validation_error(self, mock_request_factory: RequestFactory) -> None:
         """Test 422 error for invalid headers."""
 
         @validate_http(headers=HeaderModel)
@@ -196,7 +205,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_json_parsing_error(self, mock_request_factory):
+    def test_json_parsing_error(self, mock_request_factory: RequestFactory) -> None:
         """Test 400 error for malformed JSON."""
 
         @validate_http(body=UserModel)
@@ -211,7 +220,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_all_validation_sources(self, mock_request_factory):
+    def test_all_validation_sources(self, mock_request_factory: RequestFactory) -> None:
         """Test validation of all input sources at once."""
 
         @validate_http(body=UserModel, query=QueryModel, path=PathModel, headers=HeaderModel)
@@ -228,14 +237,14 @@ class TestValidationErrors:
             body=b'{"name": "Eve", "age": 27}',
             params={"limit": "5"},
             route_params={"user_id": "100"},
+            headers={"authorization": "Bearer token123", "user_agent": "Mozilla"},
         )
-        request.headers = {"authorization": "Bearer token123", "user_agent": "Mozilla"}
         response = handler(request)
 
         assert response.status_code == 200
 
     @pytest.mark.skip("Error location format varies by Pydantic version")
-    def test_validation_error_location(self, mock_request_factory):
+    def test_validation_error_location(self, mock_request_factory: RequestFactory) -> None:
         """Test that error location is correctly reported."""
 
         @validate_http(body=UserModel)
@@ -254,7 +263,7 @@ class TestValidationErrors:
 class TestConfigurationErrors:
     """Tests for decorator configuration errors."""
 
-    def test_request_model_with_body_conflict(self):
+    def test_request_model_with_body_conflict(self) -> None:
         """Test ValueError when request_model and body are both provided."""
 
         with pytest.raises(
@@ -262,11 +271,11 @@ class TestConfigurationErrors:
         ):
 
             @validate_http(request_model=UserModel, body=UserModel)
-            def handler(req: HttpRequest):
-                pass
+            def handler(req: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
 
     @pytest.mark.skip("Async handler support requires further investigation")
-    def test_async_handler(self, mock_request_factory):
+    def test_async_handler(self, mock_request_factory: RequestFactory) -> None:
         """Test async handler support."""
 
         import asyncio
@@ -280,7 +289,7 @@ class TestConfigurationErrors:
 
         assert response.status_code == 200
 
-    def test_httprequest_injectable(self, mock_request_factory):
+    def test_httprequest_injectable(self, mock_request_factory: RequestFactory) -> None:
         """Test that original HttpRequest can be accessed."""
 
         @validate_http(body=UserModel)
@@ -301,10 +310,12 @@ class TestConfigurationErrors:
 class TestCustomErrorFormatter:
     """Tests for custom error formatter functionality."""
 
-    def test_custom_formatter_for_validation_error(self, mock_request_factory):
+    def test_custom_formatter_for_validation_error(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
         """Test custom error formatter for validation errors."""
 
-        def custom_formatter(exc: Exception, status_code: int) -> dict:
+        def custom_formatter(exc: Exception, status_code: int) -> dict[str, object]:
             return {
                 "custom": True,
                 "code": f"ERR_{status_code}",
@@ -312,7 +323,7 @@ class TestCustomErrorFormatter:
             }
 
         @validate_http(body=UserModel, error_formatter=custom_formatter)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
@@ -325,10 +336,10 @@ class TestCustomErrorFormatter:
         assert data["code"] == "ERR_422"
         assert "string_too_short" in data["message"] or "min_length" in data["message"]
 
-    def test_custom_formatter_for_json_error(self, mock_request_factory):
+    def test_custom_formatter_for_json_error(self, mock_request_factory: RequestFactory) -> None:
         """Test custom error formatter for JSON parsing errors."""
 
-        def custom_formatter(exc: Exception, status_code: int) -> dict:
+        def custom_formatter(exc: Exception, status_code: int) -> dict[str, object]:
             return {
                 "error": "JSON_ERROR",
                 "status": status_code,
@@ -336,7 +347,7 @@ class TestCustomErrorFormatter:
             }
 
         @validate_http(body=UserModel, error_formatter=custom_formatter)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b"invalid json")
@@ -348,11 +359,13 @@ class TestCustomErrorFormatter:
         assert data["error"] == "JSON_ERROR"
         assert data["status"] == 400
 
-    def test_default_formatter_when_not_provided(self, mock_request_factory):
+    def test_default_formatter_when_not_provided(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
         """Test default FastAPI-style formatter when custom formatter not provided."""
 
         @validate_http(body=UserModel)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
@@ -367,10 +380,12 @@ class TestCustomErrorFormatter:
         assert "msg" in data["detail"][0]
         assert "type" in data["detail"][0]
 
-    def test_custom_formatter_for_response_validation_error(self, mock_request_factory):
+    def test_custom_formatter_for_response_validation_error(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
         """Test custom error formatter for response validation errors."""
 
-        def custom_formatter(exc: Exception, status_code: int) -> dict:
+        def custom_formatter(exc: Exception, status_code: int) -> dict[str, object]:
             return {
                 "error_type": "CONTRACT_VIOLATION",
                 "http_status": status_code,
@@ -384,7 +399,7 @@ class TestCustomErrorFormatter:
             response_model=ResponseModel,
             error_formatter=custom_formatter,
         )
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"invalid": "data"}
 
         request = mock_request_factory(body=b'{"name": "Frank", "age": 40}')
@@ -401,19 +416,21 @@ class TestCustomErrorFormatter:
 class TestGlobalErrorHandlers:
     """Tests for global error handler registration."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Clear global handlers before each test."""
         from azure_functions_validation import clear_global_error_handlers
 
         clear_global_error_handlers()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Clear global handlers after each test."""
         from azure_functions_validation import clear_global_error_handlers
 
         clear_global_error_handlers()
 
-    def test_global_handler_for_validation_error(self, mock_request_factory):
+    def test_global_handler_for_validation_error(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
         """Test global error handler for validation errors."""
 
         from azure_functions_validation import register_global_error_handler
@@ -428,7 +445,7 @@ class TestGlobalErrorHandlers:
         register_global_error_handler(Exception, global_handler)
 
         @validate_http(body=UserModel)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
@@ -439,7 +456,7 @@ class TestGlobalErrorHandlers:
         data = json.loads(response.get_body().decode())
         assert data["global"] is True
 
-    def test_endpoint_specific_overrides_global(self, mock_request_factory):
+    def test_endpoint_specific_overrides_global(self, mock_request_factory: RequestFactory) -> None:
         """Test endpoint-specific error formatter overrides global handler."""
 
         from azure_functions_validation import register_global_error_handler
@@ -451,13 +468,13 @@ class TestGlobalErrorHandlers:
                 headers={"Content-Type": "application/json"},
             )
 
-        def endpoint_formatter(exc: Exception, status_code: int) -> dict:
+        def endpoint_formatter(exc: Exception, status_code: int) -> dict[str, object]:
             return {"source": "endpoint"}
 
         register_global_error_handler(Exception, global_handler)
 
         @validate_http(body=UserModel, error_formatter=endpoint_formatter)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
@@ -468,7 +485,9 @@ class TestGlobalErrorHandlers:
         data = json.loads(response.get_body().decode())
         assert data["source"] == "endpoint"
 
-    def test_global_handler_precedence_with_default(self, mock_request_factory):
+    def test_global_handler_precedence_with_default(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
         """Test that global handlers work when no endpoint-specific formatter is provided."""
 
         from pydantic import ValidationError as PydanticValidationError
@@ -485,7 +504,7 @@ class TestGlobalErrorHandlers:
         register_global_error_handler(PydanticValidationError, global_handler)
 
         @validate_http(body=UserModel)
-        def handler(req: HttpRequest, body: UserModel) -> dict:
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"message": "ok"}
 
         request = mock_request_factory(body=b'{"name": "ab", "age": 30}')
@@ -496,7 +515,7 @@ class TestGlobalErrorHandlers:
         data = json.loads(response.get_body().decode())
         assert data["handled"] == "globally"
 
-    def test_clear_global_handlers(self):
+    def test_clear_global_handlers(self) -> None:
         """Test clearing all global error handlers."""
 
         from azure_functions_validation import (
@@ -524,7 +543,7 @@ class TestGlobalErrorHandlers:
 class TestOpenAPIIntegration:
     """Tests for OpenAPI integration utilities."""
 
-    def test_generate_422_error_schema(self):
+    def test_generate_422_error_schema(self) -> None:
         """Test 422 error schema generation."""
 
         from azure_functions_validation import generate_422_error_schema
@@ -540,7 +559,7 @@ class TestOpenAPIIntegration:
         assert "msg" in schema["properties"]["detail"]["items"]["properties"]
         assert "type" in schema["properties"]["detail"]["items"]["properties"]
 
-    def test_get_validation_error_examples(self):
+    def test_get_validation_error_examples(self) -> None:
         """Test validation error examples generation."""
 
         from azure_functions_validation import get_validation_error_examples
@@ -555,7 +574,7 @@ class TestOpenAPIIntegration:
             assert "detail" in example["value"]
             assert isinstance(example["value"]["detail"], list)
 
-    def test_schema_structure_compatibility(self):
+    def test_schema_structure_compatibility(self) -> None:
         """Test that generated schema is compatible with OpenAPI spec."""
 
         from azure_functions_validation import generate_422_error_schema

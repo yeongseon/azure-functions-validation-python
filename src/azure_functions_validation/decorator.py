@@ -201,8 +201,8 @@ def validate_http(
                         body=content, status_code=200, headers={"Content-Type": content_type}
                     )
 
-            except Exception as e:
-                return format_error_response(e, 500)
+            except Exception:
+                raise
 
         return wrapper
 

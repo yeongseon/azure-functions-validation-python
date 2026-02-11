@@ -6,7 +6,7 @@ import sys
 from typing import List, Optional
 
 import azure.functions as func
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
@@ -20,7 +20,7 @@ class UserModel(BaseModel):
     age: Optional[int] = Field(None, ge=0, le=150)
 
     @field_validator("name")
-    def name_must_not_be_admin(cls, v):
+    def name_must_not_be_admin(cls, v: str) -> str:
         if v.lower() == "admin":
             raise ValueError("name cannot be admin")
         return v
@@ -49,8 +49,7 @@ class SearchQuery(BaseModel):
 class UpdateHeaders(BaseModel):
     x_user_id: str = Field(..., alias="X-User-ID")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # --- Response Models ---

@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from typing import Any, Dict, Optional
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -21,44 +22,53 @@ class MockHttpRequest:
     """Mock HttpRequest class for testing"""
 
     def __init__(
-        self, method="GET", url=None, body=None, headers=None, params=None, route_params=None
-    ):
-        self._method = method
-        self._url = url or "/"
-        self._body = body or b""
-        self._headers = headers or {}
-        self._params = params or {}
-        self._route_params = route_params or {}
+        self,
+        method: str = "GET",
+        url: Optional[str] = None,
+        body: Optional[bytes] = None,
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, str]] = None,
+        route_params: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self._method: str = method
+        self._url: str = url or "/"
+        self._body: bytes = body or b""
+        self._headers: Dict[str, str] = headers or {}
+        self._params: Dict[str, str] = params or {}
+        self._route_params: Dict[str, str] = route_params or {}
 
     @property
-    def method(self):
+    def method(self) -> str:
         return self._method
 
     @property
-    def url(self):
+    def url(self) -> str:
         return self._url
 
     @property
-    def headers(self):
+    def headers(self) -> Dict[str, str]:
         return self._headers
 
     @property
-    def params(self):
+    def params(self) -> Dict[str, str]:
         return self._params
 
     @property
-    def route_params(self):
+    def route_params(self) -> Dict[str, str]:
         return self._route_params
 
-    def get_body(self):
+    def get_body(self) -> bytes:
         return self._body
 
-    def get_json(self):
+    def get_json(self) -> Optional[Dict[str, Any]]:
         """Parse JSON body and return as dict"""
         if not self._body:
             return None
         try:
-            return json.loads(self._body.decode("utf-8"))
+            parsed = json.loads(self._body.decode("utf-8"))
+            if isinstance(parsed, dict):
+                return parsed
+            return None
         except (json.JSONDecodeError, UnicodeDecodeError):
             return None
 
@@ -66,7 +76,7 @@ class MockHttpRequest:
 class TestIntegration:
     """Integration tests with actual Azure Function calls"""
 
-    def test_create_user_success(self):
+    def test_create_user_success(self) -> None:
         """Test successful user creation"""
         request = func.HttpRequest(
             method="POST",
@@ -86,7 +96,7 @@ class TestIntegration:
         assert response_data["age"] == 30
         assert "id" in response_data
 
-    def test_create_user_validation_error(self):
+    def test_create_user_validation_error(self) -> None:
         """Test user creation with invalid data"""
         request = func.HttpRequest(
             method="POST",
@@ -108,7 +118,7 @@ class TestIntegration:
         assert "detail" in response_data
         assert len(response_data["detail"]) == 3  # 3 validation errors
 
-    def test_create_user_empty_body(self):
+    def test_create_user_empty_body(self) -> None:
         """Test user creation with empty body"""
         request = func.HttpRequest(
             method="POST", url="/api/users", body=b"", headers={"Content-Type": "application/json"}
@@ -120,7 +130,7 @@ class TestIntegration:
         response_data = json.loads(response.get_body())
         assert "detail" in response_data
 
-    def test_create_post_success(self):
+    def test_create_post_success(self) -> None:
         """Test successful post creation"""
         request = MockHttpRequest(
             method="POST",
@@ -146,7 +156,7 @@ class TestIntegration:
         assert response_data["tags"] == ["test", "post"]
         assert response_data["is_published"] is True
 
-    def test_create_post_invalid_query(self):
+    def test_create_post_invalid_query(self) -> None:
         """Test post creation with invalid query parameters"""
         request = MockHttpRequest(
             method="POST",
@@ -170,7 +180,7 @@ class TestIntegration:
         assert "detail" in response_data
         assert len(response_data["detail"]) == 3  # 3 query validation errors
 
-    def test_create_comment_success(self):
+    def test_create_comment_success(self) -> None:
         """Test successful comment creation"""
         request = MockHttpRequest(
             method="POST",
@@ -189,7 +199,7 @@ class TestIntegration:
         assert response_data["text"] == "This is a comment"
         assert response_data["status"] == "created"
 
-    def test_create_comment_invalid_path(self):
+    def test_create_comment_invalid_path(self) -> None:
         """Test comment creation with invalid path parameters"""
         request = MockHttpRequest(
             method="POST",
@@ -210,7 +220,7 @@ class TestIntegration:
         assert "detail" in response_data
         assert len(response_data["detail"]) == 3  # 3 path validation errors
 
-    def test_update_user_success(self):
+    def test_update_user_success(self) -> None:
         """Test successful user update"""
         request = MockHttpRequest(
             method="PUT",
@@ -230,7 +240,7 @@ class TestIntegration:
         assert response_data["email"] == "jane@example.com"
         assert response_data["updated"] is True
 
-    def test_update_user_missing_header(self):
+    def test_update_user_missing_header(self) -> None:
         """Test user update with missing required header"""
         request = MockHttpRequest(
             method="PUT",
@@ -251,7 +261,7 @@ class TestIntegration:
         )
         assert header_error
 
-    def test_create_user_async_success(self):
+    def test_create_user_async_success(self) -> None:
         """Test successful async user creation"""
 
         request = func.HttpRequest(
@@ -272,7 +282,7 @@ class TestIntegration:
         assert response_data["email"] == "async@example.com"
         assert response_data["age"] == 35
 
-    def test_create_user_direct_response_success(self):
+    def test_create_user_direct_response_success(self) -> None:
         """Test function that returns HttpResponse directly"""
         request = func.HttpRequest(
             method="POST",
@@ -291,7 +301,7 @@ class TestIntegration:
         assert "Direct User" in response_data["message"]
         assert response_data["user_id"] == 1
 
-    def test_admin_name_validation(self):
+    def test_admin_name_validation(self) -> None:
         """Test that 'admin' name is rejected"""
         request = func.HttpRequest(
             method="POST",
@@ -317,7 +327,7 @@ class TestIntegration:
         )
         assert name_error
 
-    def test_malformed_json(self):
+    def test_malformed_json(self) -> None:
         """Test handling of malformed JSON"""
         request = func.HttpRequest(
             method="POST",
@@ -341,7 +351,7 @@ class TestIntegration:
             detail_str = str(detail)
         assert "json" in detail_str.lower() or "parse" in detail_str.lower()
 
-    def test_wrong_content_type(self):
+    def test_wrong_content_type(self) -> None:
         """Test handling of wrong content type"""
         request = func.HttpRequest(
             method="POST",
@@ -357,7 +367,7 @@ class TestIntegration:
         response_data = json.loads(response.get_body())
         assert "detail" in response_data
 
-    def test_large_payload(self):
+    def test_large_payload(self) -> None:
         """Test handling of large payload"""
         large_name = "x" * 200  # Exceeds max_length of 100
 

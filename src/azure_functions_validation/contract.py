@@ -9,7 +9,8 @@ def contract_test(
     request_model: Optional[Type[BaseModel]] = None,
     response_model: Optional[Type[BaseModel]] = None,
     allow_extra: bool = False,
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Dict[str, Any]]]:
+
     """Decorator for testing contract compliance of Azure Function handlers.
 
     Args:
@@ -157,7 +158,12 @@ def verify_contracts(
             result["response_valid"] = None
             result["response_data"] = output
 
-        if (
+        if response_model is None:
+            if result.get("request_valid", True) is False:
+                result["success"] = False
+            else:
+                result["success"] = True
+        elif (
             result.get("request_valid", True) is False
             or result.get("response_valid", True) is False
         ):
