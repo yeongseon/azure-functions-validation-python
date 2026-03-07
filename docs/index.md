@@ -40,3 +40,8 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 ```
 
 See the Usage guide for more patterns.
+
+## Examples
+
+- Representative: `examples/hello_validation`
+- Complex: `examples/profile_validation`

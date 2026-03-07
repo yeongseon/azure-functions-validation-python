@@ -75,6 +75,7 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 ## Documentation
 
 - Project docs live under `docs/`
+- Smoke-tested examples live under `examples/`
 - Product requirements: `PRD.md`
 - Technical design: `TDD.md`
 
