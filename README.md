@@ -93,7 +93,7 @@ The final terminal state is also captured as a static image for quick inspection
 - Project docs live under `docs/`
 - Smoke-tested examples live under `examples/`
 - Product requirements: `PRD.md`
-- Technical design: `TDD.md`
+- Design principles: `DESIGN.md`
 
 ## License
 

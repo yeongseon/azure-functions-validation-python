@@ -1,63 +1,49 @@
 # DESIGN.md
 
-Design Principles & Anti-Goals
+Design Principles for `azure-functions-validation`
 
 ## Purpose
 
-This document defines the **design philosophy** of this library.
+This document defines the architectural boundaries and design principles of the project.
 
-It exists to:
+## Design Goals
 
-* Prevent accidental over-engineering
-* Keep APIs stable and predictable
-* Serve as a guardrail for AI-assisted development
+- Provide typed request parsing and response validation for Azure Functions Python v2 handlers.
+- Keep the programming model Functions-native and decorator-based.
+- Make validation behavior explicit, predictable, and easy to test.
+- Stay small enough to pair cleanly with `azure-functions-openapi`.
 
----
+## Non-Goals
 
-## Goals
+This project does not aim to:
 
-* Provide **small, composable validation utilities** for Azure Functions
-* Favor **explicit behavior over implicit magic**
-* Keep runtime overhead minimal
-* Remain easy to understand, debug, and remove
-* Normalize request/response validation without hiding Azure Functions behavior
+- Become a full application framework
+- Replace Azure Functions routing or hosting concepts
+- Introduce hidden dependency injection or global state
+- Own OpenAPI generation or documentation rendering
 
----
+## Design Principles
 
-## Anti-Goals
+- Validation should wrap handlers, not replace them.
+- Handler inputs and outputs should remain explicit and typed.
+- Error responses should be consistent and machine-readable.
+- Public APIs should evolve conservatively.
+- Runtime overhead should stay low and implementation details easy to remove.
 
-This library intentionally does **NOT** aim to:
+## Integration Boundaries
 
-* Be a framework
-* Hide or abstract Azure Functions runtime behavior
-* Manage deployment, infrastructure, or configuration
-* Introduce global state or hidden side effects
-* Enforce an opinionated API structure
-
----
-
-## API Design Principles
-
-* Explicit is better than implicit
-* No global mutable state
-* Context must be **passed explicitly**, never inferred
-* Public APIs are stable and conservative
-* Breaking changes are avoided unless strictly necessary
-
----
+- OpenAPI generation belongs to `azure-functions-openapi`.
+- Project diagnostics belong to `azure-functions-doctor`.
+- This repository owns request parsing, validation, response validation, and validation error formatting.
 
 ## Compatibility Policy
 
-* Minimum supported Python version: **3.10**
-* Public APIs follow **Semantic Versioning**
-* Experimental APIs may change without notice
+- Minimum supported Python version: `3.10`
+- Supported runtime target: Azure Functions Python v2 programming model
+- Public APIs follow semantic versioning expectations
 
----
+## Change Discipline
 
-## Experimental APIs
-
-* Experimental APIs must be clearly documented
-* Experimental APIs are **not protected by SemVer guarantees**
-* Promotion from experimental → stable is explicit and intentional
-
-Experimental APIs must be labeled in docs with **(Experimental)**.
+- Validation semantics must be covered by regression tests.
+- Error payload changes are user-facing behavior changes.
+- Experimental APIs must be clearly labeled in code and docs.

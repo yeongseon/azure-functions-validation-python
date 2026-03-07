@@ -76,7 +76,7 @@ Update the version number in `src/azure_functions_validation/__init__.py` when:
 
 When updating the version, also:
 
-- Update `docs/PRD.md` roadmap entries if needed.
+- Update `PRD.md` if scope or goals changed.
 - Update `CHANGELOG.md`.
 - Run `make check-all`.
 - Ensure CI passes.

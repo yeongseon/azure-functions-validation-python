@@ -26,9 +26,6 @@ nav:
   - Security: security.md
   - Changelog: changelog.md
   - Contributing: contributing.md
-  - Specs:
-      - PRD: specs/PRD.md
-      - TDD: specs/TDD.md
 
 markdown_extensions:
   - admonition

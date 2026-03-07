@@ -31,7 +31,7 @@
 ## Version Management
 
 - [ ] If adding new features, I have bumped the version in `src/azure_functions_validation/__init__.py`
-- [ ] I have updated `docs/PRD.md` roadmap section if features were completed
+- [ ] I have updated `PRD.md` if product scope or goals changed
 - [ ] I have updated `CHANGELOG.md` with detailed changes
 
 **Note:** See `CONTRIBUTING.md` for version management guidelines.
