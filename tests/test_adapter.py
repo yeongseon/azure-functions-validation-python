@@ -1,10 +1,16 @@
 """Tests for validation adapter."""
 
-from pydantic import BaseModel, Field
+from typing import TYPE_CHECKING, Any, List, cast
+
+import azure.functions as func
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 import pytest
 
 from azure_functions_validation.adapter import PydanticAdapter
+
+if TYPE_CHECKING:
+    import pytest
 
 
 # Test models
@@ -19,6 +25,18 @@ class SimpleModel(BaseModel):
     """Simple test model."""
 
     message: str
+
+
+class QueryModel(BaseModel):
+    tag: str
+    tags: List[str]
+
+
+class HeaderModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    request_id: str = Field(alias="X-Request-Id")
+    values: List[str] = Field(alias="X-Values")
 
 
 # Fixtures
@@ -112,6 +130,17 @@ class TestParseBody:
         errors = exc_info.value.errors()
         assert any("int_parsing" in e["type"] for e in errors)
 
+    def test_whitespace_body_is_treated_as_missing(
+        self, adapter: PydanticAdapter, mock_request: type
+    ) -> None:
+        req = mock_request(b"   ")
+
+        with pytest.raises(PydanticValidationError) as exc_info:
+            adapter.parse_body(req, UserModel)
+
+        errors = exc_info.value.errors()
+        assert errors[0]["type"] == "missing"
+
 
 # Test validate_response
 class TestValidateResponse:
@@ -150,6 +179,84 @@ class TestValidateResponse:
             adapter.validate_response("invalid", UserModel)
 
         assert "Expected UserModel, dict, or list, got str" in str(exc_info.value)
+
+    def test_validate_list_of_dicts_against_model(self, adapter: PydanticAdapter) -> None:
+        result = adapter.validate_response(
+            [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}],
+            UserModel,
+        )
+
+        assert len(result) == 2
+        assert all(isinstance(item, UserModel) for item in result)
+
+    def test_validate_list_of_dicts_against_list_type(
+        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
+        monkeypatch.setattr(
+            "azure_functions_validation.adapter.get_args",
+            lambda model: (UserModel,),
+        )
+
+        result = adapter.validate_response(
+            [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}],
+            UserModel,
+        )
+
+        assert len(result) == 2
+        assert all(isinstance(item, UserModel) for item in result)
+
+    def test_validate_plain_list_type_returns_list(
+        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
+        monkeypatch.setattr("azure_functions_validation.adapter.get_args", lambda model: ())
+
+        payload = [{"name": "Alice", "age": 30}]
+        result = adapter.validate_response(payload, UserModel)
+
+        assert result == payload
+
+
+class TestRequestParsing:
+    def test_parse_query_handles_list_values(self, adapter: PydanticAdapter) -> None:
+        class Request:
+            params = {"tag": ["primary"], "tags": ["a", "b"]}
+
+        request = Request()
+
+        result = adapter.parse_query(cast(Any, request), QueryModel)
+
+        assert result.tag == "primary"
+        assert result.tags == ["a", "b"]
+
+    def test_parse_headers_handles_list_values(self, adapter: PydanticAdapter) -> None:
+        class Request:
+            headers = {"X-Request-Id": ["req-1"], "X-Values": ["a", "b"]}
+
+        request = Request()
+
+        result = adapter.parse_headers(cast(Any, request), HeaderModel)
+
+        assert result.request_id == "req-1"
+        assert result.values == ["a", "b"]
+
+    def test_parse_path_uses_route_params(self, adapter: PydanticAdapter) -> None:
+        class PathModel(BaseModel):
+            user_id: int
+
+        request = func.HttpRequest(
+            method="GET",
+            url="/api/users/1",
+            body=b"",
+            params={},
+            headers={},
+            route_params={"user_id": "1"},
+        )
+
+        result = adapter.parse_path(request, PathModel)
+
+        assert result.user_id == 1
 
 
 # Test serialize
