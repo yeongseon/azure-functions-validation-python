@@ -72,6 +72,16 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 - Contract-testing utilities for handlers
 - Optional custom and global validation error handlers
 
+## Demo
+
+The representative and complex examples below show the result of applying validation to an
+Azure Functions Python v2 handler.
+
+The terminal demo is generated from [`demo/validation-demo.tape`](demo/validation-demo.tape)
+with VHS. It shows a successful validated response and a structured validation error.
+
+![Validation demo](docs/assets/validation-demo.gif)
+
 ## Documentation
 
 - Project docs live under `docs/`
