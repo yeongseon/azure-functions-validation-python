@@ -27,9 +27,9 @@ dev = [
     "ruff==0.15.5",
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocstrings[python]",
+    "mkdocs<2.0",
+    "mkdocs-material<10.0",
+    "mkdocstrings[python]<1.0",
 ]
 
 [build-system]
