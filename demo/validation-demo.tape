@@ -13,13 +13,13 @@ Type "python3 -m venv /tmp/validation-demo-venv"
 Enter
 Type "/tmp/validation-demo-venv/bin/pip install -q --upgrade pip"
 Enter
-Type "/tmp/validation-demo-venv/bin/pip install -q -e /vhs"
+Type "/tmp/validation-demo-venv/bin/pip install -q -e /workspace"
 Enter
 Type "clear"
 Enter
 Show
 
-Type "cd /vhs"
+Type "cd /workspace"
 Enter
 Sleep 700ms
 
