@@ -84,6 +84,10 @@ with VHS.
 
 ![Validation demo](docs/assets/validation-demo.gif)
 
+The final terminal state is also captured as a static image for quick inspection.
+
+![Validation final output](docs/assets/validation-demo-final.png)
+
 ## Documentation
 
 - Project docs live under `docs/`
