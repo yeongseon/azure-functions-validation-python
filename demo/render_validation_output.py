@@ -50,7 +50,7 @@ def main() -> None:
     )
     success_response = hello_module.hello_validation(success_request)
     _print_case(
-        "Validated success",
+        "Validated success response",
         'POST /api/hello_validation {"name":"Azure"}',
         success_response,
     )
@@ -63,7 +63,7 @@ def main() -> None:
     )
     invalid_response = hello_module.hello_validation(invalid_request)
     _print_case(
-        "Validation failure",
+        "Structured validation error",
         "POST /api/hello_validation {}",
         invalid_response,
     )
