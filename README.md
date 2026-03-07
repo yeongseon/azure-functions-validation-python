@@ -74,11 +74,13 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Demo
 
-The representative and complex examples below show the result of applying validation to an
-Azure Functions Python v2 handler.
+The demo below shows the two core outcomes of `validate_http` on the representative example:
+
+- a valid request becomes a typed JSON response
+- an invalid request becomes a structured `422` validation error
 
 The terminal demo is generated from [`demo/validation-demo.tape`](demo/validation-demo.tape)
-with VHS. It shows a successful validated response and a structured validation error.
+with VHS.
 
 ![Validation demo](docs/assets/validation-demo.gif)
 

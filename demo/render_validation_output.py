@@ -42,33 +42,30 @@ def _print_case(title: str, request_line: str, response: func.HttpResponse) -> N
 
 def main() -> None:
     hello_module = _load_example_module("hello_validation")
-    hello_request = func.HttpRequest(
+    success_request = func.HttpRequest(
         method="POST",
         url="/api/hello_validation",
         body=json.dumps({"name": "Azure"}).encode("utf-8"),
         headers={"Content-Type": "application/json"},
     )
-    hello_response = hello_module.hello_validation(hello_request)
+    success_response = hello_module.hello_validation(success_request)
     _print_case(
-        "Representative example",
+        "Validated success",
         'POST /api/hello_validation {"name":"Azure"}',
-        hello_response,
+        success_response,
     )
 
-    profile_module = _load_example_module("profile_validation")
-    bad_request = func.HttpRequest(
-        method="GET",
-        url="/api/users/7",
-        body=b"",
-        params={},
-        headers={},
-        route_params={"user_id": "7"},
+    invalid_request = func.HttpRequest(
+        method="POST",
+        url="/api/hello_validation",
+        body=json.dumps({}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
     )
-    bad_response = profile_module.get_profile(bad_request)
+    invalid_response = hello_module.hello_validation(invalid_request)
     _print_case(
-        "Validation error example",
-        "GET /api/users/7  # missing x-request-id header",
-        bad_response,
+        "Validation failure",
+        "POST /api/hello_validation {}",
+        invalid_response,
     )
 
 
