@@ -28,7 +28,20 @@ def _format_response(response: func.HttpResponse) -> str:
     except json.JSONDecodeError:
         return body
 
-    return json.dumps(payload, indent=2)
+    if isinstance(payload, dict) and isinstance(payload.get("detail"), list) and payload["detail"]:
+        first_error = payload["detail"][0]
+        if isinstance(first_error, dict):
+            payload = {
+                "detail": [
+                    {
+                        "loc": first_error.get("loc"),
+                        "msg": first_error.get("msg"),
+                        "type": first_error.get("type"),
+                    }
+                ]
+            }
+
+    return json.dumps(payload, separators=(",", ": "))
 
 
 def _print_case(title: str, request_line: str, response: func.HttpResponse) -> None:

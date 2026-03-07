@@ -8,21 +8,19 @@ Set Theme "Builtin Solarized Dark"
 Set TypingSpeed 55ms
 Set Padding 24
 
-Hide
-Type "python3 -m venv /tmp/validation-demo-venv"
-Enter
-Type "/tmp/validation-demo-venv/bin/pip install -q --upgrade pip"
-Enter
-Type "/tmp/validation-demo-venv/bin/pip install -q -e /workspace"
-Enter
-Type "clear"
-Enter
-Show
-
 Type "cd /workspace"
 Enter
+Sleep 900ms
+Type "python3 -m venv /tmp/validation-demo-venv"
+Enter
+Sleep 1800ms
+Type "source /tmp/validation-demo-venv/bin/activate"
+Enter
 Sleep 700ms
+Type "python -m pip install -q -e ."
+Enter
+Sleep 2200ms
 
-Type "/tmp/validation-demo-venv/bin/python demo/render_validation_output.py"
+Type "python demo/preview.py"
 Enter
 Sleep 3200ms
