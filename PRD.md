@@ -51,3 +51,22 @@ This creates duplication, uneven error handling, and drift between intended and 
 - Representative examples pass smoke tests in CI
 - Validation error payloads remain stable across releases
 - Runtime validation behavior stays aligned with tests and documentation
+
+## Next Priorities
+
+The next iteration of the project should focus on closing the gap between runtime ergonomics and documentation quality.
+
+### Priority 1
+
+- Redesign async handler support without relying on `asyncio.run()`
+- Relax handler signature constraints for `HttpRequest` resolution
+- Parse request inputs once and reuse validated values
+
+### Priority 2
+
+- Strengthen README messaging around Azure Functions validation pain points
+- Expand examples for validation-only and OpenAPI-aligned scenarios
+
+## Alignment Notes
+
+This package should remain independently useful, but its design should stay friendly to `azure-functions-openapi` in scenarios where users want both runtime validation and contract documentation.
