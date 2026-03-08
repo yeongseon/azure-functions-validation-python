@@ -56,15 +56,24 @@ def validate_http(
         func_sig = inspect.signature(func)
         func_params = func_sig.parameters
 
-        # Validate that function accepts HttpRequest
-        has_http_request_param = any(
-            param_name in ["req", "http_request"] for param_name in func_params.keys()
+        # Validate that function can accept the request as its first positional argument.
+        request_param_name = next(
+            (
+                param_name
+                for param_name, param in func_params.items()
+                if param.kind
+                in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                )
+            ),
+            None,
         )
 
-        if not has_http_request_param:
+        if request_param_name is None:
             raise ValueError(
                 f"Function {func.__name__} must accept an HttpRequest parameter "
-                f"(parameter name should be 'req' or 'http_request')"
+                f"as its first positional argument"
             )
 
         def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
@@ -102,10 +111,7 @@ def validate_http(
                         else:
                             # Try to find parameter name that matches
                             for param_name in func_params:
-                                if (
-                                    param_name not in ["http_request", "req"]
-                                    and param_name != "http_request"
-                                ):
+                                if param_name not in [request_param_name, "http_request"]:
                                     parsed_inputs[param_name] = parsed_body
                                     break
 
@@ -153,7 +159,7 @@ def validate_http(
                         return format_error_response(e, 422)
 
                 # Add original HttpRequest if requested
-                if "http_request" in func_params:
+                if "http_request" in func_params and request_param_name != "http_request":
                     parsed_inputs["http_request"] = http_request
 
                 # Call the function

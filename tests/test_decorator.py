@@ -12,6 +12,7 @@ from azure_functions_validation import validate_http
 
 RequestFactory: TypeAlias = Callable[..., HttpRequest]
 
+
 # Test models
 class UserModel(BaseModel):
     """Test model for user data."""
@@ -77,6 +78,34 @@ def mock_request_factory() -> Callable[..., HttpRequest]:
 # Test successful validation
 class TestSuccessfulValidation:
     """Tests for successful request/response validation."""
+
+    def test_custom_request_parameter_name(self, mock_request_factory: RequestFactory) -> None:
+        """Test body validation with a non-standard request parameter name."""
+
+        @validate_http(body=UserModel)
+        def handler(request: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Taylor", "age": 29}')
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Taylor"
+
+    def test_first_parameter_named_http_request(self, mock_request_factory: RequestFactory) -> None:
+        """Test that the first request parameter can be named http_request."""
+
+        @validate_http(body=UserModel)
+        def handler(http_request: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Jordan", "age": 31}')
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Jordan"
 
     def test_basic_body_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test basic body validation."""
@@ -272,6 +301,18 @@ class TestConfigurationErrors:
 
             @validate_http(request_model=UserModel, body=UserModel)
             def handler(req: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
+
+    def test_keyword_only_request_parameter_is_rejected(self) -> None:
+        """Test ValueError when the request parameter is not positional."""
+
+        with pytest.raises(
+            ValueError,
+            match="must accept an HttpRequest parameter as its first positional argument",
+        ):
+
+            @validate_http(body=UserModel)
+            def handler(*, request: HttpRequest) -> HttpResponse:
                 return HttpResponse("ok")
 
     @pytest.mark.skip("Async handler support requires further investigation")
