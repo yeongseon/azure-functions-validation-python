@@ -3,6 +3,8 @@ import os
 import sys
 from typing import Any, Dict, Optional
 
+import pytest
+
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_test_app"))
@@ -261,7 +263,8 @@ class TestIntegration:
         )
         assert header_error
 
-    def test_create_user_async_success(self) -> None:
+    @pytest.mark.anyio
+    async def test_create_user_async_success(self) -> None:
         """Test successful async user creation"""
 
         request = func.HttpRequest(
@@ -273,8 +276,7 @@ class TestIntegration:
             headers={"Content-Type": "application/json"},
         )
 
-        # Call the async function directly (it's already wrapped by the decorator)
-        response = create_user_async(request)
+        response = await create_user_async(request)
 
         assert response.status_code == 201
         response_data = json.loads(response.get_body())

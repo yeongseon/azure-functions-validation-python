@@ -1,5 +1,6 @@
 """Core decorator for HTTP request/response validation."""
 
+from functools import wraps
 import inspect
 import json
 from typing import Any, Callable, Optional
@@ -93,7 +94,7 @@ def validate_http(
                 f"Rename it (e.g. to 'req' or 'http_request')."
             )
 
-        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+        def resolve_http_request(args: tuple[Any, ...]) -> Any:
             # Extract HttpRequest from args
             http_request = None
             for arg in args:
@@ -110,9 +111,12 @@ def validate_http(
             if http_request is None:
                 raise ValueError("Function must receive an HttpRequest-like object as argument")
 
+            return http_request
+
+        def parse_inputs(http_request: Any) -> dict[str, Any] | HttpResponse:
             try:
                 # Parse and validate request inputs
-                parsed_inputs = {}
+                parsed_inputs: dict[str, Any] = {}
 
                 # Parse body
                 if body is not None:
@@ -179,54 +183,71 @@ def validate_http(
                 if "http_request" in func_params and request_param_name != "http_request":
                     parsed_inputs["http_request"] = http_request
 
-                # Call the function
-                if is_async:
-                    import asyncio
-
-                    result = asyncio.run(func(http_request, **parsed_inputs))
-                else:
-                    result = func(http_request, **parsed_inputs)
-
-                # Handle HttpResponse bypass
-                if isinstance(result, HttpResponse):
-                    return result
-
-                # Validate and serialize response
-                if response_model is not None:
-                    try:
-                        validated_result = adapter.validate_response(result, response_model)
-                        content, content_type = adapter.serialize(validated_result)
-                        return HttpResponse(
-                            body=content, status_code=200, headers={"Content-Type": content_type}
-                        )
-                    except Exception as e:
-                        if error_formatter is not None:
-                            error_response = error_formatter(e, 500)
-                        else:
-                            error_response = {
-                                "detail": [
-                                    {
-                                        "loc": ["response"],
-                                        "msg": "Response validation error",
-                                        "type": "response_validation_error",
-                                    }
-                                ]
-                            }
-                        return HttpResponse(
-                            body=json.dumps(error_response),
-                            status_code=500,
-                            headers={"Content-Type": "application/json"},
-                        )
-                else:
-                    # No response model, serialize directly
-                    content, content_type = adapter.serialize(result)
-                    return HttpResponse(
-                        body=content, status_code=200, headers={"Content-Type": content_type}
-                    )
+                return parsed_inputs
 
             except Exception:
                 raise
 
-        return wrapper
+        def build_response(result: Any) -> HttpResponse:
+            # Handle HttpResponse bypass
+            if isinstance(result, HttpResponse):
+                return result
+
+            # Validate and serialize response
+            if response_model is not None:
+                try:
+                    validated_result = adapter.validate_response(result, response_model)
+                    content, content_type = adapter.serialize(validated_result)
+                    return HttpResponse(
+                        body=content, status_code=200, headers={"Content-Type": content_type}
+                    )
+                except Exception as e:
+                    if error_formatter is not None:
+                        error_response = error_formatter(e, 500)
+                    else:
+                        error_response = {
+                            "detail": [
+                                {
+                                    "loc": ["response"],
+                                    "msg": "Response validation error",
+                                    "type": "response_validation_error",
+                                }
+                            ]
+                        }
+                    return HttpResponse(
+                        body=json.dumps(error_response),
+                        status_code=500,
+                        headers={"Content-Type": "application/json"},
+                    )
+
+            # No response model, serialize directly
+            content, content_type = adapter.serialize(result)
+            return HttpResponse(
+                body=content,
+                status_code=200,
+                headers={"Content-Type": content_type},
+            )
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+            http_request = resolve_http_request(args)
+            parsed_inputs = parse_inputs(http_request)
+            if isinstance(parsed_inputs, HttpResponse):
+                return parsed_inputs
+
+            result = func(http_request, **parsed_inputs)
+            return build_response(result)
+
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+            http_request = resolve_http_request(args)
+            parsed_inputs = parse_inputs(http_request)
+            if isinstance(parsed_inputs, HttpResponse):
+                return parsed_inputs
+
+            result = await func(http_request, **parsed_inputs)
+            return build_response(result)
+
+        return async_wrapper if is_async else wrapper
 
     return decorator
