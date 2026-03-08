@@ -13,6 +13,17 @@
 Validation and serialization for the **Azure Functions Python v2 programming model**.
 This package provides typed request parsing and response validation for decorator-based `FunctionApp` HTTP handlers.
 
+## Why Use It
+
+Azure Functions Python v2 handlers often drift into the same repeated problems:
+
+- repeated `req.get_json()` and manual request parsing
+- inconsistent `400` and `422` validation responses
+- response payloads that are not checked against the intended contract
+- API documentation that can drift away from runtime validation rules
+
+`azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
+
 ## Scope
 
 - Azure Functions Python **v2 programming model**
@@ -78,6 +89,7 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 - Response model validation and serialization
 - Contract-testing utilities for handlers
 - Optional custom and global validation error handlers
+- Clean pairing with `azure-functions-openapi` when you want both runtime validation and API documentation
 
 ## Demo
 
