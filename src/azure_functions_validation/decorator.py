@@ -123,10 +123,10 @@ def validate_http(
                 if query is not None:
                     try:
                         # Always validate query parameters, even if function doesn't use them
-                        adapter.parse_query(http_request, query)
+                        parsed_query = adapter.parse_query(http_request, query)
                         # If function expects query parameter, pass it
                         if "query" in func_params:
-                            parsed_inputs["query"] = adapter.parse_query(http_request, query)
+                            parsed_inputs["query"] = parsed_query
                     except Exception as e:
                         return format_error_response(e, 422)
 
@@ -134,10 +134,10 @@ def validate_http(
                 if path is not None:
                     try:
                         # Always validate path parameters, even if function doesn't use them
-                        adapter.parse_path(http_request, path)
+                        parsed_path = adapter.parse_path(http_request, path)
                         # If function expects path parameter, pass it
                         if "path" in func_params:
-                            parsed_inputs["path"] = adapter.parse_path(http_request, path)
+                            parsed_inputs["path"] = parsed_path
                     except Exception as e:
                         return format_error_response(e, 422)
 
@@ -145,10 +145,10 @@ def validate_http(
                 if headers is not None:
                     try:
                         # Always validate headers, even if function doesn't use them
-                        adapter.parse_headers(http_request, headers)
+                        parsed_headers = adapter.parse_headers(http_request, headers)
                         # If function expects headers parameter, pass it
                         if "headers" in func_params:
-                            parsed_inputs["headers"] = adapter.parse_headers(http_request, headers)
+                            parsed_inputs["headers"] = parsed_headers
                     except Exception as e:
                         return format_error_response(e, 422)
 

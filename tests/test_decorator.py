@@ -12,6 +12,7 @@ from azure_functions_validation import validate_http
 
 RequestFactory: TypeAlias = Callable[..., HttpRequest]
 
+
 # Test models
 class UserModel(BaseModel):
     """Test model for user data."""
@@ -135,6 +136,49 @@ class TestSuccessfulValidation:
         response = handler(request)
 
         assert response.status_code == 200
+
+    def test_request_inputs_are_parsed_once(self, mock_request_factory: RequestFactory) -> None:
+        """Test that configured request inputs are parsed only once."""
+
+        adapter = Mock()
+        adapter.parse_body.return_value = UserModel(name="Robin", age=26)
+        adapter.parse_query.return_value = QueryModel(limit=10, offset=0)
+        adapter.parse_path.return_value = PathModel(user_id=42)
+        adapter.parse_headers.return_value = HeaderModel(
+            authorization="Bearer token123",
+            user_agent="Mozilla",
+        )
+        adapter.serialize.return_value = (json.dumps({"message": "ok"}), "application/json")
+
+        @validate_http(
+            body=UserModel,
+            query=QueryModel,
+            path=PathModel,
+            headers=HeaderModel,
+            adapter=adapter,
+        )
+        def handler(
+            req: HttpRequest,
+            body: UserModel,
+            query: QueryModel,
+            path: PathModel,
+            headers: HeaderModel,
+        ) -> dict[str, str]:
+            return {"message": "ok"}
+
+        request = mock_request_factory(
+            body=b'{"name": "Robin", "age": 26}',
+            params={"limit": "10", "offset": "0"},
+            route_params={"user_id": "42"},
+            headers={"authorization": "Bearer token123", "user_agent": "Mozilla"},
+        )
+        response = handler(request)
+
+        assert response.status_code == 200
+        adapter.parse_body.assert_called_once_with(request, UserModel)
+        adapter.parse_query.assert_called_once_with(request, QueryModel)
+        adapter.parse_path.assert_called_once_with(request, PathModel)
+        adapter.parse_headers.assert_called_once_with(request, HeaderModel)
 
 
 # Test validation errors
