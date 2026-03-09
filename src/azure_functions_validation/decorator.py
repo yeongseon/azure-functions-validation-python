@@ -76,6 +76,23 @@ def validate_http(
                 f"as its first positional argument"
             )
 
+        # Guard against first positional parameter name conflicting with injected parameter names.
+        # If the request param shares a name with an injected input (body/query/path/headers/req_model),
+        # the wrapper would call func(http_request, body=parsed_body) causing TypeError at runtime.
+        _injected: dict[str, Any] = {
+            "body": body,
+            "query": query,
+            "path": path,
+            "headers": headers,
+            "req_model": request_model,
+        }
+        if request_param_name in _injected and _injected[request_param_name] is not None:
+            raise ValueError(
+                f"Function {func.__name__}: first positional parameter '{request_param_name}' "
+                f"conflicts with a @validate_http injected parameter of the same name. "
+                f"Rename it (e.g. to 'req' or 'http_request')."
+            )
+
         def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
             # Extract HttpRequest from args
             http_request = None

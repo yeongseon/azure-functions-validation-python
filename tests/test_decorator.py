@@ -315,6 +315,71 @@ class TestConfigurationErrors:
             def handler(*, request: HttpRequest) -> HttpResponse:
                 return HttpResponse("ok")
 
+    def test_request_param_name_conflicts_with_body_injection(self) -> None:
+        """Test ValueError when the first positional param is named 'body' and body= is set."""
+
+        with pytest.raises(
+            ValueError,
+            match="conflicts with a @validate_http injected parameter of the same name",
+        ):
+
+            @validate_http(body=UserModel)
+            def handler(body: HttpRequest, user: UserModel) -> HttpResponse:
+                return HttpResponse("ok")
+
+    def test_request_param_name_conflicts_with_query_injection(self) -> None:
+        """Test ValueError when the first positional param is named 'query' and query= is set."""
+
+        with pytest.raises(
+            ValueError,
+            match="conflicts with a @validate_http injected parameter of the same name",
+        ):
+
+            @validate_http(query=QueryModel)
+            def handler(query: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
+
+    def test_request_param_name_conflicts_with_path_injection(self) -> None:
+        """Test ValueError when the first positional param is named 'path' and path= is set."""
+
+        with pytest.raises(
+            ValueError,
+            match="conflicts with a @validate_http injected parameter of the same name",
+        ):
+
+            @validate_http(path=PathModel)
+            def handler(path: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
+
+    def test_request_param_name_conflicts_with_headers_injection(self) -> None:
+        """Test ValueError when the first positional param is named 'headers' and headers= is set."""
+
+        with pytest.raises(
+            ValueError,
+            match="conflicts with a @validate_http injected parameter of the same name",
+        ):
+
+            @validate_http(headers=HeaderModel)
+            def handler(headers: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
+
+    def test_request_param_named_body_without_injection_is_allowed(self) -> None:
+        """No error when param is named 'body' but no body= is configured."""
+
+        # Should not raise – body injection is not enabled
+        @validate_http()
+        def handler(body: HttpRequest) -> HttpResponse:
+            return HttpResponse("ok")
+
+    def test_safe_request_param_names_are_allowed(self) -> None:
+        """Standard param names like 'req' / 'request' / 'http_request' must not raise."""
+
+        for name in ("req", "request", "http_request"):
+
+            @validate_http(body=UserModel)
+            def handler(req: HttpRequest, body: UserModel) -> HttpResponse:  # noqa: F811
+                return HttpResponse("ok")
+
     @pytest.mark.skip("Async handler support requires further investigation")
     def test_async_handler(self, mock_request_factory: RequestFactory) -> None:
         """Test async handler support."""
