@@ -8,7 +8,6 @@ from pydantic import BaseModel
 def contract_test(
     request_model: Optional[Type[BaseModel]] = None,
     response_model: Optional[Type[BaseModel]] = None,
-    allow_extra: bool = False,
 ) -> Callable[[Callable[..., Any]], Callable[..., Dict[str, Any]]]:
 
     """Decorator for testing contract compliance of Azure Function handlers.
@@ -16,7 +15,6 @@ def contract_test(
     Args:
         request_model: Optional Pydantic model for request validation
         response_model: Optional Pydantic model for response validation
-        allow_extra: If True, allow extra fields in validation
 
     Returns:
         Decorated function that validates inputs/outputs and returns validation result dict
@@ -109,14 +107,21 @@ def verify_contracts(
 ) -> Dict[str, Any]:
     """Verify that a function conforms to its contract models.
 
+    This function is designed for **plain (undecorated) handlers** that accept
+    keyword arguments directly.  It calls ``function(**test_data)``, so it is
+    **not compatible** with ``@validate_http``-decorated functions (which expect
+    an ``HttpRequest`` as their first positional argument).  Use it to validate
+    the business-logic layer independently of the HTTP transport.
+
     Args:
-        function: Function to test
-        test_data: Test data for function
-        request_model: Optional Pydantic model for request
-        response_model: Optional Pydantic model for response
+        function: Plain handler function to test (must accept **kwargs)
+        test_data: Keyword arguments forwarded to *function*
+        request_model: Optional Pydantic model for validating dict values in *test_data*
+        response_model: Optional Pydantic model for validating *function*'s return value
 
     Returns:
-        Dict with validation results
+        Dict with validation results including 'success', 'request_valid',
+        'response_valid', and optionally 'response_data' or 'error'
     """
     from pydantic import ValidationError as PydanticValidationError
 
