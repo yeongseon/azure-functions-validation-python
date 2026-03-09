@@ -47,3 +47,22 @@ This project does not aim to:
 - Validation semantics must be covered by regression tests.
 - Error payload changes are user-facing behavior changes.
 - Experimental APIs must be clearly labeled in code and docs.
+
+## Immediate Improvement Areas
+
+The near-term design work should focus on the following:
+
+- separate sync and async execution paths cleanly
+- loosen handler signature assumptions without hiding request resolution errors
+- parse request inputs once per request path and reuse validated values
+- keep documentation and examples aligned with the runtime contract
+
+## OpenAPI Pairing
+
+The package should stay small and independent, but it is intentionally designed to pair well with `azure-functions-openapi`.
+
+That means:
+
+- response and request model conventions should stay compatible
+- validation error behavior should be easy to document
+- examples should show both standalone validation and OpenAPI-aligned usage
