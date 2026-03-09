@@ -114,79 +114,75 @@ def validate_http(
             return http_request
 
         def parse_inputs(http_request: Any) -> dict[str, Any] | HttpResponse:
-            try:
-                # Parse and validate request inputs
-                parsed_inputs: dict[str, Any] = {}
+            # Parse and validate request inputs
+            parsed_inputs: dict[str, Any] = {}
 
-                # Parse body
-                if body is not None:
-                    try:
-                        parsed_body = adapter.parse_body(http_request, body)
+            # Parse body
+            if body is not None:
+                try:
+                    parsed_body = adapter.parse_body(http_request, body)
 
-                        # Check if handler expects the 'body' parameter
-                        if "body" in func_params:
-                            parsed_inputs["body"] = parsed_body
-                        elif "req_model" in func_params and request_model is not None:
-                            # Handle request_model shorthand parameter name
-                            parsed_inputs["req_model"] = parsed_body
-                        else:
-                            # Try to find parameter name that matches
-                            for param_name in func_params:
-                                if param_name not in [request_param_name, "http_request"]:
-                                    parsed_inputs[param_name] = parsed_body
-                                    break
+                    # Check if handler expects the 'body' parameter
+                    if "body" in func_params:
+                        parsed_inputs["body"] = parsed_body
+                    elif "req_model" in func_params and request_model is not None:
+                        # Handle request_model shorthand parameter name
+                        parsed_inputs["req_model"] = parsed_body
+                    else:
+                        # Try to find parameter name that matches
+                        for param_name in func_params:
+                            if param_name not in [request_param_name, "http_request"]:
+                                parsed_inputs[param_name] = parsed_body
+                                break
 
-                    except Exception as e:
-                        from pydantic import ValidationError as PydanticValidationError
+                except Exception as e:
+                    from pydantic import ValidationError as PydanticValidationError
 
-                        if isinstance(e, PydanticValidationError):
-                            return format_error_response(e, 422)
-                        elif isinstance(e, ValueError):
-                            return format_error_response(e, 400)
-                        else:
-                            return format_error_response(e, 422)
-
-                # Parse query parameters
-                if query is not None:
-                    try:
-                        # Always validate query parameters, even if function doesn't use them
-                        parsed_query = adapter.parse_query(http_request, query)
-                        # If function expects query parameter, pass it
-                        if "query" in func_params:
-                            parsed_inputs["query"] = parsed_query
-                    except Exception as e:
+                    if isinstance(e, PydanticValidationError):
+                        return format_error_response(e, 422)
+                    elif isinstance(e, ValueError):
+                        return format_error_response(e, 400)
+                    else:
                         return format_error_response(e, 422)
 
-                # Parse path parameters
-                if path is not None:
-                    try:
-                        # Always validate path parameters, even if function doesn't use them
-                        parsed_path = adapter.parse_path(http_request, path)
-                        # If function expects path parameter, pass it
-                        if "path" in func_params:
-                            parsed_inputs["path"] = parsed_path
-                    except Exception as e:
-                        return format_error_response(e, 422)
+            # Parse query parameters
+            if query is not None:
+                try:
+                    # Always validate query parameters, even if function doesn't use them
+                    parsed_query = adapter.parse_query(http_request, query)
+                    # If function expects query parameter, pass it
+                    if "query" in func_params:
+                        parsed_inputs["query"] = parsed_query
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                # Parse headers
-                if headers is not None:
-                    try:
-                        # Always validate headers, even if function doesn't use them
-                        parsed_headers = adapter.parse_headers(http_request, headers)
-                        # If function expects headers parameter, pass it
-                        if "headers" in func_params:
-                            parsed_inputs["headers"] = parsed_headers
-                    except Exception as e:
-                        return format_error_response(e, 422)
+            # Parse path parameters
+            if path is not None:
+                try:
+                    # Always validate path parameters, even if function doesn't use them
+                    parsed_path = adapter.parse_path(http_request, path)
+                    # If function expects path parameter, pass it
+                    if "path" in func_params:
+                        parsed_inputs["path"] = parsed_path
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                # Add original HttpRequest if requested
-                if "http_request" in func_params and request_param_name != "http_request":
-                    parsed_inputs["http_request"] = http_request
+            # Parse headers
+            if headers is not None:
+                try:
+                    # Always validate headers, even if function doesn't use them
+                    parsed_headers = adapter.parse_headers(http_request, headers)
+                    # If function expects headers parameter, pass it
+                    if "headers" in func_params:
+                        parsed_inputs["headers"] = parsed_headers
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                return parsed_inputs
+            # Add original HttpRequest if requested
+            if "http_request" in func_params and request_param_name != "http_request":
+                parsed_inputs["http_request"] = http_request
 
-            except Exception:
-                raise
+            return parsed_inputs
 
         def build_response(result: Any) -> HttpResponse:
             # Handle HttpResponse bypass
