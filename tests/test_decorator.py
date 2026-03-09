@@ -1,5 +1,6 @@
 """Tests for the @validate_http decorator."""
 
+import asyncio
 import json
 from typing import Callable, Dict, Optional, TypeAlias
 from unittest.mock import Mock
@@ -423,20 +424,29 @@ class TestConfigurationErrors:
             def handler(req: HttpRequest, body: UserModel) -> HttpResponse:  # noqa: F811
                 return HttpResponse("ok")
 
-    @pytest.mark.skip("Async handler support requires further investigation")
-    def test_async_handler(self, mock_request_factory: RequestFactory) -> None:
-        """Test async handler support."""
+    @pytest.mark.anyio
+    async def test_async_handler(
+        self,
+        mock_request_factory: RequestFactory,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Test async handler support without asyncio.run inside the decorator."""
 
-        import asyncio
+        def fail_asyncio_run(*args: object, **kwargs: object) -> object:
+            raise AssertionError("validate_http should not call asyncio.run() internally")
+
+        monkeypatch.setattr(asyncio, "run", fail_asyncio_run)
 
         @validate_http(body=UserModel)
         async def async_handler(req: HttpRequest, body: UserModel) -> ResponseModel:
             return ResponseModel(message=f"Hello, {body.name}")
 
         request = mock_request_factory(body=b'{"name": "Lucas", "age": 32}')
-        response = asyncio.run(async_handler(request))
+        response = await async_handler(request)
 
         assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Lucas"
 
     def test_httprequest_injectable(self, mock_request_factory: RequestFactory) -> None:
         """Test that original HttpRequest can be accessed."""

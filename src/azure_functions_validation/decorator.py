@@ -1,5 +1,6 @@
 """Core decorator for HTTP request/response validation."""
 
+from functools import wraps
 import inspect
 import json
 from typing import Any, Callable, Optional
@@ -93,7 +94,7 @@ def validate_http(
                 f"Rename it (e.g. to 'req' or 'http_request')."
             )
 
-        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+        def resolve_http_request(args: tuple[Any, ...]) -> Any:
             # Extract HttpRequest from args
             http_request = None
             for arg in args:
@@ -110,123 +111,139 @@ def validate_http(
             if http_request is None:
                 raise ValueError("Function must receive an HttpRequest-like object as argument")
 
-            try:
-                # Parse and validate request inputs
-                parsed_inputs = {}
+            return http_request
 
-                # Parse body
-                if body is not None:
-                    try:
-                        parsed_body = adapter.parse_body(http_request, body)
+        def parse_inputs(http_request: Any) -> dict[str, Any] | HttpResponse:
+            # Parse and validate request inputs
+            parsed_inputs: dict[str, Any] = {}
 
-                        # Check if handler expects the 'body' parameter
-                        if "body" in func_params:
-                            parsed_inputs["body"] = parsed_body
-                        elif "req_model" in func_params and request_model is not None:
-                            # Handle request_model shorthand parameter name
-                            parsed_inputs["req_model"] = parsed_body
-                        else:
-                            # Try to find parameter name that matches
-                            for param_name in func_params:
-                                if param_name not in [request_param_name, "http_request"]:
-                                    parsed_inputs[param_name] = parsed_body
-                                    break
+            # Parse body
+            if body is not None:
+                try:
+                    parsed_body = adapter.parse_body(http_request, body)
 
-                    except Exception as e:
-                        from pydantic import ValidationError as PydanticValidationError
+                    # Check if handler expects the 'body' parameter
+                    if "body" in func_params:
+                        parsed_inputs["body"] = parsed_body
+                    elif "req_model" in func_params and request_model is not None:
+                        # Handle request_model shorthand parameter name
+                        parsed_inputs["req_model"] = parsed_body
+                    else:
+                        # Try to find parameter name that matches
+                        for param_name in func_params:
+                            if param_name not in [request_param_name, "http_request"]:
+                                parsed_inputs[param_name] = parsed_body
+                                break
 
-                        if isinstance(e, PydanticValidationError):
-                            return format_error_response(e, 422)
-                        elif isinstance(e, ValueError):
-                            return format_error_response(e, 400)
-                        else:
-                            return format_error_response(e, 422)
+                except Exception as e:
+                    from pydantic import ValidationError as PydanticValidationError
 
-                # Parse query parameters
-                if query is not None:
-                    try:
-                        # Always validate query parameters, even if function doesn't use them
-                        parsed_query = adapter.parse_query(http_request, query)
-                        # If function expects query parameter, pass it
-                        if "query" in func_params:
-                            parsed_inputs["query"] = parsed_query
-                    except Exception as e:
+                    if isinstance(e, PydanticValidationError):
+                        return format_error_response(e, 422)
+                    elif isinstance(e, ValueError):
+                        return format_error_response(e, 400)
+                    else:
                         return format_error_response(e, 422)
 
-                # Parse path parameters
-                if path is not None:
-                    try:
-                        # Always validate path parameters, even if function doesn't use them
-                        parsed_path = adapter.parse_path(http_request, path)
-                        # If function expects path parameter, pass it
-                        if "path" in func_params:
-                            parsed_inputs["path"] = parsed_path
-                    except Exception as e:
-                        return format_error_response(e, 422)
+            # Parse query parameters
+            if query is not None:
+                try:
+                    # Always validate query parameters, even if function doesn't use them
+                    parsed_query = adapter.parse_query(http_request, query)
+                    # If function expects query parameter, pass it
+                    if "query" in func_params:
+                        parsed_inputs["query"] = parsed_query
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                # Parse headers
-                if headers is not None:
-                    try:
-                        # Always validate headers, even if function doesn't use them
-                        parsed_headers = adapter.parse_headers(http_request, headers)
-                        # If function expects headers parameter, pass it
-                        if "headers" in func_params:
-                            parsed_inputs["headers"] = parsed_headers
-                    except Exception as e:
-                        return format_error_response(e, 422)
+            # Parse path parameters
+            if path is not None:
+                try:
+                    # Always validate path parameters, even if function doesn't use them
+                    parsed_path = adapter.parse_path(http_request, path)
+                    # If function expects path parameter, pass it
+                    if "path" in func_params:
+                        parsed_inputs["path"] = parsed_path
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                # Add original HttpRequest if requested
-                if "http_request" in func_params and request_param_name != "http_request":
-                    parsed_inputs["http_request"] = http_request
+            # Parse headers
+            if headers is not None:
+                try:
+                    # Always validate headers, even if function doesn't use them
+                    parsed_headers = adapter.parse_headers(http_request, headers)
+                    # If function expects headers parameter, pass it
+                    if "headers" in func_params:
+                        parsed_inputs["headers"] = parsed_headers
+                except Exception as e:
+                    return format_error_response(e, 422)
 
-                # Call the function
-                if is_async:
-                    import asyncio
+            # Add original HttpRequest if requested
+            if "http_request" in func_params and request_param_name != "http_request":
+                parsed_inputs["http_request"] = http_request
 
-                    result = asyncio.run(func(http_request, **parsed_inputs))
-                else:
-                    result = func(http_request, **parsed_inputs)
+            return parsed_inputs
 
-                # Handle HttpResponse bypass
-                if isinstance(result, HttpResponse):
-                    return result
+        def build_response(result: Any) -> HttpResponse:
+            # Handle HttpResponse bypass
+            if isinstance(result, HttpResponse):
+                return result
 
-                # Validate and serialize response
-                if response_model is not None:
-                    try:
-                        validated_result = adapter.validate_response(result, response_model)
-                        content, content_type = adapter.serialize(validated_result)
-                        return HttpResponse(
-                            body=content, status_code=200, headers={"Content-Type": content_type}
-                        )
-                    except Exception as e:
-                        if error_formatter is not None:
-                            error_response = error_formatter(e, 500)
-                        else:
-                            error_response = {
-                                "detail": [
-                                    {
-                                        "loc": ["response"],
-                                        "msg": "Response validation error",
-                                        "type": "response_validation_error",
-                                    }
-                                ]
-                            }
-                        return HttpResponse(
-                            body=json.dumps(error_response),
-                            status_code=500,
-                            headers={"Content-Type": "application/json"},
-                        )
-                else:
-                    # No response model, serialize directly
-                    content, content_type = adapter.serialize(result)
+            # Validate and serialize response
+            if response_model is not None:
+                try:
+                    validated_result = adapter.validate_response(result, response_model)
+                    content, content_type = adapter.serialize(validated_result)
                     return HttpResponse(
                         body=content, status_code=200, headers={"Content-Type": content_type}
                     )
+                except Exception as e:
+                    if error_formatter is not None:
+                        error_response = error_formatter(e, 500)
+                    else:
+                        error_response = {
+                            "detail": [
+                                {
+                                    "loc": ["response"],
+                                    "msg": "Response validation error",
+                                    "type": "response_validation_error",
+                                }
+                            ]
+                        }
+                    return HttpResponse(
+                        body=json.dumps(error_response),
+                        status_code=500,
+                        headers={"Content-Type": "application/json"},
+                    )
 
-            except Exception:
-                raise
+            # No response model, serialize directly
+            content, content_type = adapter.serialize(result)
+            return HttpResponse(
+                body=content,
+                status_code=200,
+                headers={"Content-Type": content_type},
+            )
 
-        return wrapper
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+            http_request = resolve_http_request(args)
+            parsed_inputs = parse_inputs(http_request)
+            if isinstance(parsed_inputs, HttpResponse):
+                return parsed_inputs
+
+            result = func(http_request, **parsed_inputs)
+            return build_response(result)
+
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
+            http_request = resolve_http_request(args)
+            parsed_inputs = parse_inputs(http_request)
+            if isinstance(parsed_inputs, HttpResponse):
+                return parsed_inputs
+
+            result = await func(http_request, **parsed_inputs)
+            return build_response(result)
+
+        return async_wrapper if is_async else wrapper
 
     return decorator
