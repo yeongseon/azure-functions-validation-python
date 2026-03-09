@@ -229,7 +229,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
         assert any(
-            error["type"] in ["string_too_short", "too_small", "number_too_large", "too_large"]
+            error["type"] in ["string_too_short", "too_small", "too_large"]
             for error in data["detail"]
         )
 

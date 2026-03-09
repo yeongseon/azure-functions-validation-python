@@ -219,27 +219,37 @@ class TestValidateResponse:
 
 
 class TestRequestParsing:
-    def test_parse_query_handles_list_values(self, adapter: PydanticAdapter) -> None:
+    def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
+        """Azure Functions params dict returns scalar values."""
+
+        class ScalarQueryModel(BaseModel):
+            tag: str
+
         class Request:
-            params = {"tag": ["primary"], "tags": ["a", "b"]}
+            params = {"tag": "primary"}
 
         request = Request()
 
-        result = adapter.parse_query(cast(Any, request), QueryModel)
+        result = adapter.parse_query(cast(Any, request), ScalarQueryModel)
 
         assert result.tag == "primary"
-        assert result.tags == ["a", "b"]
 
-    def test_parse_headers_handles_list_values(self, adapter: PydanticAdapter) -> None:
+    def test_parse_headers_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
+        """Azure Functions headers dict returns scalar values."""
+
+        class ScalarHeaderModel(BaseModel):
+            model_config = ConfigDict(populate_by_name=True)
+
+            request_id: str = Field(alias="X-Request-Id")
+
         class Request:
-            headers = {"X-Request-Id": ["req-1"], "X-Values": ["a", "b"]}
+            headers = {"X-Request-Id": "req-1"}
 
         request = Request()
 
-        result = adapter.parse_headers(cast(Any, request), HeaderModel)
+        result = adapter.parse_headers(cast(Any, request), ScalarHeaderModel)
 
         assert result.request_id == "req-1"
-        assert result.values == ["a", "b"]
 
     def test_parse_path_uses_route_params(self, adapter: PydanticAdapter) -> None:
         class PathModel(BaseModel):
@@ -365,12 +375,12 @@ class TestErrorTypeMapping:
 
     def test_number_types(self, adapter: PydanticAdapter) -> None:
         """Test mapping number validation types."""
-        assert adapter._map_error_type("greater_than") == "number_too_large"
-        assert adapter._map_error_type("greater_than_equal") == "number_too_large"
-        assert adapter._map_error_type("too_large") == "number_too_large"
-        assert adapter._map_error_type("less_than") == "number_too_small"
-        assert adapter._map_error_type("less_than_equal") == "number_too_small"
-        assert adapter._map_error_type("too_small") == "number_too_small"
+        assert adapter._map_error_type("greater_than") == "too_large"
+        assert adapter._map_error_type("greater_than_equal") == "too_large"
+        assert adapter._map_error_type("too_large") == "too_large"
+        assert adapter._map_error_type("less_than") == "too_small"
+        assert adapter._map_error_type("less_than_equal") == "too_small"
+        assert adapter._map_error_type("too_small") == "too_small"
 
     def test_type_error_pattern(self, adapter: PydanticAdapter) -> None:
         """Test mapping type_error.* patterns."""

@@ -72,12 +72,12 @@ class ValidationAdapter(Protocol):
         """
         ...
 
-    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
+    def validate_response(self, obj: Any, model: Any) -> Any:
         """Validate response object against model.
 
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
-            model: Pydantic model class to validate against
+            model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
 
         Returns:
             Validated model instance
@@ -188,10 +188,7 @@ class PydanticAdapter:
         # Convert MultiDict to regular dict
         query_data = {}
         for key, value in query_params.items():
-            if isinstance(value, list):
-                query_data[key] = value[0] if len(value) == 1 else value
-            else:
-                query_data[key] = value
+            query_data[key] = value
 
         # Validate with Pydantic
         return model.model_validate(query_data)
@@ -234,20 +231,17 @@ class PydanticAdapter:
         # Convert to regular dict and handle multi-value headers
         header_data = {}
         for key, value in headers.items():
-            if isinstance(value, list):
-                header_data[key] = value[0] if len(value) == 1 else value
-            else:
-                header_data[key] = value
+            header_data[key] = value
 
         # Validate with Pydantic
         return model.model_validate(header_data)
 
-    def validate_response(self, obj: Any, model: type[BaseModel]) -> Any:
+    def validate_response(self, obj: Any, model: Any) -> Any:
         """Validate response object against model.
 
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
-            model: Pydantic model class to validate against
+            model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
 
         Returns:
             Validated model instance
@@ -369,9 +363,9 @@ class PydanticAdapter:
         elif pydantic_type == "string_too_long":
             return "string_too_long"
         elif pydantic_type in ("greater_than", "greater_than_equal", "too_large"):
-            return "number_too_large"
+            return "too_large"
         elif pydantic_type in ("less_than", "less_than_equal", "too_small"):
-            return "number_too_small"
+            return "too_small"
         # Pattern-based mappings
         elif pydantic_type.startswith("type_error"):
             return "invalid_type"

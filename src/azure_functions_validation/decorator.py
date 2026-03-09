@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
+from .exceptions import ResponseValidationError
 from .registry import GlobalErrorHandlerRegistry
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
@@ -129,9 +130,17 @@ def validate_http(
                         # Handle request_model shorthand parameter name
                         parsed_inputs["req_model"] = parsed_body
                     else:
-                        # Try to find parameter name that matches
+                        # Try to find a parameter that is not the request, not http_request,
+                        # and not a name used by another configured validation source
+                        reserved_names = {request_param_name, "http_request"}
+                        if query is not None:
+                            reserved_names.add("query")
+                        if path is not None:
+                            reserved_names.add("path")
+                        if headers is not None:
+                            reserved_names.add("headers")
                         for param_name in func_params:
-                            if param_name not in [request_param_name, "http_request"]:
+                            if param_name not in reserved_names:
                                 parsed_inputs[param_name] = parsed_body
                                 break
 
@@ -198,14 +207,21 @@ def validate_http(
                         body=content, status_code=200, headers={"Content-Type": content_type}
                     )
                 except Exception as e:
+                    response_error = ResponseValidationError(
+                        f"Response validation failed: {e}"
+                    )
+                    # Check global error handler first
+                    global_handler = GlobalErrorHandlerRegistry.get_handler(response_error)
+                    if global_handler is not None:
+                        return global_handler(response_error)
                     if error_formatter is not None:
-                        error_response = error_formatter(e, 500)
+                        error_response = error_formatter(response_error, 500)
                     else:
                         error_response = {
                             "detail": [
                                 {
                                     "loc": ["response"],
-                                    "msg": "Response validation error",
+                                    "msg": str(response_error),
                                     "type": "response_validation_error",
                                 }
                             ]
@@ -231,7 +247,7 @@ def validate_http(
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            result = func(http_request, **parsed_inputs)
+            result = func(http_request, **parsed_inputs, **kwargs)
             return build_response(result)
 
         @wraps(func)
@@ -241,7 +257,7 @@ def validate_http(
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            result = await func(http_request, **parsed_inputs)
+            result = await func(http_request, **parsed_inputs, **kwargs)
             return build_response(result)
 
         return async_wrapper if is_async else wrapper
