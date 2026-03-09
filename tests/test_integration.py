@@ -1,14 +1,17 @@
 import json
-import os
-import sys
 from typing import Any, Dict, Optional
 
 import pytest
 
-# Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_test_app"))
-
+import azure.functions as func
+from function_app import (
+    create_comment,
+    create_post,
+    create_user,
+    create_user_async,
+    create_user_direct_response,
+    update_user,
+)
 import azure.functions as func
 from function_app import (
     create_comment,

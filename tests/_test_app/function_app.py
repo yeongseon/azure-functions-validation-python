@@ -1,15 +1,10 @@
 import json
-import os
-
-# Import the validation decorator
-import sys
 from typing import List, Optional
 
 import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-
+from azure_functions_validation import validate_http
 from azure_functions_validation import validate_http
 
 
@@ -71,16 +66,14 @@ class PostResponse(BaseModel):
 
 # --- Azure Functions ---
 @validate_http(body=UserModel, response_model=UserResponse)
-def create_user(req: func.HttpRequest) -> func.HttpResponse:
+def create_user(req: func.HttpRequest, body: UserModel) -> func.HttpResponse:
     """Create a new user"""
-    user_data = req.get_json()
-
     # Simulate user creation
     response_data = {
         "id": 1,
-        "name": user_data["name"],
-        "email": user_data["email"],
-        "age": user_data.get("age"),
+        "name": body.name,
+        "email": body.email,
+        "age": body.age,
     }
 
     return func.HttpResponse(
@@ -89,17 +82,15 @@ def create_user(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @validate_http(body=PostModel, query=SearchQuery, response_model=PostResponse)
-def create_post(req: func.HttpRequest) -> func.HttpResponse:
+def create_post(req: func.HttpRequest, body: PostModel) -> func.HttpResponse:
     """Create a new post with query validation"""
-    post_data = req.get_json()
-
     # Simulate post creation
     response_data = {
         "id": 1,
-        "title": post_data["title"],
-        "content": post_data["content"],
-        "tags": post_data["tags"],
-        "is_published": post_data["is_published"],
+        "title": body.title,
+        "content": body.content,
+        "tags": body.tags,
+        "is_published": body.is_published,
         "created_at": "2023-01-01T00:00:00Z",
     }
 
@@ -148,20 +139,18 @@ def update_user(
 
 
 @validate_http(body=UserModel, response_model=UserResponse)
-async def create_user_async(req: func.HttpRequest) -> func.HttpResponse:
+async def create_user_async(req: func.HttpRequest, body: UserModel) -> func.HttpResponse:
     """Async version of create user"""
     import asyncio
 
     await asyncio.sleep(0.01)  # Simulate async work
 
-    user_data = req.get_json()
-
     # Simulate user creation
     response_data = {
         "id": 1,
-        "name": user_data["name"],
-        "email": user_data["email"],
-        "age": user_data.get("age"),
+        "name": body.name,
+        "email": body.email,
+        "age": body.age,
     }
 
     return func.HttpResponse(
@@ -170,12 +159,10 @@ async def create_user_async(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @validate_http(body=UserModel)
-def create_user_direct_response(req: func.HttpRequest) -> func.HttpResponse:
+def create_user_direct_response(req: func.HttpRequest, body: UserModel) -> func.HttpResponse:
     """Function that returns HttpResponse directly"""
-    user_data = req.get_json()
-
     return func.HttpResponse(
-        json.dumps({"message": f"User {user_data['name']} created successfully", "user_id": 1}),
+        json.dumps({"message": f"User {body.name} created successfully", "user_id": 1}),
         status_code=201,
         mimetype="application/json",
     )
