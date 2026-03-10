@@ -22,6 +22,8 @@ nav:
   - Examples:
       - Basic Validation: examples/basic_validation.md
       - Query/Path/Header: examples/query_validation.md
+      - Async Validation: examples/async_validation.md
+      - OpenAPI-Aligned Validation: examples/openapi_aligned_validation.md
   - Troubleshooting: troubleshooting.md
   - Security: security.md
   - Changelog: changelog.md

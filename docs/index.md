@@ -46,3 +46,4 @@ See the Usage guide for more patterns.
 - Representative: `examples/hello_validation`
 - Complex: `examples/profile_validation`
 - Focused: `examples/async_validation`
+- Focused: `examples/openapi_aligned_validation`
