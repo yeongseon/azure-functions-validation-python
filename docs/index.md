@@ -45,3 +45,4 @@ See the Usage guide for more patterns.
 
 - Representative: `examples/hello_validation`
 - Complex: `examples/profile_validation`
+- Focused: `examples/async_validation`

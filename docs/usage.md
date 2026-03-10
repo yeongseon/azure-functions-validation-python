@@ -88,6 +88,39 @@ def handler(req):
     return {"ok": True}
 ```
 
+## Async Handlers
+
+`validate_http` also supports `async def` handlers in the Azure Functions Python v2 programming model.
+
+```python
+import asyncio
+import azure.functions as func
+from pydantic import BaseModel
+
+from azure_functions_validation import validate_http
+
+
+class AsyncGreetingRequest(BaseModel):
+    name: str
+
+
+class AsyncGreetingResponse(BaseModel):
+    message: str
+
+
+app = func.FunctionApp()
+
+
+@app.function_name(name="async_greeting")
+@app.route(route="async_greeting", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(body=AsyncGreetingRequest, response_model=AsyncGreetingResponse)
+async def async_greeting(
+    req: func.HttpRequest, body: AsyncGreetingRequest
+) -> AsyncGreetingResponse:
+    await asyncio.sleep(0)
+    return AsyncGreetingResponse(message=f"Hello {body.name}")
+```
+
 ## Global Error Handler
 
 ```python

@@ -1,3 +1,4 @@
+import asyncio
 from importlib.util import module_from_spec, spec_from_file_location
 import json
 from pathlib import Path
@@ -139,3 +140,34 @@ def test_openapi_aligned_example_exposes_validation_helpers() -> None:
 
     assert "detail" in function_app.OPENAPI_422_SCHEMA["properties"]
     assert function_app.OPENAPI_422_EXAMPLES
+
+
+def test_async_validation_example_returns_typed_response() -> None:
+    function_app = _load_example_module("async_validation")
+    request = func.HttpRequest(
+        method="POST",
+        url="/api/async_validation",
+        body=json.dumps({"name": "Azure"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = asyncio.run(function_app.async_validation(request))
+
+    assert response.status_code == 200
+    assert json.loads(response.get_body()) == {"message": "Hello Azure", "source": "async"}
+
+
+def test_async_validation_example_returns_validation_error() -> None:
+    function_app = _load_example_module("async_validation")
+    request = func.HttpRequest(
+        method="POST",
+        url="/api/async_validation",
+        body=json.dumps({}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = asyncio.run(function_app.async_validation(request))
+
+    assert response.status_code == 422
+    payload = json.loads(response.get_body())
+    assert "detail" in payload
