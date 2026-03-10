@@ -259,7 +259,12 @@ def validate_http(
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            merged_kwargs = {**parsed_inputs, **kwargs}
+            # Remove the HttpRequest argument from kwargs to avoid duplicate values
+            # when calling func() with the validated inputs.
+            filtered_kwargs = {
+                k: v for k, v in kwargs.items() if k not in parsed_inputs
+            }
+            merged_kwargs = {**filtered_kwargs, **parsed_inputs}
             if args:
                 result = func(*args, **merged_kwargs)
             else:
@@ -273,7 +278,12 @@ def validate_http(
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            merged_kwargs = {**parsed_inputs, **kwargs}
+            # Remove the HttpRequest argument from kwargs to avoid duplicate values
+            # when calling func() with the validated inputs.
+            filtered_kwargs = {
+                k: v for k, v in kwargs.items() if k not in parsed_inputs
+            }
+            merged_kwargs = {**filtered_kwargs, **parsed_inputs}
             if args:
                 result = await func(*args, **merged_kwargs)
             else:
