@@ -9,3 +9,6 @@
 | Focused | `examples/async_validation` | Async handler validation with typed request and response models. |
 | Focused | `examples/custom_error_handler` | Custom validation error formatting for HTTP handlers. |
 | Focused | `examples/openapi_aligned_validation` | Validation helpers prepared for OpenAPI-aligned error documentation. |
+
+Focused examples are intentionally smaller than the representative and complex examples.
+They exist to keep one advanced pattern easy to inspect and easy to smoke-test.
