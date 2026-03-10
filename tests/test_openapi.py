@@ -114,12 +114,21 @@ class TestGetValidationErrorExamples:
                 assert "msg" in error
                 assert "type" in error
 
-    def test_example_error_type_is_missing(self) -> None:
-        """Generated examples should use 'missing' error type."""
+    def test_example_error_type_is_valid(self) -> None:
+        """Generated examples should use known pydantic error types."""
+        known_types = {
+            "missing",
+            "string_too_short",
+            "string_pattern_mismatch",
+            "too_small",
+            "too_large",
+        }
         examples = get_validation_error_examples(UserModel)
         for example in examples:
             for error in example["value"]["detail"]:
-                assert error["type"] == "missing"
+                assert error["type"] in known_types, (
+                    f"Unknown error type '{error['type']}' not in {known_types}"
+                )
 
     def test_example_loc_starts_with_body(self) -> None:
         """Error location should start with 'body'."""

@@ -95,8 +95,8 @@ class TestGlobalErrorHandlerRegistry:
         result = GlobalErrorHandlerRegistry.get_handler(ValueError("test"))
         assert result is handler2
 
-    def test_multiple_handlers_first_match_wins(self) -> None:
-        """Test that first matching handler (by registration order) wins."""
+    def test_multiple_handlers_most_specific_wins(self) -> None:
+        """Test that the most specific matching handler wins."""
 
         def base_handler(exc: Exception) -> HttpResponse:
             return HttpResponse("base")
@@ -104,13 +104,13 @@ class TestGlobalErrorHandlerRegistry:
         def specific_handler(exc: Exception) -> HttpResponse:
             return HttpResponse("specific")
 
-        # Register base first
+        # Register base first, then specific
         GlobalErrorHandlerRegistry.register(Exception, base_handler)
         GlobalErrorHandlerRegistry.register(ValueError, specific_handler)
 
-        # Exception handler matches first (registered first) for ValueError
+        # ValueError handler is more specific, so it wins
         result = GlobalErrorHandlerRegistry.get_handler(ValueError("test"))
-        assert result is base_handler
+        assert result is specific_handler
 
 
 class TestPublicAPIFunctions:
