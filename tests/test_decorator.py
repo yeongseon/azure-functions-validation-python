@@ -29,6 +29,13 @@ class ResponseModel(BaseModel):
     status: str = "success"
 
 
+class ItemResponseModel(BaseModel):
+    """Test model for list response validation."""
+
+    id: int
+    name: str
+
+
 class QueryModel(BaseModel):
     """Test model for query parameters."""
 
@@ -195,6 +202,26 @@ class TestSuccessfulValidation:
         response = handler(request)
 
         assert response.status_code == 200
+
+    def test_list_response_model_validation(self, mock_request_factory: RequestFactory) -> None:
+        """Test list response validation with a generic response model."""
+
+        @validate_http(response_model=list[ItemResponseModel])
+        def handler(req: HttpRequest) -> list[dict[str, object]]:
+            return [
+                {"id": 1, "name": "Alice"},
+                {"id": 2, "name": "Bob"},
+            ]
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == [
+            {"id": 1, "name": "Alice"},
+            {"id": 2, "name": "Bob"},
+        ]
 
     def test_request_inputs_are_parsed_once(self, mock_request_factory: RequestFactory) -> None:
         """Test that configured request inputs are parsed only once."""
