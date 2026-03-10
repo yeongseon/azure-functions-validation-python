@@ -2,11 +2,11 @@
 
 ## Overview
 
-`azure-functions-validation` provides typed request parsing, validation, and response validation for
-the Azure Functions Python v2 programming model.
+`azure-functions-validation` is a **decorator-first request-and-response validation layer**
+for the Azure Functions Python v2 programming model.
 
-It is intended for decorator-based `func.FunctionApp()` HTTP handlers that want a lightweight,
-Functions-native validation layer without introducing a full web framework.
+It targets HTTP-triggered `func.FunctionApp()` handlers that want typed parsing, structured
+error responses, and response contract checking — without pulling in a full web framework.
 
 ## Problem Statement
 
@@ -28,16 +28,66 @@ This creates duplication, uneven error handling, and drift between intended and 
 
 ## Non-Goals
 
-- Building a full web framework
-- Replacing Azure Functions routing or hosting behavior
-- Owning OpenAPI generation
-- Supporting the legacy `function.json`-based Python v1 model
+1. Building a full web framework.
+2. Replacing Azure Functions routing or hosting behavior.
+3. Owning OpenAPI specification generation (model reuse is allowed; schema generation is not).
+4. Supporting the legacy `function.json`-based Python v1 model.
+5. Providing global mutable state such as error-handler registries.
+6. Owning contract-testing utilities — that responsibility belongs to test tooling.
 
 ## Primary Users
 
 - Azure Functions Python API developers
 - Teams that want consistent input and output contracts
 - Users pairing this package with `azure-functions-openapi`
+
+## Validation Pipeline
+
+A decorated handler runs through the following stages:
+
+```
+HttpRequest
+  │
+  ├─ 1. Resolve HttpRequest from args/kwargs
+  ├─ 2. Parse & validate body   (→ 400 on bad JSON, 422 on schema violation)
+  ├─ 3. Parse & validate query  (→ 422)
+  ├─ 4. Parse & validate path   (→ 422)
+  ├─ 5. Parse & validate headers(→ 422)
+  ├─ 6. Call handler with typed inputs
+  └─ 7. Validate & serialize response (→ 500 on contract violation)
+```
+
+## Error Model
+
+All validation errors use a **stable** `{"detail": [...]}` envelope:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "email"],
+      "msg": "value is not a valid email address",
+      "type": "value_error.email"
+    }
+  ]
+}
+```
+
+| HTTP status | Trigger |
+|---|---|
+| 400 | Malformed JSON body |
+| 422 | Schema validation failure (body, query, path, headers) |
+| 500 | Response model contract violation |
+
+This format is intentionally compatible with FastAPI / Pydantic conventions.
+
+## Compatibility
+
+| Dependency | Supported versions |
+|---|---|
+| Python | ≥ 3.10 |
+| azure-functions | ≥ 1.17 |
+| Pydantic | ≥ 2.0 |
 
 ## Core Use Cases
 
@@ -51,46 +101,16 @@ This creates duplication, uneven error handling, and drift between intended and 
 - Representative examples pass smoke tests in CI
 - Validation error payloads remain stable across releases
 - Runtime validation behavior stays aligned with tests and documentation
+- `make check-all` is the minimum merge gate
 
-## Next Priorities
+## Ecosystem
 
-The next iteration of the project should focus on making `azure-functions-validation`
-the primary runtime contract source for request validation, response validation,
-and validation error metadata.
+`azure-functions-validation` is one piece of a planned companion stack:
 
-### Priority 1
+| Package | Responsibility |
+|---|---|
+| **azure-functions-validation** | Runtime request/response validation, error formatting |
+| **azure-functions-openapi** *(planned)* | OpenAPI spec generation from Pydantic models |
 
-- Keep runtime request and response validation behavior stable and well-tested
-- Treat validation metadata as the source of truth for downstream documentation
-- Make error formatting and 422 metadata predictable enough for reuse
-
-### Priority 2
-
-- Expand examples for standalone validation and async handler usage
-- Strengthen the OpenAPI-aligned contract story without moving spec ownership here
-- Document the validation metadata surface more explicitly
-
-## Alignment Notes
-
-This package should remain independently useful, but its design should stay friendly to `azure-functions-openapi` in scenarios where users want both runtime validation and contract documentation.
-
-## Contract-Source Direction
-
-`azure-functions-validation` should own the runtime contract for:
-
-- validated request body, query, path, and header inputs
-- validated and serialized responses
-- validation error payload shape
-- reusable metadata derived from request and response models
-
-That metadata can then be consumed by documentation-oriented tooling such as
-`azure-functions-openapi`, but OpenAPI document generation itself remains out of scope.
-
-## Near-Term Product Work
-
-The next implementation steps should focus on four areas:
-
-1. Formalize a small validation metadata surface for request, response, and 422 error data.
-2. Keep OpenAPI helper functions aligned with the runtime validation contract.
-3. Expand smoke-tested examples so async and OpenAPI-aligned usage stay trustworthy.
-4. Tighten docs around what the package owns versus what companion packages own.
+Model reuse across the two packages is expected; schema generation is **not**
+a responsibility of the validation package.
