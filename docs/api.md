@@ -1,10 +1,27 @@
 # API Reference
 
+## Public API
+
+The package exports three symbols from `azure_functions_validation`:
+
+```python
+from azure_functions_validation import (
+    validate_http,
+    ErrorFormatter,
+    ResponseValidationError,
+)
+```
+
+---
+
 ## Decorator
 
 ### `validate_http(...)`
 
 Main decorator for request/response validation on Azure Functions HTTP handlers.
+
+Defined in `decorator.py`. Creates a `PipelineConfig` and delegates request-time
+processing to the validation pipeline (`pipeline.py`).
 
 **Parameters**
 
@@ -37,6 +54,8 @@ Main decorator for request/response validation on Azure Functions HTTP handlers.
 
 ## Error Handling
 
+Defined in `errors.py`.
+
 ### `ResponseValidationError`
 
 Raised when response validation fails. Produces an HTTP 500 response with the same
@@ -56,6 +75,30 @@ def custom_formatter(exc: Exception, status_code: int) -> dict:
 def handler(req, body):
     ...
 ```
+
+### `format_error_response(...)`
+
+Internal helper that builds an `HttpResponse` from an exception and status code.
+Not part of the public API — used by the pipeline to construct error responses.
+
+---
+
+## Internal Modules
+
+### `pipeline.py`
+
+Contains the request-parsing and response-building engine:
+
+- `PipelineConfig` — frozen dataclass holding per-handler validation config
+- `run_pipeline()` — synchronous pipeline entry point
+- `run_pipeline_async()` — asynchronous pipeline entry point
+
+These are internal and not exported from the package.
+
+### `adapter.py`
+
+Contains the `ValidationAdapter` protocol and `PydanticAdapter` implementation.
+Handles model parsing, serialization, and error formatting against Pydantic v2.
 
 ---
 

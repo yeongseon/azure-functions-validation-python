@@ -50,11 +50,11 @@ This project does not aim to:
 
 ## Immediate Improvement Areas
 
-The near-term design work should focus on the following:
+The v0.5.0 pipeline separation addressed the core structural concerns:
 
-- separate sync and async execution paths cleanly
-- loosen handler signature assumptions without hiding request resolution errors
-- parse request inputs once per request path and reuse validated values
+- ~~separate sync and async execution paths cleanly~~ → done (`run_pipeline` / `run_pipeline_async` in `pipeline.py`)
+- ~~parse request inputs once per request path and reuse validated values~~ → done (`PipelineConfig` frozen dataclass)
+- ~~loosen handler signature assumptions without hiding request resolution errors~~ → done (explicit `_find_request_param` in `decorator.py`)
 - keep documentation and examples aligned with the runtime contract
 
 ## OpenAPI Pairing
@@ -97,6 +97,6 @@ contract logic across multiple packages.
 ## Next Design Tasks
 
 - define a minimal public metadata surface for validated request, response, and 422 error contracts
-- make the existing OpenAPI helper module reflect that metadata surface more directly
 - keep examples and smoke tests aligned with both standalone and OpenAPI-paired usage
 - document which parts of the metadata surface are intended to stay stable
+- evaluate whether `PipelineConfig` fields should be exposed for tooling consumers
