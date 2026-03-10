@@ -32,7 +32,12 @@ def _build_422_error_schema() -> dict[str, Any]:
                     "properties": {
                         "loc": {
                             "type": "array",
-                            "items": {"type": "string"},
+                            "items": {
+                                "oneOf": [
+                                    {"type": "string"},
+                                    {"type": "integer"},
+                                ]
+                            },
                             "description": "Location of error",
                         },
                         "msg": {
@@ -49,8 +54,10 @@ def _build_422_error_schema() -> dict[str, Any]:
         },
     }
 
-
-def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
+def _build_422_error_examples(
+    request_model: Any,
+    source: str = "body",
+) -> list[dict[str, Any]]:
     examples: list[dict[str, Any]] = []
     schema = get_contract_schema(request_model)
 
@@ -65,7 +72,7 @@ def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
                     "value": {
                         "detail": [
                             {
-                                "loc": ["body", field_name],
+                                "loc": [source, field_name],
                                 "msg": "Field required",
                                 "type": "missing",
                             }
@@ -82,7 +89,7 @@ def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
                         "value": {
                             "detail": [
                                 {
-                                    "loc": ["body", field_name],
+                                    "loc": [source, field_name],
                                     "msg": (
                                         "String should have at least "
                                         f"{field_schema['minLength']} character(s)"
@@ -100,7 +107,7 @@ def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
                         "value": {
                             "detail": [
                                 {
-                                    "loc": ["body", field_name],
+                                    "loc": [source, field_name],
                                     "msg": (
                                         "String should match pattern "
                                         f"'{field_schema['pattern']}'"
@@ -120,7 +127,7 @@ def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
                         "value": {
                             "detail": [
                                 {
-                                    "loc": ["body", field_name],
+                                    "loc": [source, field_name],
                                     "msg": "Value is too small",
                                     "type": "too_small",
                                 }
@@ -135,7 +142,7 @@ def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
                         "value": {
                             "detail": [
                                 {
-                                    "loc": ["body", field_name],
+                                    "loc": [source, field_name],
                                     "msg": "Value is too large",
                                     "type": "too_large",
                                 }
@@ -188,16 +195,49 @@ def get_response_contract_metadata(response_model: Any | None) -> dict[str, Any]
     }
 
 
-def get_validation_error_contract(request_model: Any | None) -> dict[str, Any] | None:
-    """Describe the standardized 422 validation error contract."""
-    if request_model is None:
+def get_validation_error_contract(
+    request_model: Any | None = None,
+    *,
+    body: Any | None = None,
+    query: Any | None = None,
+    path: Any | None = None,
+    headers: Any | None = None,
+) -> dict[str, Any] | None:
+    """Describe the standardized 422 validation error contract.
+
+    Accepts either a positional ``request_model`` (treated as body) or
+    keyword-only ``body``, ``query``, ``path``, and ``headers`` sources.
+    Returns ``None`` only when no sources are provided.
+    """
+    # Backward compat: positional arg treated as body
+    if request_model is not None:
+        if body is not None:
+            raise ValueError("Cannot use request_model together with body")
+        body = request_model
+
+    sources: list[tuple[str, Any]] = [
+        (name, model)
+        for name, model in (
+            ("body", body),
+            ("query", query),
+            ("path", path),
+            ("headers", headers),
+        )
+        if model is not None
+    ]
+
+    if not sources:
         return None
+
+    examples: list[dict[str, Any]] = []
+    for source_name, source_model in sources:
+        examples.extend(_build_422_error_examples(source_model, source=source_name))
 
     return {
         "status_code": 422,
         "type": "validation_error",
         "schema": _build_422_error_schema(),
-        "examples": _build_422_error_examples(request_model),
+        "examples": examples,
     }
 
 
@@ -224,6 +264,11 @@ def describe_validation_contract(
         "request": request_metadata,
         "response": get_response_contract_metadata(response_model),
         "errors": {
-            "validation": get_validation_error_contract(request_body),
+            "validation": get_validation_error_contract(
+                request_body,
+                query=query,
+                path=path,
+                headers=headers,
+            ),
         },
     }

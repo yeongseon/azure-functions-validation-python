@@ -10,7 +10,7 @@ from .metadata import (
     get_response_contract_metadata,
     get_validation_error_contract,
 )
-from .openapi import generate_422_error_schema, get_validation_error_examples
+from .openapi import generate_422_error_schema, get_openapi_response_metadata, get_validation_error_examples
 from .registry import clear_global_error_handlers, register_global_error_handler
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     "describe_validation_contract",
     "generate_422_error_schema",
     "get_validation_error_examples",
+    "get_openapi_response_metadata",
     "contract_test",
     "verify_contracts",
 ]
