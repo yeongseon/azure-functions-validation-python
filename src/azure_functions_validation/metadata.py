@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from .openapi import generate_422_error_schema, get_validation_error_examples
-
 
 def _type_name(contract_type: Any) -> str:
     origin = typing.get_origin(contract_type)
@@ -21,6 +19,132 @@ def _type_name(contract_type: Any) -> str:
 def get_contract_schema(contract_type: Any) -> dict[str, Any]:
     """Return a JSON schema for a validated request or response type."""
     return TypeAdapter(contract_type).json_schema()
+
+
+def _build_422_error_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "detail": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "loc": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Location of error",
+                        },
+                        "msg": {
+                            "type": "string",
+                            "description": "Error message",
+                        },
+                        "type": {
+                            "type": "string",
+                            "description": "Error type identifier",
+                        },
+                    },
+                },
+            }
+        },
+    }
+
+
+def _build_422_error_examples(request_model: Any) -> list[dict[str, Any]]:
+    examples: list[dict[str, Any]] = []
+    schema = get_contract_schema(request_model)
+
+    properties = schema.get("properties", {})
+    required_fields = set(schema.get("required", []))
+
+    for field_name, field_schema in properties.items():
+        if field_name in required_fields:
+            examples.append(
+                {
+                    "summary": f"Missing required field: {field_name}",
+                    "value": {
+                        "detail": [
+                            {
+                                "loc": ["body", field_name],
+                                "msg": "Field required",
+                                "type": "missing",
+                            }
+                        ]
+                    },
+                }
+            )
+
+        if field_schema.get("type") == "string":
+            if "minLength" in field_schema:
+                examples.append(
+                    {
+                        "summary": f"String too short: {field_name}",
+                        "value": {
+                            "detail": [
+                                {
+                                    "loc": ["body", field_name],
+                                    "msg": (
+                                        "String should have at least "
+                                        f"{field_schema['minLength']} character(s)"
+                                    ),
+                                    "type": "string_too_short",
+                                }
+                            ]
+                        },
+                    }
+                )
+            if "pattern" in field_schema:
+                examples.append(
+                    {
+                        "summary": f"Pattern mismatch: {field_name}",
+                        "value": {
+                            "detail": [
+                                {
+                                    "loc": ["body", field_name],
+                                    "msg": (
+                                        "String should match pattern "
+                                        f"'{field_schema['pattern']}'"
+                                    ),
+                                    "type": "string_pattern_mismatch",
+                                }
+                            ]
+                        },
+                    }
+                )
+
+        if field_schema.get("type") in {"integer", "number"}:
+            if "minimum" in field_schema or "exclusiveMinimum" in field_schema:
+                examples.append(
+                    {
+                        "summary": f"Value too small: {field_name}",
+                        "value": {
+                            "detail": [
+                                {
+                                    "loc": ["body", field_name],
+                                    "msg": "Value is too small",
+                                    "type": "too_small",
+                                }
+                            ]
+                        },
+                    }
+                )
+            if "maximum" in field_schema or "exclusiveMaximum" in field_schema:
+                examples.append(
+                    {
+                        "summary": f"Value too large: {field_name}",
+                        "value": {
+                            "detail": [
+                                {
+                                    "loc": ["body", field_name],
+                                    "msg": "Value is too large",
+                                    "type": "too_large",
+                                }
+                            ]
+                        },
+                    }
+                )
+
+    return examples
 
 
 def get_request_contract_metadata(
@@ -72,8 +196,8 @@ def get_validation_error_contract(request_model: Any | None) -> dict[str, Any] |
     return {
         "status_code": 422,
         "type": "validation_error",
-        "schema": generate_422_error_schema(request_model),
-        "examples": get_validation_error_examples(request_model),
+        "schema": _build_422_error_schema(),
+        "examples": _build_422_error_examples(request_model),
     }
 
 

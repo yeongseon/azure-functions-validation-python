@@ -2,14 +2,19 @@
 
 ## Decorator
 
-- `@validate_http(request_model, response_model, ...)`
+### `validate_http(...)`
 
-## Error Handling
+Main decorator for request/response validation.
 
-- `ResponseValidationError`
-- `ErrorFormatter`
-
-## Global Error Handler
+**Parameters**
+- `body`: Pydantic model class for request body validation
+- `query`: Pydantic model class for query parameter validation
+- `path`: Pydantic model class for path parameter validation
+- `headers`: Pydantic model class for header validation
+- `request_model`: Shorthand for body model (alias for `body`)
+- `response_model`: Pydantic model class for response validation
+- `error_formatter`: Custom error formatter function
+- `adapter`: Custom validation adapter instance
 
 ## Functions
 
