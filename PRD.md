@@ -54,19 +54,43 @@ This creates duplication, uneven error handling, and drift between intended and 
 
 ## Next Priorities
 
-The next iteration of the project should focus on closing the gap between runtime ergonomics and documentation quality.
+The next iteration of the project should focus on making `azure-functions-validation`
+the primary runtime contract source for request validation, response validation,
+and validation error metadata.
 
 ### Priority 1
 
-- Redesign async handler support without relying on `asyncio.run()`
-- Relax handler signature constraints for `HttpRequest` resolution
-- Parse request inputs once and reuse validated values
+- Keep runtime request and response validation behavior stable and well-tested
+- Treat validation metadata as the source of truth for downstream documentation
+- Make error formatting and 422 metadata predictable enough for reuse
 
 ### Priority 2
 
-- Strengthen README messaging around Azure Functions validation pain points
-- Expand examples for validation-only and OpenAPI-aligned scenarios
+- Expand examples for standalone validation and async handler usage
+- Strengthen the OpenAPI-aligned contract story without moving spec ownership here
+- Document the validation metadata surface more explicitly
 
 ## Alignment Notes
 
 This package should remain independently useful, but its design should stay friendly to `azure-functions-openapi` in scenarios where users want both runtime validation and contract documentation.
+
+## Contract-Source Direction
+
+`azure-functions-validation` should own the runtime contract for:
+
+- validated request body, query, path, and header inputs
+- validated and serialized responses
+- validation error payload shape
+- reusable metadata derived from request and response models
+
+That metadata can then be consumed by documentation-oriented tooling such as
+`azure-functions-openapi`, but OpenAPI document generation itself remains out of scope.
+
+## Near-Term Product Work
+
+The next implementation steps should focus on four areas:
+
+1. Formalize a small validation metadata surface for request, response, and 422 error data.
+2. Keep OpenAPI helper functions aligned with the runtime validation contract.
+3. Expand smoke-tested examples so async and OpenAPI-aligned usage stay trustworthy.
+4. Tighten docs around what the package owns versus what companion packages own.

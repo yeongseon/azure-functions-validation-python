@@ -66,3 +66,37 @@ That means:
 - response and request model conventions should stay compatible
 - validation error behavior should be easy to document
 - examples should show both standalone validation and OpenAPI-aligned usage
+
+## Contract Metadata Boundary
+
+This repository should own runtime-facing validation metadata.
+
+That includes:
+
+- which request models are validated
+- which response models are validated
+- what validation error payload shape is produced
+- what reusable schema-like metadata can be exposed from those contracts
+
+This repository should not own:
+
+- OpenAPI path generation
+- OpenAPI operation assembly
+- Swagger UI rendering
+
+## Desired Direction
+
+The design target is:
+
+- `azure-functions-validation` as the source of truth for validation contracts
+- `azure-functions-openapi` as the consumer that renders those contracts into OpenAPI documents
+
+This keeps runtime semantics in one place and avoids splitting request and error
+contract logic across multiple packages.
+
+## Next Design Tasks
+
+- define a minimal public metadata surface for validated request, response, and 422 error contracts
+- make the existing OpenAPI helper module reflect that metadata surface more directly
+- keep examples and smoke tests aligned with both standalone and OpenAPI-paired usage
+- document which parts of the metadata surface are intended to stay stable
