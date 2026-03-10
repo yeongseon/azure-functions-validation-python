@@ -367,10 +367,10 @@ class PydanticAdapter:
             return "string_too_short"
         elif pydantic_type == "string_too_long":
             return "string_too_long"
-        elif pydantic_type in ("greater_than", "greater_than_equal", "too_large"):
-            return "too_large"
-        elif pydantic_type in ("less_than", "less_than_equal", "too_small"):
+        elif pydantic_type in ("greater_than", "greater_than_equal", "too_small"):
             return "too_small"
+        elif pydantic_type in ("less_than", "less_than_equal", "too_large"):
+            return "too_large"
         # Pattern-based mappings
         elif pydantic_type.startswith("type_error"):
             return "invalid_type"
