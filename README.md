@@ -87,26 +87,8 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 - Typed body, query, path, and header validation
 - Standardized 400 and 422 validation responses
 - Response model validation and serialization
-- Contract-testing utilities for handlers
-- Optional custom and global validation error handlers
+- Custom per-handler error formatting
 - Clean pairing with `azure-functions-openapi` when you want both runtime validation and API documentation
-
-## Demo
-
-The demo below shows the two core outcomes of `validate_http` on the representative example:
-
-- a valid request becomes a typed JSON response
-- an invalid request becomes a structured `422` validation error
-
-The terminal demo is generated from [`demo/validation-demo.tape`](demo/validation-demo.tape)
-with VHS.
-
-![Validation demo](docs/assets/validation-demo.gif)
-
-The final terminal state is also captured as a static image for quick inspection.
-
-![Validation final output](docs/assets/validation-demo-final.png)
-
 ## Documentation
 
 - Project docs live under `docs/`

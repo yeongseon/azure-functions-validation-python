@@ -9,7 +9,6 @@ from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .exceptions import ResponseValidationError
-from .registry import GlobalErrorHandlerRegistry
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 
@@ -39,9 +38,6 @@ def validate_http(
         if error_formatter is not None:
             error_response = error_formatter(exception, status_code)
         else:
-            global_handler = GlobalErrorHandlerRegistry.get_handler(exception)
-            if global_handler is not None:
-                return global_handler(exception)
             error_response = adapter.format_error(exception)
 
         return HttpResponse(
@@ -222,10 +218,6 @@ def validate_http(
                     )
                 except Exception as e:
                     response_error = ResponseValidationError(f"Response validation failed: {e}")
-                    # Check global error handler first
-                    global_handler = GlobalErrorHandlerRegistry.get_handler(response_error)
-                    if global_handler is not None:
-                        return global_handler(response_error)
                     if error_formatter is not None:
                         error_response = error_formatter(response_error, 500)
                     else:

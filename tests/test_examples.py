@@ -120,28 +120,6 @@ def test_custom_error_handler_example_returns_custom_error_shape() -> None:
     assert json.loads(response.get_body())["error"]["code"] == "VALIDATION_422"
 
 
-def test_openapi_aligned_example_returns_typed_response() -> None:
-    function_app = _load_example_module("openapi_aligned_validation")
-    request = func.HttpRequest(
-        method="POST",
-        url="/api/widgets",
-        body=json.dumps({"name": "Widget"}).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-
-    response = function_app.create_widget(request)
-
-    assert response.status_code == 200
-    assert json.loads(response.get_body()) == {"id": 1, "name": "Widget"}
-
-
-def test_openapi_aligned_example_exposes_validation_helpers() -> None:
-    function_app = _load_example_module("openapi_aligned_validation")
-
-    assert "detail" in function_app.OPENAPI_422_SCHEMA["properties"]
-    assert function_app.OPENAPI_422_EXAMPLES
-
-
 def test_async_validation_example_returns_typed_response() -> None:
     function_app = _load_example_module("async_validation")
     request = func.HttpRequest(
