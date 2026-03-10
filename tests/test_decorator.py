@@ -108,6 +108,36 @@ class TestSuccessfulValidation:
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Jordan"
 
+    def test_request_can_be_passed_by_keyword(self, mock_request_factory: RequestFactory) -> None:
+        """Test that the primary request parameter can be passed via kwargs."""
+
+        @validate_http(body=UserModel)
+        def handler(request: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Taylor", "age": 29}')
+        response = handler(request=request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Taylor"
+
+    def test_http_request_alias_can_be_passed_by_keyword(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Test that the http_request alias can be passed via kwargs."""
+
+        @validate_http(body=UserModel)
+        def handler(http_request: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Jordan", "age": 31}')
+        response = handler(http_request=request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Jordan"
+
     def test_basic_body_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test basic body validation."""
 

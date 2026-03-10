@@ -95,24 +95,38 @@ def validate_http(
                 f"Rename it (e.g. to 'req' or 'http_request')."
             )
 
-        def resolve_http_request(args: tuple[Any, ...]) -> Any:
-            # Extract HttpRequest from args
-            http_request = None
+        def is_http_request_like(candidate: Any) -> bool:
+            return (
+                hasattr(candidate, "method")
+                and hasattr(candidate, "url")
+                and hasattr(candidate, "get_body")
+                and hasattr(candidate, "headers")
+            )
+
+        def resolve_http_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+            # Extract HttpRequest from positional args first
             for arg in args:
-                # Check for HttpRequest or duck typing
-                if (
-                    hasattr(arg, "method")
-                    and hasattr(arg, "url")
-                    and hasattr(arg, "get_body")
-                    and hasattr(arg, "headers")
-                ):
-                    http_request = arg
-                    break
+                if is_http_request_like(arg):
+                    return arg
 
-            if http_request is None:
-                raise ValueError("Function must receive an HttpRequest-like object as argument")
+            # Prefer the declared request parameter name when invoked with kwargs
+            if request_param_name is not None and is_http_request_like(
+                kwargs.get(request_param_name)
+            ):
+                return kwargs[request_param_name]
 
-            return http_request
+            # Support the explicit http_request alias too
+            if request_param_name != "http_request" and is_http_request_like(
+                kwargs.get("http_request")
+            ):
+                return kwargs["http_request"]
+
+            # Fall back to any HttpRequest-like keyword value
+            for value in kwargs.values():
+                if is_http_request_like(value):
+                    return value
+
+            raise ValueError("Function must receive an HttpRequest-like object as argument")
 
         def parse_inputs(http_request: Any) -> dict[str, Any] | HttpResponse:
             # Parse and validate request inputs
@@ -240,22 +254,30 @@ def validate_http(
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
-            http_request = resolve_http_request(args)
+            http_request = resolve_http_request(args, kwargs)
             parsed_inputs = parse_inputs(http_request)
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            result = func(http_request, **parsed_inputs, **kwargs)
+            merged_kwargs = {**parsed_inputs, **kwargs}
+            if args:
+                result = func(*args, **merged_kwargs)
+            else:
+                result = func(**merged_kwargs)
             return build_response(result)
 
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
-            http_request = resolve_http_request(args)
+            http_request = resolve_http_request(args, kwargs)
             parsed_inputs = parse_inputs(http_request)
             if isinstance(parsed_inputs, HttpResponse):
                 return parsed_inputs
 
-            result = await func(http_request, **parsed_inputs, **kwargs)
+            merged_kwargs = {**parsed_inputs, **kwargs}
+            if args:
+                result = await func(*args, **merged_kwargs)
+            else:
+                result = await func(**merged_kwargs)
             return build_response(result)
 
         return async_wrapper if is_async else wrapper
