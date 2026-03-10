@@ -255,7 +255,7 @@ class PydanticAdapter:
 
         if model_origin is list:
             if not isinstance(obj, list):
-                raise TypeError(f"Expected list, dict, or list, got {type(obj).__name__}")
+                raise TypeError(f"Expected list, got {type(obj).__name__}")
 
             if model_args:
                 item_model = model_args[0]
@@ -296,11 +296,13 @@ class PydanticAdapter:
             content = obj.model_dump_json()
             content_type = "application/json"
         elif isinstance(obj, (dict, list)):
-            # Serialize dict/list to JSON
-            content = json.dumps(
-                obj,
-                default=lambda value: value.model_dump() if isinstance(value, BaseModel) else value,
-            )
+            # Serialize dict/list to JSON, handling nested BaseModel instances
+            def _default_serializer(value: Any) -> Any:
+                if isinstance(value, BaseModel):
+                    return value.model_dump(mode="json")
+                raise TypeError(f"Cannot serialize type {type(value).__name__}")
+
+            content = json.dumps(obj, default=_default_serializer)
             content_type = "application/json"
         elif isinstance(obj, str):
             # Plain text
