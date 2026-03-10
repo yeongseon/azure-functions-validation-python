@@ -1,26 +1,16 @@
 import json
 from typing import Any, Dict, Optional
 
+import azure.functions as func
+from function_app import (
+    create_comment,
+    create_post,
+    create_user,
+    create_user_async,
+    create_user_direct_response,
+    update_user,
+)
 import pytest
-
-import azure.functions as func
-from function_app import (
-    create_comment,
-    create_post,
-    create_user,
-    create_user_async,
-    create_user_direct_response,
-    update_user,
-)
-import azure.functions as func
-from function_app import (
-    create_comment,
-    create_post,
-    create_user,
-    create_user_async,
-    create_user_direct_response,
-    update_user,
-)
 
 
 class MockHttpRequest:

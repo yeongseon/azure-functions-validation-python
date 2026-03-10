@@ -92,7 +92,10 @@ def get_validation_error_examples(request_model: Type[BaseModel]) -> List[Dict[s
                             "detail": [
                                 {
                                     "loc": ["body", field_name],
-                                    "msg": f"String should have at least {field_schema['minLength']} character(s)",
+                                    "msg": (
+                                        "String should have at least "
+                                        f"{field_schema['minLength']} character(s)"
+                                    ),
                                     "type": "string_too_short",
                                 }
                             ]
@@ -107,7 +110,10 @@ def get_validation_error_examples(request_model: Type[BaseModel]) -> List[Dict[s
                             "detail": [
                                 {
                                     "loc": ["body", field_name],
-                                    "msg": f"String should match pattern '{field_schema['pattern']}'",
+                                    "msg": (
+                                        "String should match pattern "
+                                        f"'{field_schema['pattern']}'"
+                                    ),
                                     "type": "string_pattern_mismatch",
                                 }
                             ]
