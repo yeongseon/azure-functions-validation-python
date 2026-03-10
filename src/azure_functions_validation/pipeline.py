@@ -1,0 +1,267 @@
+"""Validation pipeline engine.
+
+This module contains the request-parsing and response-building logic that was
+previously inlined inside the ``validate_http`` decorator closure.  Extracting
+it into standalone functions makes the pipeline independently testable and
+keeps ``decorator.py`` focused on configuration and wiring.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import json
+from typing import Any, Callable, Mapping, Optional
+
+from azure.functions import HttpResponse
+
+from .adapter import PydanticAdapter, ValidationAdapter
+from .errors import ErrorFormatter, ResponseValidationError, format_error_response
+
+
+@dataclass(frozen=True)
+class PipelineConfig:
+    """Internal configuration for the validation pipeline.
+
+    Created once by the ``validate_http`` decorator and reused on every
+    invocation.  All fields are immutable after construction.
+    """
+
+    body: Any = None
+    query: Any = None
+    path: Any = None
+    headers: Any = None
+    request_model: Any = None
+    response_model: Any = None
+    adapter: ValidationAdapter = field(default_factory=PydanticAdapter)
+    error_formatter: Optional[ErrorFormatter] = None
+    func_params: Mapping[str, Any] = field(default_factory=dict)
+    request_param_name: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
+
+
+def run_pipeline(
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    config: PipelineConfig,
+) -> HttpResponse:
+    """Execute the sync validation pipeline."""
+    http_request = _resolve_http_request(args, kwargs, config)
+    parsed = _parse_inputs(http_request, config)
+    if isinstance(parsed, HttpResponse):
+        return parsed
+    merged = _merge_kwargs(args, kwargs, parsed)
+    if args:
+        result = func(*args, **merged)
+    else:
+        result = func(**merged)
+    return _build_response(result, config)
+
+
+async def run_pipeline_async(
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    config: PipelineConfig,
+) -> HttpResponse:
+    """Execute the async validation pipeline."""
+    http_request = _resolve_http_request(args, kwargs, config)
+    parsed = _parse_inputs(http_request, config)
+    if isinstance(parsed, HttpResponse):
+        return parsed
+    merged = _merge_kwargs(args, kwargs, parsed)
+    if args:
+        result = await func(*args, **merged)
+    else:
+        result = await func(**merged)
+    return _build_response(result, config)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (moved from decorator.py)
+# ---------------------------------------------------------------------------
+
+
+def _is_http_request_like(candidate: Any) -> bool:
+    """Return ``True`` if *candidate* looks like an ``HttpRequest``."""
+    return (
+        hasattr(candidate, "method")
+        and hasattr(candidate, "url")
+        and hasattr(candidate, "get_body")
+        and hasattr(candidate, "headers")
+    )
+
+
+def _resolve_http_request(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    config: PipelineConfig,
+) -> Any:
+    """Find the ``HttpRequest`` from positional or keyword arguments."""
+    # Extract HttpRequest from positional args first
+    for arg in args:
+        if _is_http_request_like(arg):
+            return arg
+
+    # Prefer the declared request parameter name when invoked with kwargs
+    if config.request_param_name is not None and _is_http_request_like(
+        kwargs.get(config.request_param_name)
+    ):
+        return kwargs[config.request_param_name]
+
+    # Support the explicit http_request alias too
+    if config.request_param_name != "http_request" and _is_http_request_like(
+        kwargs.get("http_request")
+    ):
+        return kwargs["http_request"]
+
+    # Fall back to any HttpRequest-like keyword value
+    for value in kwargs.values():
+        if _is_http_request_like(value):
+            return value
+
+    raise ValueError("Function must receive an HttpRequest-like object as argument")
+
+
+def _parse_inputs(
+    http_request: Any,
+    config: PipelineConfig,
+) -> dict[str, Any] | HttpResponse:
+    """Parse and validate all configured request inputs."""
+    parsed_inputs: dict[str, Any] = {}
+
+    # Parse body
+    if config.body is not None:
+        try:
+            parsed_body = config.adapter.parse_body(http_request, config.body)
+
+            # Check if handler expects the 'body' parameter
+            if "body" in config.func_params:
+                parsed_inputs["body"] = parsed_body
+            elif "req_model" in config.func_params and config.request_model is not None:
+                # Handle request_model shorthand parameter name
+                parsed_inputs["req_model"] = parsed_body
+            else:
+                # Try to find a parameter that is not the request, not http_request,
+                # and not a name used by another configured validation source
+                reserved_names = {config.request_param_name, "http_request"}
+                if config.query is not None:
+                    reserved_names.add("query")
+                if config.path is not None:
+                    reserved_names.add("path")
+                if config.headers is not None:
+                    reserved_names.add("headers")
+                for param_name in config.func_params:
+                    if param_name not in reserved_names:
+                        parsed_inputs[param_name] = parsed_body
+                        break
+
+        except Exception as e:
+            from pydantic import ValidationError as PydanticValidationError
+
+            if isinstance(e, PydanticValidationError):
+                return format_error_response(e, 422, config.adapter, config.error_formatter)
+            elif isinstance(e, ValueError):
+                return format_error_response(e, 400, config.adapter, config.error_formatter)
+            else:
+                return format_error_response(e, 422, config.adapter, config.error_formatter)
+
+    # Parse query parameters
+    if config.query is not None:
+        try:
+            # Always validate query parameters, even if function doesn't use them
+            parsed_query = config.adapter.parse_query(http_request, config.query)
+            # If function expects query parameter, pass it
+            if "query" in config.func_params:
+                parsed_inputs["query"] = parsed_query
+        except Exception as e:
+            return format_error_response(e, 422, config.adapter, config.error_formatter)
+
+    # Parse path parameters
+    if config.path is not None:
+        try:
+            # Always validate path parameters, even if function doesn't use them
+            parsed_path = config.adapter.parse_path(http_request, config.path)
+            # If function expects path parameter, pass it
+            if "path" in config.func_params:
+                parsed_inputs["path"] = parsed_path
+        except Exception as e:
+            return format_error_response(e, 422, config.adapter, config.error_formatter)
+
+    # Parse headers
+    if config.headers is not None:
+        try:
+            # Always validate headers, even if function doesn't use them
+            parsed_headers = config.adapter.parse_headers(http_request, config.headers)
+            # If function expects headers parameter, pass it
+            if "headers" in config.func_params:
+                parsed_inputs["headers"] = parsed_headers
+        except Exception as e:
+            return format_error_response(e, 422, config.adapter, config.error_formatter)
+
+    # Add original HttpRequest if requested
+    if "http_request" in config.func_params and config.request_param_name != "http_request":
+        parsed_inputs["http_request"] = http_request
+
+    return parsed_inputs
+
+
+def _merge_kwargs(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    parsed_inputs: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge original kwargs with parsed/validated inputs.
+
+    Removes keys from *kwargs* that would collide with *parsed_inputs* to
+    avoid passing duplicate values to the wrapped function.
+    """
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k not in parsed_inputs}
+    return {**filtered_kwargs, **parsed_inputs}
+
+
+def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
+    """Validate and serialize the handler return value into an ``HttpResponse``."""
+    # Handle HttpResponse bypass
+    if isinstance(result, HttpResponse):
+        return result
+
+    # Validate and serialize response
+    if config.response_model is not None:
+        try:
+            validated_result = config.adapter.validate_response(result, config.response_model)
+            content, content_type = config.adapter.serialize(validated_result)
+            return HttpResponse(
+                body=content, status_code=200, headers={"Content-Type": content_type}
+            )
+        except Exception as e:
+            response_error = ResponseValidationError(f"Response validation failed: {e}")
+            if config.error_formatter is not None:
+                error_response = config.error_formatter(response_error, 500)
+            else:
+                error_response = {
+                    "detail": [
+                        {
+                            "loc": ["response"],
+                            "msg": str(response_error),
+                            "type": "response_validation_error",
+                        }
+                    ]
+                }
+            return HttpResponse(
+                body=json.dumps(error_response),
+                status_code=500,
+                headers={"Content-Type": "application/json"},
+            )
+
+    # No response model, serialize directly
+    content, content_type = config.adapter.serialize(result)
+    return HttpResponse(
+        body=content,
+        status_code=200,
+        headers={"Content-Type": content_type},
+    )

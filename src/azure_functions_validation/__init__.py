@@ -1,7 +1,7 @@
 """azure-functions-validation package."""
 
-from .decorator import ErrorFormatter, validate_http
-from .exceptions import ResponseValidationError
+from .decorator import validate_http
+from .errors import ErrorFormatter, ResponseValidationError
 
 __all__ = [
     "__version__",
@@ -10,4 +10,4 @@ __all__ = [
     "ErrorFormatter",
 ]
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"

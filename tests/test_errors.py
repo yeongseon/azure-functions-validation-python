@@ -1,0 +1,103 @@
+"""Tests for the errors module."""
+
+import json
+from unittest.mock import Mock
+
+from azure.functions import HttpResponse
+
+from azure_functions_validation.errors import (
+    ErrorFormatter,
+    ResponseValidationError,
+    format_error_response,
+)
+
+# ---------------------------------------------------------------------------
+# ResponseValidationError
+# ---------------------------------------------------------------------------
+
+
+class TestResponseValidationError:
+    """Tests for the ResponseValidationError exception class."""
+
+    def test_defaults(self) -> None:
+        error = ResponseValidationError()
+        assert str(error) == "Response validation error"
+        assert error.message == "Response validation error"
+
+    def test_custom_message(self) -> None:
+        error = ResponseValidationError("Custom response error")
+        assert str(error) == "Custom response error"
+        assert error.message == "Custom response error"
+
+    def test_is_exception_subclass(self) -> None:
+        assert issubclass(ResponseValidationError, Exception)
+
+    def test_raisable(self) -> None:
+        import pytest
+
+        with pytest.raises(ResponseValidationError, match="boom"):
+            raise ResponseValidationError("boom")
+
+
+# ---------------------------------------------------------------------------
+# ErrorFormatter type alias
+# ---------------------------------------------------------------------------
+
+
+class TestErrorFormatterType:
+    """ErrorFormatter is a callable type alias and must be importable."""
+
+    def test_importable(self) -> None:
+        assert ErrorFormatter is not None
+
+    def test_usable_as_annotation(self) -> None:
+        def fmt(exc: Exception, code: int) -> dict[str, str]:
+            return {"err": str(exc)}
+
+        result = fmt(ValueError("test"), 422)
+        assert result["err"] == "test"
+
+
+# ---------------------------------------------------------------------------
+# format_error_response
+# ---------------------------------------------------------------------------
+
+
+class TestFormatErrorResponse:
+    """Tests for the format_error_response helper."""
+
+    def test_uses_adapter_when_no_formatter(self) -> None:
+        adapter = Mock()
+        adapter.format_error.return_value = {"detail": [{"msg": "oops"}]}
+
+        exc = ValueError("oops")
+        resp = format_error_response(exc, 422, adapter)
+
+        assert isinstance(resp, HttpResponse)
+        assert resp.status_code == 422
+        data = json.loads(resp.get_body().decode())
+        assert data == {"detail": [{"msg": "oops"}]}
+        adapter.format_error.assert_called_once_with(exc)
+
+    def test_uses_custom_formatter(self) -> None:
+        adapter = Mock()
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            return {"custom": True, "status": status}
+
+        exc = ValueError("err")
+        resp = format_error_response(exc, 400, adapter, error_formatter=fmt)
+
+        assert resp.status_code == 400
+        data = json.loads(resp.get_body().decode())
+        assert data["custom"] is True
+        assert data["status"] == 400
+        # adapter.format_error should NOT be called
+        adapter.format_error.assert_not_called()
+
+    def test_content_type_is_json(self) -> None:
+        adapter = Mock()
+        adapter.format_error.return_value = {"detail": []}
+
+        resp = format_error_response(RuntimeError("x"), 500, adapter)
+        assert resp.headers["Content-Type"] == "application/json"
