@@ -1,5 +1,5 @@
-import pytest
 from pydantic import BaseModel
+import pytest
 
 from azure_functions_validation import (
     describe_validation_contract,
