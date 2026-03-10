@@ -145,6 +145,20 @@ class TestSuccessfulValidation:
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Jordan"
 
+    def test_request_model_shorthand_maps_to_req_model_parameter(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(request_model=UserModel)
+        def handler(req: HttpRequest, req_model: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {req_model.name}")
+
+        request = mock_request_factory(body=b'{"name": "Nova", "age": 20}')
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Nova"
+
     def test_basic_body_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test basic body validation."""
 
@@ -266,6 +280,51 @@ class TestSuccessfulValidation:
         adapter.parse_path.assert_called_once_with(request, PathModel)
         adapter.parse_headers.assert_called_once_with(request, HeaderModel)
 
+    def test_http_request_alias_kwarg_for_non_alias_request_name(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(body=UserModel)
+        def handler(request: HttpRequest, body: UserModel, **kwargs: object) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Sky", "age": 22}')
+        response = handler(request="placeholder", http_request=request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Sky"
+
+    def test_http_request_can_be_resolved_from_any_kwarg_value(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(body=UserModel)
+        def handler(req: object, body: UserModel, **kwargs: object) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Pax", "age": 45}')
+        response = handler(req="placeholder", client=request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Pax"
+
+    def test_body_fallback_parameter_ignores_reserved_names(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(body=UserModel, query=QueryModel)
+        def handler(req: HttpRequest, payload: UserModel, query: QueryModel) -> ResponseModel:
+            return ResponseModel(message=f"{payload.name}:{query.limit}")
+
+        request = mock_request_factory(
+            body=b'{"name": "Rae", "age": 33}',
+            params={"limit": "7", "offset": "0"},
+        )
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Rae:7"
+
 
 # Test validation errors
 class TestValidationErrors:
@@ -349,6 +408,32 @@ class TestValidationErrors:
 
         data = json.loads(response.get_body().decode())
         assert "detail" in data
+
+    def test_missing_http_request_like_argument_raises_value_error(self) -> None:
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        with pytest.raises(ValueError, match="HttpRequest-like object"):
+            handler(req="not-a-request")
+
+    def test_non_value_error_body_parse_returns_422(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        adapter = Mock()
+        adapter.parse_body.side_effect = RuntimeError("adapter exploded")
+        adapter.format_error.return_value = {"detail": [{"msg": "adapter exploded"}]}
+
+        @validate_http(body=UserModel, adapter=adapter)
+        def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(body=b'{"name": "Valid", "age": 30}')
+        response = handler(request)
+
+        assert response.status_code == 422
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "adapter exploded"
 
     def test_all_validation_sources(self, mock_request_factory: RequestFactory) -> None:
         """Test validation of all input sources at once."""
@@ -504,6 +589,21 @@ class TestConfigurationErrors:
         assert response.status_code == 200
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Lucas"
+
+    @pytest.mark.anyio
+    async def test_async_handler_with_kwargs_only(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(body=UserModel)
+        async def async_handler(request: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message=f"Hello, {body.name}")
+
+        request = mock_request_factory(body=b'{"name": "Quinn", "age": 38}')
+        response = await async_handler(request=request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data["message"] == "Hello, Quinn"
 
     def test_httprequest_injectable(self, mock_request_factory: RequestFactory) -> None:
         """Test that original HttpRequest can be accessed."""
@@ -753,6 +853,49 @@ class TestGlobalErrorHandlers:
 
         final_count = len(GlobalErrorHandlerRegistry._handlers)
         assert final_count == 0
+
+    def test_response_validation_error_uses_global_handler(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        from azure_functions_validation import register_global_error_handler
+        from azure_functions_validation.exceptions import ResponseValidationError
+
+        def global_handler(exc: Exception) -> HttpResponse:
+            return HttpResponse(
+                body=json.dumps({"source": "global-response-handler", "message": str(exc)}),
+                status_code=500,
+                headers={"Content-Type": "application/json"},
+            )
+
+        register_global_error_handler(ResponseValidationError, global_handler)
+
+        @validate_http(body=UserModel, response_model=ResponseModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
+            return {"invalid": True}
+
+        request = mock_request_factory(body=b'{"name": "Robin", "age": 26}')
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert data["source"] == "global-response-handler"
+
+
+class TestResponseValidationErrorFallback:
+    def test_default_response_validation_error_formatter(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(body=UserModel, response_model=ResponseModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
+            return {"invalid": True}
+
+        request = mock_request_factory(body=b'{"name": "Remy", "age": 27}')
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["loc"] == ["response"]
+        assert data["detail"][0]["type"] == "response_validation_error"
 
 
 # Test OpenAPI integration utilities

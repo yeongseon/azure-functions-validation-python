@@ -129,6 +129,24 @@ class TestContractTestDecorator:
         assert result["success"] is True
         assert result["request_valid"] is True
 
+    def test_request_model_instance_validation_fails(self) -> None:
+        class Request(BaseModel):
+            name: str
+            age: int
+
+        class PartialBody(BaseModel):
+            name: str
+
+        @contract_test(request_model=Request)
+        def handler(body: Request) -> dict[str, object]:
+            return {"message": "ok"}
+
+        result = handler(body=PartialBody(name="Grace"))
+
+        assert result["success"] is False
+        assert result["request_valid"] is False
+        assert "Request validation failed" in str(result["error"])
+
     def test_response_validation_with_model_instance(self) -> None:
         """Test response validation when handler returns a BaseModel instance."""
 
@@ -146,6 +164,26 @@ class TestContractTestDecorator:
 
         assert result["success"] is True
         assert result["response_valid"] is True
+
+    def test_response_validation_fails_for_basemodel_output(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        class Response(BaseModel):
+            message: str
+
+        class InvalidResponse(BaseModel):
+            nope: str
+
+        @contract_test(request_model=Request, response_model=Response)
+        def handler(body: Request) -> InvalidResponse:
+            return InvalidResponse(nope="bad-shape")
+
+        result = handler(body={"name": "Hana"})
+
+        assert result["success"] is False
+        assert result["response_valid"] is False
+        assert "Response validation failed" in str(result["error"])
 
     def test_response_validation_with_list(self) -> None:
         """Test list response validation against a model."""
@@ -182,6 +220,39 @@ class TestContractTestDecorator:
 
         assert result["success"] is False
         assert result["response_valid"] is False
+
+    def test_response_validation_with_list_skips_non_dict_items(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        class Response(BaseModel):
+            message: str
+
+        class AlreadyModel(BaseModel):
+            message: str
+
+        @contract_test(request_model=Request, response_model=Response)
+        def handler(body: Request) -> list[object]:
+            return [{"message": "ok"}, AlreadyModel(message="also-ok")]
+
+        result = handler(body={"name": "Jin"})
+
+        assert result["success"] is True
+        assert result["response_valid"] is True
+
+    def test_assertion_error_path(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        @contract_test(request_model=Request)
+        def handler(body: Request) -> dict[str, object]:
+            assert body.name == "Expected"
+            return {"message": "ok"}
+
+        result = handler(body={"name": "Wrong"})
+
+        assert result["success"] is False
+        assert "Expected" in str(result["error"])
 
     def test_unexpected_exception_path(self) -> None:
         """Test unexpected exception handling in decorator wrapper."""
@@ -300,6 +371,23 @@ class TestVerifyContracts:
         assert result["success"] is True
         assert result["request_valid"] is True
 
+    def test_verify_request_validation_ignores_non_contract_fields(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        def handler(body: Request, trace_id: str) -> dict[str, object]:
+            return {"message": f"ok:{trace_id}"}
+
+        result = verify_contracts(
+            handler,
+            {"body": {"name": "Mina"}, "trace_id": "abc-123"},
+            request_model=Request,
+        )
+
+        assert result["success"] is True
+        assert result["request_valid"] is True
+        assert result["response_data"] == {"message": "ok:abc-123"}
+
     def test_verify_response_type_mismatch(self) -> None:
         """Test verification when response type is unsupported."""
 
@@ -321,3 +409,36 @@ class TestVerifyContracts:
 
         assert result["success"] is False
         assert result["response_valid"] is False
+
+    def test_verify_contracts_assertion_error(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        def handler(body: dict[str, str]) -> dict[str, object]:
+            assert body["name"] == "Allowed"
+            return {"message": "ok"}
+
+        result = verify_contracts(
+            handler,
+            {"body": {"name": "Blocked"}},
+            request_model=Request,
+        )
+
+        assert result["success"] is False
+        assert "Allowed" in str(result["error"])
+
+    def test_verify_contracts_unexpected_exception(self) -> None:
+        class Request(BaseModel):
+            name: str
+
+        def handler(body: Request) -> dict[str, object]:
+            raise RuntimeError("explode")
+
+        result = verify_contracts(
+            handler,
+            {"body": {"name": "Owen"}},
+            request_model=Request,
+        )
+
+        assert result["success"] is False
+        assert "Unexpected error" in str(result["error"])

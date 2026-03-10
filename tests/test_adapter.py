@@ -217,6 +217,18 @@ class TestValidateResponse:
 
         assert result == payload
 
+    def test_validate_list_type_rejects_non_list_payload(
+        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
+    ) -> None:
+        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
+        monkeypatch.setattr(
+            "azure_functions_validation.adapter.get_args",
+            lambda model: (UserModel,),
+        )
+
+        with pytest.raises(TypeError, match="Expected list, got dict"):
+            adapter.validate_response({"name": "Alice", "age": 30}, UserModel)
+
 
 class TestRequestParsing:
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
@@ -322,6 +334,12 @@ class TestSerialize:
 
         assert "Cannot serialize type" in str(exc_info.value)
 
+    def test_serialize_nested_unsupported_type_raises_type_error(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        with pytest.raises(TypeError, match="Cannot serialize type object"):
+            adapter.serialize({"nested": object()})
+
 
 # Test format_error
 class TestFormatError:
@@ -375,12 +393,12 @@ class TestErrorTypeMapping:
 
     def test_number_types(self, adapter: PydanticAdapter) -> None:
         """Test mapping number validation types."""
-        assert adapter._map_error_type("greater_than") == "too_large"
-        assert adapter._map_error_type("greater_than_equal") == "too_large"
-        assert adapter._map_error_type("too_large") == "too_large"
-        assert adapter._map_error_type("less_than") == "too_small"
-        assert adapter._map_error_type("less_than_equal") == "too_small"
+        assert adapter._map_error_type("greater_than") == "too_small"
+        assert adapter._map_error_type("greater_than_equal") == "too_small"
         assert adapter._map_error_type("too_small") == "too_small"
+        assert adapter._map_error_type("less_than") == "too_large"
+        assert adapter._map_error_type("less_than_equal") == "too_large"
+        assert adapter._map_error_type("too_large") == "too_large"
 
     def test_type_error_pattern(self, adapter: PydanticAdapter) -> None:
         """Test mapping type_error.* patterns."""
