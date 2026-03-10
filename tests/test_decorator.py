@@ -396,7 +396,7 @@ class TestConfigurationErrors:
                 return HttpResponse("ok")
 
     def test_request_param_name_conflicts_with_headers_injection(self) -> None:
-        """Test ValueError when the first positional param is named 'headers' and headers= is set."""
+        """Test a conflict when the first positional parameter is named `headers`."""
 
         with pytest.raises(
             ValueError,

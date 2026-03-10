@@ -5,7 +5,6 @@ import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from azure_functions_validation import validate_http
-from azure_functions_validation import validate_http
 
 
 # --- Test Models ---

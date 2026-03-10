@@ -78,9 +78,9 @@ def validate_http(
                 f"as its first positional argument"
             )
 
-        # Guard against first positional parameter name conflicting with injected parameter names.
-        # If the request param shares a name with an injected input (body/query/path/headers/req_model),
-        # the wrapper would call func(http_request, body=parsed_body) causing TypeError at runtime.
+        # Guard against first positional parameter name conflicting with injected names.
+        # If it shares a name with body/query/path/headers/req_model, the wrapper
+        # would inject the parsed value twice and fail at runtime.
         _injected: dict[str, Any] = {
             "body": body,
             "query": query,
@@ -207,9 +207,7 @@ def validate_http(
                         body=content, status_code=200, headers={"Content-Type": content_type}
                     )
                 except Exception as e:
-                    response_error = ResponseValidationError(
-                        f"Response validation failed: {e}"
-                    )
+                    response_error = ResponseValidationError(f"Response validation failed: {e}")
                     # Check global error handler first
                     global_handler = GlobalErrorHandlerRegistry.get_handler(response_error)
                     if global_handler is not None:
