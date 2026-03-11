@@ -19,7 +19,6 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 
 - repeated `req.get_json()` and manual request parsing
 - inconsistent `400` and `422` validation responses
-- response payloads that are not checked against the intended contract
 - response payloads that silently diverge from the intended schema
 
 `azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
@@ -84,11 +83,11 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Features
 
-- Typed body, query, path, and header validation
-- Standardized 400 and 422 validation responses
-- Response model validation and serialization
-- Custom per-handler error formatting
-- Clean pairing with `azure-functions-openapi` when you want both runtime validation and API documentation
+- Typed body, query, path, and header validation via `@validate_http`
+- Automatic 400 / 422 responses with `{"detail": [...]}` envelope
+- Response model validation — mismatches raise `ResponseValidationError` (HTTP 500)
+- Custom per-handler error formatting via `ErrorFormatter`
+
 ## Documentation
 
 - Project docs live under `docs/`
