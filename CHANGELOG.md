@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-11
+
+### Breaking Changes
+
+- Removed `registry.py` — `register_global_error_handler()` and `GlobalErrorHandlerRegistry` deleted
+- Removed `openapi.py` — `generate_422_error_schema()` deleted
+- Removed `contract.py` — `@contract_test` and `verify_contracts()` deleted
+- Removed `metadata.py`
+- Removed `exceptions.py` — merged into `errors.py`
+- Public API reduced to 3 exports: `validate_http`, `ErrorFormatter`, `ResponseValidationError`
+
+### Changed
+
+- Split `decorator.py` into `decorator.py` (config/wiring), `pipeline.py` (runtime engine), `errors.py` (error types/formatting)
+- Rewrote all documentation: README, PRD, DESIGN.md, api.md aligned with actual implementation
+- Removed demo directory and assets
+- Removed `openapi_aligned_validation` example
+
+### Improved
+
+- 120 tests, 98% coverage (up from 72 tests)
+- 0 lint, 0 type errors, 0 security issues
+- `make check-all` passes cleanly
+
 ## [0.3.0] - 2026-03-08
 
 ### Added
