@@ -10,28 +10,28 @@
 [![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Read this in: [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
+다른 언어: [English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
-Validation and serialization for the **Azure Functions Python v2 programming model**.
-This package provides typed request parsing and response validation for decorator-based `FunctionApp` HTTP handlers.
+**Azure Functions Python v2 프로그래밍 모델**을 위한 validation 및 serialization 라이브러리입니다.
+이 패키지는 decorator 기반 `FunctionApp` HTTP 핸들러를 위한 typed request parsing과 response validation을 제공합니다.
 
 ## Why Use It
 
-Azure Functions Python v2 handlers often drift into the same repeated problems:
+Azure Functions Python v2 핸들러는 다음과 같은 문제가 반복되기 쉽습니다.
 
-- repeated `req.get_json()` and manual request parsing
-- inconsistent `400` and `422` validation responses
-- response payloads that silently diverge from the intended schema
+- 반복적인 `req.get_json()` 호출과 수동 요청 파싱
+- 일관되지 않은 `400` 및 `422` validation 응답
+- 의도한 스키마와 조용히 어긋나는 response payload
 
-`azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
+`azure-functions-validation`은 Azure Functions 프로그래밍 모델에 가깝게 유지되는 decorator-first validation 레이어로 이런 문제를 해결합니다.
 
 ## Scope
 
-- Azure Functions Python **v2 programming model**
-- HTTP-triggered functions registered on `func.FunctionApp()`
-- Pydantic v2-based request and response validation
+- Azure Functions Python **v2 프로그래밍 모델**
+- `func.FunctionApp()`에 등록된 HTTP 트리거 함수
+- Pydantic v2 기반 request 및 response validation
 
-This package does **not** target the legacy `function.json`-based v1 programming model.
+이 패키지는 기존 `function.json` 기반의 v1 프로그래밍 모델을 대상으로 하지 않습니다.
 
 ## Installation
 
@@ -39,14 +39,14 @@ This package does **not** target the legacy `function.json`-based v1 programming
 pip install azure-functions-validation
 ```
 
-Your Azure Functions app should also include:
+Azure Functions 앱 의존성에는 다음도 포함되어야 합니다.
 
 ```text
 azure-functions
 azure-functions-validation
 ```
 
-For local development:
+로컬 개발용:
 
 ```bash
 git clone https://github.com/yeongseon/azure-functions-validation.git
@@ -85,24 +85,23 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Features
 
-- Typed body, query, path, and header validation via `@validate_http`
-- Automatic 400 / 422 responses with `{"detail": [...]}` envelope
-- Response model validation — mismatches raise `ResponseValidationError` (HTTP 500)
-- Custom per-handler error formatting via `ErrorFormatter`
+- `@validate_http`를 통한 typed body, query, path, header validation
+- `{"detail": [...]}` 형식의 자동 `400` / `422` 응답
+- response model validation, 불일치 시 `ResponseValidationError` 발생(HTTP 500)
+- `ErrorFormatter`를 통한 핸들러별 custom error formatting
 
 ## Documentation
 
-- Project docs live under `docs/`
-- Smoke-tested examples live under `examples/`
-- Product requirements: `PRD.md`
-- Design principles: `DESIGN.md`
+- 프로젝트 문서: `docs/`
+- 스모크 테스트된 예제: `examples/`
+- 제품 요구사항: `PRD.md`
+- 설계 원칙: `DESIGN.md`
 
 ## Disclaimer
 
-This project is an independent community project and is not affiliated with,
-endorsed by, or maintained by Microsoft.
+이 프로젝트는 독립적인 커뮤니티 프로젝트이며 Microsoft와 제휴되어 있지 않고, Microsoft의 후원이나 유지보수를 받지 않습니다.
 
-Azure and Azure Functions are trademarks of Microsoft Corporation.
+Azure 및 Azure Functions는 Microsoft Corporation의 상표입니다.
 
 ## License
 

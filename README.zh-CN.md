@@ -10,28 +10,28 @@
 [![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Read this in: [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
+其他语言: [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
 
-Validation and serialization for the **Azure Functions Python v2 programming model**.
-This package provides typed request parsing and response validation for decorator-based `FunctionApp` HTTP handlers.
+为 **Azure Functions Python v2 编程模型**提供 validation 和 serialization。
+该包为基于 decorator 的 `FunctionApp` HTTP 处理函数提供 typed request parsing 和 response validation。
 
 ## Why Use It
 
-Azure Functions Python v2 handlers often drift into the same repeated problems:
+Azure Functions Python v2 处理函数经常会逐渐出现同样的问题：
 
-- repeated `req.get_json()` and manual request parsing
-- inconsistent `400` and `422` validation responses
-- response payloads that silently diverge from the intended schema
+- 反复调用 `req.get_json()` 并手动解析请求
+- 不一致的 `400` 和 `422` validation 响应
+- response payload 在不知不觉中偏离预期 schema
 
-`azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
+`azure-functions-validation` 通过紧贴 Azure Functions 编程模型的 decorator-first validation 层来解决这些问题。
 
 ## Scope
 
-- Azure Functions Python **v2 programming model**
-- HTTP-triggered functions registered on `func.FunctionApp()`
-- Pydantic v2-based request and response validation
+- Azure Functions Python **v2 编程模型**
+- 注册在 `func.FunctionApp()` 上的 HTTP 触发函数
+- 基于 Pydantic v2 的 request 与 response validation
 
-This package does **not** target the legacy `function.json`-based v1 programming model.
+此包不面向传统的基于 `function.json` 的 v1 编程模型。
 
 ## Installation
 
@@ -39,14 +39,14 @@ This package does **not** target the legacy `function.json`-based v1 programming
 pip install azure-functions-validation
 ```
 
-Your Azure Functions app should also include:
+你的 Azure Functions 应用依赖还应包含：
 
 ```text
 azure-functions
 azure-functions-validation
 ```
 
-For local development:
+本地开发：
 
 ```bash
 git clone https://github.com/yeongseon/azure-functions-validation.git
@@ -85,24 +85,23 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Features
 
-- Typed body, query, path, and header validation via `@validate_http`
-- Automatic 400 / 422 responses with `{"detail": [...]}` envelope
-- Response model validation — mismatches raise `ResponseValidationError` (HTTP 500)
-- Custom per-handler error formatting via `ErrorFormatter`
+- 通过 `@validate_http` 提供 typed body、query、path 和 header validation
+- 自动返回 `{"detail": [...]}` 格式的 `400` / `422` 响应
+- response model validation，若不匹配则抛出 `ResponseValidationError`（HTTP 500）
+- 通过 `ErrorFormatter` 支持每个处理函数的自定义错误格式化
 
 ## Documentation
 
-- Project docs live under `docs/`
-- Smoke-tested examples live under `examples/`
-- Product requirements: `PRD.md`
-- Design principles: `DESIGN.md`
+- 项目文档位于 `docs/`
+- 经过 smoke test 的示例位于 `examples/`
+- 产品需求文档：`PRD.md`
+- 设计原则：`DESIGN.md`
 
 ## Disclaimer
 
-This project is an independent community project and is not affiliated with,
-endorsed by, or maintained by Microsoft.
+本项目是独立的社区项目，与 Microsoft 没有关联，也未获得 Microsoft 的认可或维护。
 
-Azure and Azure Functions are trademarks of Microsoft Corporation.
+Azure 和 Azure Functions 是 Microsoft Corporation 的商标。
 
 ## License
 
