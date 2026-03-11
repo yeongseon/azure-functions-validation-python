@@ -20,7 +20,7 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 - repeated `req.get_json()` and manual request parsing
 - inconsistent `400` and `422` validation responses
 - response payloads that are not checked against the intended contract
-- API documentation that can drift away from runtime validation rules
+- response payloads that silently diverge from the intended schema
 
 `azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
 
