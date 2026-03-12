@@ -156,7 +156,7 @@ def handler(req, body):
 ```python
 @pytest.mark.anyio
 async def test_handler():
-    # Test logic here
+    pass  # Test logic here
 ```
 
 ## Custom Error Formatter Issues
