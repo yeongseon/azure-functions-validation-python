@@ -1,3 +1,91 @@
 # Changelog
 
-See `CHANGELOG.md` in the repository root.
+This page documents the version history and migration paths for the `azure-functions-validation` package.
+
+## Versioning Scheme
+
+This project follows Semantic Versioning (semver.org). Given a version number MAJOR.MINOR.PATCH, increment the:
+
+- MAJOR version when you make incompatible API changes
+- MINOR version when you add functionality in a backward compatible manner
+- PATCH version when you make backward compatible bug fixes
+
+The changelog is generated from Conventional Commits using git-cliff. Breaking changes are explicitly listed under the "Breaking Changes" section for each release.
+
+## Migration Guides
+
+### Migrating from v0.3.0 to v0.5.0
+
+The v0.5.0 release significantly reduced the public API surface to focus on the core validation decorator.
+
+- **Global error handler removed**: `register_global_error_handler` and `GlobalErrorHandlerRegistry` are deleted. Use the `error_formatter` parameter on the `@validate_http` decorator instead for per-handler or shared formatting.
+- **OpenAPI utilities removed**: `openapi.py` and `generate_422_error_schema` are removed. Use the `azure-functions-openapi` package for OpenAPI generation.
+- **Contract testing removed**: `contract.py`, `@contract_test`, and `verify_contracts` were experimental and have been removed.
+- **Metadata helpers removed**: `metadata.py` helpers are no longer part of the public API.
+- **Exceptions merged**: `exceptions.py` is merged into `errors.py`. You should now import `ResponseValidationError` directly from the package root.
+
+## Full Version History
+
+### v0.5.0 (2026-03-11)
+
+#### Breaking Changes
+
+- Removed `registry.py` — `register_global_error_handler()` and `GlobalErrorHandlerRegistry` deleted
+- Removed `openapi.py` — `generate_422_error_schema()` deleted
+- Removed `contract.py` — `@contract_test` and `verify_contracts()` deleted
+- Removed `metadata.py`
+- Removed `exceptions.py` — merged into `errors.py`
+- Public API reduced to 3 exports: `validate_http`, `ErrorFormatter`, `ResponseValidationError`
+
+#### Changed
+
+- Split `decorator.py` into `decorator.py` (config/wiring), `pipeline.py` (runtime engine), `errors.py` (error types/formatting)
+- Rewrote all documentation: README, PRD, DESIGN.md, api.md aligned with actual implementation
+- Removed demo directory and assets
+- Removed `openapi_aligned_validation` example
+
+#### Improved
+
+- 120 tests, 98% coverage (up from 72 tests)
+- 0 lint, 0 type errors, 0 security issues
+- `make check-all` passes cleanly
+
+### v0.3.0 (2026-03-08)
+
+#### Added
+
+- Contract testing utilities MVP
+- OpenAPI integration utilities for 422 error schemas
+- Global error handler registration
+- Custom error formatter hook
+- Comprehensive HTTP validation for Azure Functions
+- Technical design documentation
+
+#### Fixed
+
+- HTTP validation code quality issues
+- Test failures and related code quality regressions
+
+#### Changed
+
+- Project metadata and repository tooling
+- CI and GitHub templates
+- Version management for the 0.3.0 release
+- Documentation updates for PRD, process, and error handling
+
+### v0.2.0 (2025-12-28)
+
+#### Added
+
+- Core validation adapter with Pydantic v2
+
+#### Changed
+
+- Version management for the 0.2.0 release
+
+### v0.1.0 (2025-12-20)
+
+#### Added
+
+- Initial package layout and scaffolding
+- Public API export
