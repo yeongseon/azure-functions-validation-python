@@ -149,6 +149,7 @@ class TestParseBody:
         with pytest.raises(ValueError, match="Invalid JSON"):
             adapter.parse_body(req, UserModel)
 
+
 # Test validate_response
 class TestValidateResponse:
     """Tests for validate_response method."""
@@ -193,12 +194,14 @@ class TestValidateResponse:
 
         assert len(result) == 2
         assert all(isinstance(item, UserModel) for item in result)
+
     def test_validate_list_of_any_returns_list(self, adapter: PydanticAdapter) -> None:
         """Test that list[Any] passes through a plain list."""
         payload = [{"name": "Alice", "age": 30}]
         result = adapter.validate_response(payload, list[Any])
 
         assert result == payload
+
     def test_validate_plain_list_type_returns_list(self, adapter: PydanticAdapter) -> None:
         """Test that plain list type validates and returns the list."""
         payload = [{"name": "Alice", "age": 30}]
@@ -206,12 +209,11 @@ class TestValidateResponse:
 
         assert result == payload
 
-    def test_validate_list_type_rejects_non_list_payload(
-        self, adapter: PydanticAdapter
-    ) -> None:
+    def test_validate_list_type_rejects_non_list_payload(self, adapter: PydanticAdapter) -> None:
         """Test that list[UserModel] rejects a dict payload."""
         with pytest.raises(PydanticValidationError):
             adapter.validate_response({"name": "Alice", "age": 30}, list[UserModel])
+
 
 class TestRequestParsing:
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
@@ -358,5 +360,3 @@ class TestFormatError:
         assert error["loc"] == []
         assert error["msg"] == "Something went wrong"
         assert error["type"] == "value_error"
-
-

@@ -257,6 +257,7 @@ class PydanticAdapter:
         """
         ta = TypeAdapter(model)
         return ta.validate_python(obj)
+
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:
         """Serialize response object to content and content-type.
 

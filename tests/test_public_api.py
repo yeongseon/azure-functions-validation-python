@@ -60,9 +60,9 @@ class TestAPISurface:
             "verify_contracts",
         ]
         for name in removed:
-            assert not hasattr(
-                azure_functions_validation, name
-            ), f"{name} should no longer be exported"
+            assert not hasattr(azure_functions_validation, name), (
+                f"{name} should no longer be exported"
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -74,7 +74,7 @@ test: add unit tests for mock_request_factory
 
 We maintain strict quality standards to ensure the reliability of the validation layer:
 
-- **Formatting**: Code must be formatted with `black` (26.1.0).
+- **Formatting**: Code must be formatted with `ruff` (v0.15.5).
 - **Linting**: We use `ruff` (v0.14.14) for linting and import sorting.
 - **Type Checking**: All public APIs must be fully typed. We use `mypy` (v1.19.1) for static type analysis.
 - **Security**: `bandit` (1.9.3) is used to scan for common security issues.

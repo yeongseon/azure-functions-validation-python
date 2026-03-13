@@ -558,9 +558,7 @@ class TestNonBodyErrorHierarchy:
         data = json.loads(response.get_body().decode())
         assert data["detail"][0]["msg"] == "bad path param"
 
-    def test_path_generic_exception_returns_500(
-        self, mock_request_factory: RequestFactory
-    ) -> None:
+    def test_path_generic_exception_returns_500(self, mock_request_factory: RequestFactory) -> None:
         adapter = Mock()
         adapter.parse_path.side_effect = RuntimeError("path exploded")
 
@@ -609,6 +607,7 @@ class TestNonBodyErrorHierarchy:
         assert response.status_code == 500
         data = json.loads(response.get_body().decode())
         assert data["detail"][0]["msg"] == "Internal Server Error"
+
 
 # ---------------------------------------------------------------------------
 # Async handler support
