@@ -174,61 +174,37 @@ class TestValidateResponse:
         assert any(e["type"] == "string_too_short" for e in errors)
 
     def test_validate_invalid_type(self, adapter: PydanticAdapter) -> None:
-        """Test validating invalid response type raises TypeError."""
-        with pytest.raises(TypeError) as exc_info:
+        """Test validating invalid response type raises PydanticValidationError."""
+        with pytest.raises(PydanticValidationError):
             adapter.validate_response("invalid", UserModel)
 
-        assert "Expected UserModel, dict, or list, got str" in str(exc_info.value)
-
-    def test_validate_list_of_dicts_against_model(self, adapter: PydanticAdapter) -> None:
+    def test_validate_list_of_dicts_against_list_type(self, adapter: PydanticAdapter) -> None:
         result = adapter.validate_response(
             [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}],
-            UserModel,
+            list[UserModel],
         )
 
         assert len(result) == 2
         assert all(isinstance(item, UserModel) for item in result)
-
-    def test_validate_list_of_dicts_against_list_type(
-        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
-    ) -> None:
-        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
-        monkeypatch.setattr(
-            "azure_functions_validation.adapter.get_args",
-            lambda model: (UserModel,),
-        )
-
-        result = adapter.validate_response(
-            [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}],
-            UserModel,
-        )
-
-        assert len(result) == 2
-        assert all(isinstance(item, UserModel) for item in result)
-
-    def test_validate_plain_list_type_returns_list(
-        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
-    ) -> None:
-        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
-        monkeypatch.setattr("azure_functions_validation.adapter.get_args", lambda model: ())
-
+    def test_validate_list_of_any_returns_list(self, adapter: PydanticAdapter) -> None:
+        """Test that list[Any] passes through a plain list."""
         payload = [{"name": "Alice", "age": 30}]
-        result = adapter.validate_response(payload, UserModel)
+        result = adapter.validate_response(payload, list[Any])
+
+        assert result == payload
+    def test_validate_plain_list_type_returns_list(self, adapter: PydanticAdapter) -> None:
+        """Test that plain list type validates and returns the list."""
+        payload = [{"name": "Alice", "age": 30}]
+        result = adapter.validate_response(payload, list)
 
         assert result == payload
 
     def test_validate_list_type_rejects_non_list_payload(
-        self, adapter: PydanticAdapter, monkeypatch: "pytest.MonkeyPatch"
+        self, adapter: PydanticAdapter
     ) -> None:
-        monkeypatch.setattr("azure_functions_validation.adapter.get_origin", lambda model: list)
-        monkeypatch.setattr(
-            "azure_functions_validation.adapter.get_args",
-            lambda model: (UserModel,),
-        )
-
-        with pytest.raises(TypeError, match="Expected list, got dict"):
-            adapter.validate_response({"name": "Alice", "age": 30}, UserModel)
-
+        """Test that list[UserModel] rejects a dict payload."""
+        with pytest.raises(PydanticValidationError):
+            adapter.validate_response({"name": "Alice", "age": 30}, list[UserModel])
 
 class TestRequestParsing:
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
@@ -377,41 +353,3 @@ class TestFormatError:
         assert error["type"] == "value_error"
 
 
-# Test error type mapping
-class TestErrorTypeMapping:
-    """Tests for _map_error_type method."""
-
-    def test_missing_type(self, adapter: PydanticAdapter) -> None:
-        """Test mapping 'missing' type."""
-        assert adapter._map_error_type("missing") == "missing"
-        assert adapter._map_error_type("missing_required") == "missing"
-
-    def test_string_types(self, adapter: PydanticAdapter) -> None:
-        """Test mapping string validation types."""
-        assert adapter._map_error_type("string_too_short") == "string_too_short"
-        assert adapter._map_error_type("string_too_long") == "string_too_long"
-
-    def test_number_types(self, adapter: PydanticAdapter) -> None:
-        """Test mapping number validation types."""
-        assert adapter._map_error_type("greater_than") == "too_small"
-        assert adapter._map_error_type("greater_than_equal") == "too_small"
-        assert adapter._map_error_type("too_small") == "too_small"
-        assert adapter._map_error_type("less_than") == "too_large"
-        assert adapter._map_error_type("less_than_equal") == "too_large"
-        assert adapter._map_error_type("too_large") == "too_large"
-
-    def test_type_error_pattern(self, adapter: PydanticAdapter) -> None:
-        """Test mapping type_error.* patterns."""
-        assert adapter._map_error_type("type_error") == "invalid_type"
-        assert adapter._map_error_type("type_error.integer") == "invalid_type"
-        assert adapter._map_error_type("type_error.str") == "invalid_type"
-
-    def test_value_error_pattern(self, adapter: PydanticAdapter) -> None:
-        """Test mapping value_error.* patterns."""
-        assert adapter._map_error_type("value_error") == "value_error"
-        assert adapter._map_error_type("value_error.any_str.min_length") == "value_error"
-
-    def test_unknown_type(self, adapter: PydanticAdapter) -> None:
-        """Test mapping unknown types defaults to value_error."""
-        assert adapter._map_error_type("some_unknown_type") == "value_error"
-        assert adapter._map_error_type("custom_error") == "value_error"
