@@ -47,3 +47,4 @@ See the Usage guide for more patterns.
 - Complex: `examples/profile_validation`
 - Focused: `examples/async_validation`
 - Focused: `examples/custom_error_handler`
+- Complete: `examples/crud_api`

@@ -23,7 +23,7 @@ We welcome contributions to the `azure-functions-validation` project.
 ## Project Commands
 
 ```bash
-make format      # Format code with black
+make format      # Format code with ruff + black
 make lint        # Lint with ruff
 make typecheck   # Type check with mypy
 make test        # Run tests

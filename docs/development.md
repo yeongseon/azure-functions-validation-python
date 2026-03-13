@@ -67,7 +67,7 @@ This project uses pre-commit to ensure consistent code quality across formatting
 
 | Tool   | Version  | Purpose                        |
 |--------|----------|--------------------------------|
-| black  | 26.1.0   | Auto-code formatter            |
+| black  | 26.3.0   | Auto-code formatter            |
 | ruff   | v0.14.14 | Linter + import sorter + fixer |
 | mypy   | v1.19.1  | Static type checker            |
 | bandit | 1.9.3    | Security checker on `src/` only |

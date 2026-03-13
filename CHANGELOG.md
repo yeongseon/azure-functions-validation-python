@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Update architecture docs to reflect v0.5.0 module structure
 - Add `request_model` shorthand example to usage guide
 - Add CRUD API example documentation to mkdocs site
+
 ## [0.5.0] - 2026-03-11
 
 ### Breaking Changes

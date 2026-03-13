@@ -6,8 +6,8 @@ This guide describes the test suite for `azure-functions-validation`, including 
 
 The `azure-functions-validation` project maintains a high standard of quality through a comprehensive test suite. The suite ensures that request validation, response serialization, and decorator behavior work correctly across different Python versions and Azure Functions scenarios.
 
-- **Total Tests**: 120+
-- **Code Coverage**: 98%+
+- **Total Tests**: 145+
+- **Code Coverage**: 99%
 - **Supported Environments**: Python 3.10, 3.11, 3.12, 3.13, and 3.14
 
 The test suite covers unit tests for individual modules, integration tests with real Azure Function handlers, and smoke tests using the provided examples.
