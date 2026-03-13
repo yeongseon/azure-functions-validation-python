@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import wraps
 import inspect
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from azure.functions import HttpResponse
 
@@ -15,14 +15,14 @@ from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
 
 def validate_http(
     *,
-    body: Optional[Any] = None,
-    query: Optional[Any] = None,
-    path: Optional[Any] = None,
-    headers: Optional[Any] = None,
-    request_model: Optional[Any] = None,
-    response_model: Optional[Any] = None,
-    adapter: Optional[ValidationAdapter] = None,
-    error_formatter: Optional[ErrorFormatter] = None,
+    body: Any = None,
+    query: Any = None,
+    path: Any = None,
+    headers: Any = None,
+    request_model: Any = None,
+    response_model: Any = None,
+    adapter: ValidationAdapter | None = None,
+    error_formatter: ErrorFormatter | None = None,
 ) -> Callable[..., Any]:
     """Decorator for validating HTTP request inputs and response outputs.
 
