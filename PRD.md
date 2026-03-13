@@ -114,3 +114,76 @@ This format is intentionally compatible with FastAPI / Pydantic conventions.
 
 Model reuse across the two packages is expected; schema generation is **not**
 a responsibility of the validation package.
+
+## Example-First Design
+
+### Philosophy
+
+Small-ecosystem libraries live or die by the quality of their examples.
+If a developer cannot go from `pip install` to a working handler in under five minutes,
+the library has already lost. `azure-functions-validation` treats runnable examples as a
+first-class deliverable, not an afterthought.
+
+### Quick Start (Hello World)
+
+The shortest path from zero to validated endpoint:
+
+```python
+import azure.functions as func
+from pydantic import BaseModel
+
+from azure_functions_validation import validate_http
+
+
+class Greeting(BaseModel):
+    name: str
+
+
+app = func.FunctionApp()
+
+
+@app.function_name(name="hello")
+@app.route(route="hello", methods=["POST"])
+@validate_http(body=Greeting)
+def hello(req: func.HttpRequest, body: Greeting) -> dict:
+    return {"message": f"Hello {body.name}"}
+```
+
+Invalid input returns a structured `422` response automatically:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "name"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
+
+### Why Examples Matter
+
+1. **Lower entry barrier.** A working Hello World in the PRD and README lets developers
+   evaluate the library before reading any reference documentation.
+2. **AI agent discoverability.** Tools like GitHub Copilot, Cursor, and Claude Code recommend
+   libraries based on README, PRD, and example content. Rich examples increase the chance
+   that AI agents surface `azure-functions-validation` for relevant prompts.
+3. **Cookbook role.** For niche ecosystems, `examples/` and `docs/` often serve as the primary
+   learning material. Every new pattern should ship with a runnable example project.
+4. **Proven approach.** FastAPI, LangChain, SQLAlchemy, and Pandas all achieved early adoption
+   through extensive, copy-paste-friendly examples.
+
+### Examples Inventory
+
+| Role | Path | Pattern |
+|---|---|---|
+| Representative | `examples/hello_validation` | Minimal body validation and typed response |
+| Complex | `examples/profile_validation` | Query, path, header, and response model |
+| Focused | `examples/async_validation` | Async handler with typed models |
+| Focused | `examples/custom_error_handler` | Custom error formatting |
+| Comprehensive | `examples/crud_api` | Full CRUD with body, query, path, list response |
+
+All examples are smoke-tested in CI. New features must ship with a corresponding example
+or an extension to an existing one.
