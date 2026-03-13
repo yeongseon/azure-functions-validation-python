@@ -101,3 +101,31 @@ class TestFormatErrorResponse:
 
         resp = format_error_response(RuntimeError("x"), 500, adapter)
         assert resp.headers["Content-Type"] == "application/json"
+
+    def test_500_response_is_sanitized(self) -> None:
+        """Test that 500 responses use generic message, not adapter.format_error."""
+        adapter = Mock()
+
+        resp = format_error_response(RuntimeError("secret db error"), 500, adapter)
+
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert data == {
+            "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}]
+        }
+        adapter.format_error.assert_not_called()
+
+    def test_500_sanitization_bypassed_by_custom_formatter(self) -> None:
+        """Test that custom error_formatter takes precedence over sanitization."""
+        adapter = Mock()
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            return {"custom": True, "status": status}
+
+        resp = format_error_response(RuntimeError("x"), 500, adapter, error_formatter=fmt)
+
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert data["custom"] is True
+        assert data["status"] == 500
+        adapter.format_error.assert_not_called()

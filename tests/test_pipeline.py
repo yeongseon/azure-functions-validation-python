@@ -498,6 +498,119 @@ class TestValidationErrors:
 
 
 # ---------------------------------------------------------------------------
+# Error hierarchy for non-body sources (query, path, headers)
+# ---------------------------------------------------------------------------
+
+
+class TestNonBodyErrorHierarchy:
+    """Tests that ValueError→400 and Exception→500 branches work for query/path/headers."""
+
+    def test_query_value_error_returns_400(self, mock_request_factory: RequestFactory) -> None:
+        adapter = Mock()
+        adapter.parse_query.side_effect = ValueError("bad query param")
+        adapter.format_error.return_value = {
+            "detail": [{"loc": [], "msg": "bad query param", "type": "value_error"}]
+        }
+
+        @validate_http(query=QueryModel, adapter=adapter)
+        def handler(req: HttpRequest, query: QueryModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(params={"limit": "10"})
+        response = handler(request)
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "bad query param"
+
+    def test_query_generic_exception_returns_500(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        adapter = Mock()
+        adapter.parse_query.side_effect = RuntimeError("query exploded")
+
+        @validate_http(query=QueryModel, adapter=adapter)
+        def handler(req: HttpRequest, query: QueryModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(params={"limit": "10"})
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "Internal Server Error"
+
+    def test_path_value_error_returns_400(self, mock_request_factory: RequestFactory) -> None:
+        adapter = Mock()
+        adapter.parse_path.side_effect = ValueError("bad path param")
+        adapter.format_error.return_value = {
+            "detail": [{"loc": [], "msg": "bad path param", "type": "value_error"}]
+        }
+
+        @validate_http(path=PathModel, adapter=adapter)
+        def handler(req: HttpRequest, path: PathModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(route_params={"user_id": "1"})
+        response = handler(request)
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "bad path param"
+
+    def test_path_generic_exception_returns_500(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        adapter = Mock()
+        adapter.parse_path.side_effect = RuntimeError("path exploded")
+
+        @validate_http(path=PathModel, adapter=adapter)
+        def handler(req: HttpRequest, path: PathModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(route_params={"user_id": "1"})
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "Internal Server Error"
+
+    def test_headers_value_error_returns_400(self, mock_request_factory: RequestFactory) -> None:
+        adapter = Mock()
+        adapter.parse_headers.side_effect = ValueError("bad header")
+        adapter.format_error.return_value = {
+            "detail": [{"loc": [], "msg": "bad header", "type": "value_error"}]
+        }
+
+        @validate_http(headers=HeaderModel, adapter=adapter)
+        def handler(req: HttpRequest, headers: HeaderModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(headers={"authorization": "Bearer x"})
+        response = handler(request)
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "bad header"
+
+    def test_headers_generic_exception_returns_500(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        adapter = Mock()
+        adapter.parse_headers.side_effect = RuntimeError("headers exploded")
+
+        @validate_http(headers=HeaderModel, adapter=adapter)
+        def handler(req: HttpRequest, headers: HeaderModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        request = mock_request_factory(headers={"authorization": "Bearer x"})
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert data["detail"][0]["msg"] == "Internal Server Error"
+
+# ---------------------------------------------------------------------------
 # Async handler support
 # ---------------------------------------------------------------------------
 
