@@ -149,3 +149,293 @@ def test_async_validation_example_returns_validation_error() -> None:
     assert response.status_code == 422
     payload = json.loads(response.get_body())
     assert "detail" in payload
+
+
+# ---------------------------------------------------------------------------
+# CRUD API example
+# ---------------------------------------------------------------------------
+
+
+def _crud_module() -> Any:
+    """Load the CRUD API example module and return it with state helpers."""
+    return _load_example_module("crud_api")
+
+
+def _reset_crud_state(mod: Any) -> None:
+    """Restore the CRUD module's in-memory store to its initial state."""
+    mod._TASKS.clear()
+    mod._TASKS.update({
+        1: {
+            "id": 1, "title": "Write docs",
+            "description": "Add examples", "priority": 2, "done": False,
+        },
+        2: {
+            "id": 2, "title": "Fix bug #42",
+            "description": "", "priority": 5, "done": True,
+        },
+        3: {
+            "id": 3, "title": "Add tests",
+            "description": "Cover edge cases", "priority": 3, "done": False,
+        },
+    })
+    mod._NEXT_ID = 4
+
+
+class TestCrudListTasks:
+    """GET /api/tasks — list with optional query filters."""
+
+    def setup_method(self) -> None:
+        self.mod = _crud_module()
+        _reset_crud_state(self.mod)
+
+    def test_list_all_tasks(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks", body=b"", headers={}, params={},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 200
+        tasks = json.loads(response.get_body())
+        assert len(tasks) == 3
+
+    def test_list_filter_done_true(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks?done=true", body=b"",
+            headers={}, params={"done": "true"},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 200
+        tasks = json.loads(response.get_body())
+        assert len(tasks) == 1
+        assert tasks[0]["title"] == "Fix bug #42"
+
+    def test_list_filter_done_false(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks?done=false", body=b"",
+            headers={}, params={"done": "false"},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 200
+        tasks = json.loads(response.get_body())
+        assert len(tasks) == 2
+
+    def test_list_filter_priority(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks?priority=5", body=b"",
+            headers={}, params={"priority": "5"},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 200
+        tasks = json.loads(response.get_body())
+        assert len(tasks) == 1
+        assert tasks[0]["id"] == 2
+
+    def test_list_filter_combined(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks?done=false&priority=3", body=b"",
+            headers={}, params={"done": "false", "priority": "3"},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 200
+        tasks = json.loads(response.get_body())
+        assert len(tasks) == 1
+        assert tasks[0]["title"] == "Add tests"
+
+    def test_list_invalid_query_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks?priority=99", body=b"",
+            headers={}, params={"priority": "99"},
+        )
+        response = self.mod.list_tasks(request)
+        assert response.status_code == 422
+
+
+class TestCrudGetTask:
+    """GET /api/tasks/{task_id} — single task by id."""
+
+    def setup_method(self) -> None:
+        self.mod = _crud_module()
+        _reset_crud_state(self.mod)
+
+    def test_get_existing_task(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks/1", body=b"",
+            headers={}, route_params={"task_id": "1"},
+        )
+        response = self.mod.get_task(request)
+        assert response.status_code == 200
+        task = json.loads(response.get_body())
+        assert task["id"] == 1
+        assert task["title"] == "Write docs"
+
+    def test_get_nonexistent_task_returns_404(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks/999", body=b"",
+            headers={}, route_params={"task_id": "999"},
+        )
+        response = self.mod.get_task(request)
+        assert response.status_code == 404
+
+    def test_get_invalid_task_id_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks/0", body=b"",
+            headers={}, route_params={"task_id": "0"},
+        )
+        response = self.mod.get_task(request)
+        assert response.status_code == 422
+
+    def test_get_non_numeric_task_id_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="GET", url="/api/tasks/abc", body=b"",
+            headers={}, route_params={"task_id": "abc"},
+        )
+        response = self.mod.get_task(request)
+        assert response.status_code == 422
+
+
+class TestCrudCreateTask:
+    """POST /api/tasks — create via request_model shorthand."""
+
+    def setup_method(self) -> None:
+        self.mod = _crud_module()
+        _reset_crud_state(self.mod)
+
+    def test_create_task_success(self) -> None:
+        request = func.HttpRequest(
+            method="POST", url="/api/tasks",
+            body=json.dumps({"title": "New task", "priority": 2}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        response = self.mod.create_task(request)
+        assert response.status_code == 200
+        task = json.loads(response.get_body())
+        assert task["id"] == 4
+        assert task["title"] == "New task"
+        assert task["priority"] == 2
+        assert task["done"] is False
+        assert task["description"] == ""
+
+    def test_create_task_minimal_body(self) -> None:
+        request = func.HttpRequest(
+            method="POST", url="/api/tasks",
+            body=json.dumps({"title": "Minimal"}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        response = self.mod.create_task(request)
+        assert response.status_code == 200
+        task = json.loads(response.get_body())
+        assert task["title"] == "Minimal"
+        assert task["priority"] == 3  # default
+
+    def test_create_task_missing_title_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="POST", url="/api/tasks",
+            body=json.dumps({"priority": 1}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        response = self.mod.create_task(request)
+        assert response.status_code == 422
+
+    def test_create_task_empty_title_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="POST", url="/api/tasks",
+            body=json.dumps({"title": ""}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        response = self.mod.create_task(request)
+        assert response.status_code == 422
+
+    def test_create_task_invalid_priority_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="POST", url="/api/tasks",
+            body=json.dumps({"title": "Bad priority", "priority": 10}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        response = self.mod.create_task(request)
+        assert response.status_code == 422
+
+
+class TestCrudUpdateTask:
+    """PATCH /api/tasks/{task_id} — partial update (body + path)."""
+
+    def setup_method(self) -> None:
+        self.mod = _crud_module()
+        _reset_crud_state(self.mod)
+
+    def test_update_task_mark_done(self) -> None:
+        request = func.HttpRequest(
+            method="PATCH", url="/api/tasks/1",
+            body=json.dumps({"done": True}).encode(),
+            headers={"Content-Type": "application/json"},
+            route_params={"task_id": "1"},
+        )
+        response = self.mod.update_task(request)
+        assert response.status_code == 200
+        task = json.loads(response.get_body())
+        assert task["done"] is True
+        assert task["title"] == "Write docs"  # unchanged
+
+    def test_update_task_change_title_and_priority(self) -> None:
+        request = func.HttpRequest(
+            method="PATCH", url="/api/tasks/1",
+            body=json.dumps({"title": "Updated", "priority": 5}).encode(),
+            headers={"Content-Type": "application/json"},
+            route_params={"task_id": "1"},
+        )
+        response = self.mod.update_task(request)
+        assert response.status_code == 200
+        task = json.loads(response.get_body())
+        assert task["title"] == "Updated"
+        assert task["priority"] == 5
+
+    def test_update_nonexistent_task_returns_404(self) -> None:
+        request = func.HttpRequest(
+            method="PATCH", url="/api/tasks/999",
+            body=json.dumps({"done": True}).encode(),
+            headers={"Content-Type": "application/json"},
+            route_params={"task_id": "999"},
+        )
+        response = self.mod.update_task(request)
+        assert response.status_code == 404
+
+    def test_update_invalid_body_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="PATCH", url="/api/tasks/1",
+            body=json.dumps({"priority": 99}).encode(),
+            headers={"Content-Type": "application/json"},
+            route_params={"task_id": "1"},
+        )
+        response = self.mod.update_task(request)
+        assert response.status_code == 422
+
+
+class TestCrudDeleteTask:
+    """DELETE /api/tasks/{task_id} — HttpResponse bypass (204)."""
+
+    def setup_method(self) -> None:
+        self.mod = _crud_module()
+        _reset_crud_state(self.mod)
+
+    def test_delete_existing_task(self) -> None:
+        request = func.HttpRequest(
+            method="DELETE", url="/api/tasks/1", body=b"",
+            headers={}, route_params={"task_id": "1"},
+        )
+        response = self.mod.delete_task(request)
+        assert response.status_code == 204
+        assert 1 not in self.mod._TASKS
+
+    def test_delete_nonexistent_task_still_204(self) -> None:
+        request = func.HttpRequest(
+            method="DELETE", url="/api/tasks/999", body=b"",
+            headers={}, route_params={"task_id": "999"},
+        )
+        response = self.mod.delete_task(request)
+        assert response.status_code == 204
+
+    def test_delete_invalid_task_id_returns_422(self) -> None:
+        request = func.HttpRequest(
+            method="DELETE", url="/api/tasks/0", body=b"",
+            headers={}, route_params={"task_id": "0"},
+        )
+        response = self.mod.delete_task(request)
+        assert response.status_code == 422
