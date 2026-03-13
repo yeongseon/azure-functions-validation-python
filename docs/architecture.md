@@ -23,9 +23,11 @@ For design principles, see `DESIGN.md`.
 | **Request validation** | Pydantic model validation for all request sources |
 | **Response validation** | Pydantic model validation and serialization for responses |
 | **Error payload shape** | The `{"detail": [{"loc": [...], "msg": "...", "type": "..."}]}` structure |
-| **Validation metadata** | Structured descriptions of what a handler validates (`metadata.py`) |
+| **Error formatting** | Per-handler custom error formatters via `ErrorFormatter` |
 
-The `metadata.py` module is the **canonical source** for validation contract data. Anything that wants to describe or document what a handler validates should consume these helpers rather than re-implementing the logic.
+The decorator's `PipelineConfig` captures the full validation contract for each
+handler at decoration time.  Tooling that needs to inspect what a handler
+validates can read these config fields directly.
 
 ### What `azure-functions-openapi` owns
 
@@ -42,26 +44,26 @@ The `metadata.py` module is the **canonical source** for validation contract dat
 - Authentication and authorization logic
 - Business logic
 
-## Integration Pattern
-
-When a user wants both runtime validation and OpenAPI documentation, the data flow is:
+When a user wants both runtime validation and OpenAPI documentation, the
+integration point is the Pydantic models themselves:
 
 ```
 azure-functions-validation (runtime)
-  └── metadata.py  ──exports──▶  azure-functions-openapi (docs)
+  └── Pydantic models ──shared──▶ azure-functions-openapi (docs)
         │                               │
-        │  describe_validation_contract │  consumes metadata to build
-        │  get_request_contract_metadata│  OpenAPI paths/components
-        │  get_validation_error_contract│
+        │  body / query / path / headers│  reads model JSON schemas
+        │  response_model               │  to build OpenAPI paths/components
+        │  error payload shape          │
         └───────────────────────────────┘
 ```
 
-`azure-functions-validation` produces structured metadata about its runtime contracts. `azure-functions-openapi` consumes that metadata to generate documentation. The packages stay decoupled — validation does not import openapi, and openapi does not re-implement validation logic.
+The two packages share Pydantic models as the integration contract.
+`azure-functions-validation` validates at runtime; `azure-functions-openapi`
+reads model schemas to generate documentation. Neither imports the other.
 
-### Example: sharing metadata with openapi tooling
+### Example: using models for OpenAPI generation
 
 ```python
-from azure_functions_validation import describe_validation_contract
 from pydantic import BaseModel
 
 
@@ -74,18 +76,16 @@ class CreateUserResponse(BaseModel):
     message: str
 
 
-# Produce a full contract description for use by documentation tooling
-contract = describe_validation_contract(
-    body=CreateUserRequest,
-    response_model=CreateUserResponse,
-)
+# azure-functions-validation uses these models at runtime:
+#   @validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
 
-# contract["request"]  → request sources with schemas
-# contract["response"] → response schema
-# contract["errors"]["validation"] → 422 error shape and examples
+# azure-functions-openapi reads their JSON schemas for docs:
+#   CreateUserRequest.model_json_schema()  → request schema
+#   CreateUserResponse.model_json_schema() → response schema
 ```
 
-The OpenAPI package can consume `contract` directly, without reimplementing any validation logic.
+The OpenAPI package consumes model schemas directly, without reimplementing
+any validation logic.
 
 ### What to avoid
 
@@ -93,4 +93,4 @@ The OpenAPI package can consume `contract` directly, without reimplementing any 
 |---|---|
 | `azure-functions-openapi` re-implementing error schema logic | Duplicates the error payload contract; may drift from runtime behaviour |
 | `azure-functions-validation` importing OpenAPI-specific types | Creates an unwanted coupling in the wrong direction |
-| Generating validation error examples in multiple places | The canonical source is `get_validation_error_contract` in `metadata.py` |
+| Generating validation error examples outside `errors.py` | The canonical error shape is defined in `format_error_response` |

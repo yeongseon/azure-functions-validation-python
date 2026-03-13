@@ -72,7 +72,7 @@ def get_user(
 
 ## Custom Error Formatter
 
-Custom formatters and global handlers are applied to validation errors (400/422). Unexpected exceptions are re-raised so Azure Functions runtime logging can handle them.
+Custom formatters receive the exception and HTTP status code and return a dict that becomes the JSON response body. They are applied to validation errors (400/422) only. Unexpected exceptions are re-raised so Azure Functions runtime logging can handle them.
 
 ```python
 def custom_formatter(exc: Exception, status_code: int) -> dict:
@@ -121,19 +121,40 @@ async def async_greeting(
     return AsyncGreetingResponse(message=f"Hello {body.name}")
 ```
 
-## Global Error Handler
+## `request_model` Shorthand
+
+When your handler only needs body validation, `request_model` is a convenient
+alias for `body`. The validated object is injected as a `req_model` parameter.
 
 ```python
-from azure_functions_validation import register_global_error_handler
+import azure.functions as func
+from pydantic import BaseModel, Field
+
+from azure_functions_validation import validate_http
 
 
-def global_handler(exc: Exception):
-    return {
-        "detail": [
-            {"loc": ["global"], "msg": str(exc), "type": "exception"}
-        ]
-    }
+class TaskCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    priority: int = Field(ge=1, le=5, default=3)
 
 
-register_global_error_handler(Exception, global_handler)
+class TaskResponse(BaseModel):
+    id: int
+    title: str
+    priority: int
+    done: bool
+
+
+app = func.FunctionApp()
+
+
+@app.function_name(name="create_task")
+@app.route(route="tasks", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(request_model=TaskCreateRequest, response_model=TaskResponse)
+def create_task(req: func.HttpRequest, req_model: TaskCreateRequest) -> TaskResponse:
+    return TaskResponse(id=1, title=req_model.title, priority=req_model.priority, done=False)
 ```
+
+`request_model` cannot be combined with `body`, `query`, `path`, or `headers`.
+Use `body=` directly when you need to validate multiple input sources in the
+same handler.

@@ -55,7 +55,7 @@ The v0.5.0 pipeline separation addressed the core structural concerns:
 - ~~separate sync and async execution paths cleanly~~ → done (`run_pipeline` / `run_pipeline_async` in `pipeline.py`)
 - ~~parse request inputs once per request path and reuse validated values~~ → done (`PipelineConfig` frozen dataclass)
 - ~~loosen handler signature assumptions without hiding request resolution errors~~ → done (explicit `_find_request_param` in `decorator.py`)
-- keep documentation and examples aligned with the runtime contract
+- ~~keep documentation and examples aligned with the runtime contract~~ → done (usage.md, architecture.md, 5 smoke-tested examples)
 
 ## OpenAPI Pairing
 
@@ -67,17 +67,17 @@ That means:
 - validation error behavior should be easy to document
 - examples should show both standalone validation and OpenAPI-aligned usage
 
-## Contract Metadata Boundary
+## Integration Boundary
 
-This repository should own runtime-facing validation metadata.
+The integration point between `azure-functions-validation` and
+`azure-functions-openapi` is the Pydantic models themselves.
 
-That includes:
+This repository owns:
 
-- which request models are validated
+- which request models are validated (body, query, path, headers)
 - which response models are validated
-- what validation error payload shape is produced
-- what reusable schema-like metadata can be exposed from those contracts
-
+- what validation error payload shape is produced (`{"detail": [...]}`)
+- the `PipelineConfig` that captures per-handler validation contracts
 This repository should not own:
 
 - OpenAPI path generation
@@ -96,7 +96,6 @@ contract logic across multiple packages.
 
 ## Next Design Tasks
 
-- define a minimal public metadata surface for validated request, response, and 422 error contracts
+- evaluate whether `PipelineConfig` fields should be exposed as a public API for tooling consumers
 - keep examples and smoke tests aligned with both standalone and OpenAPI-paired usage
-- document which parts of the metadata surface are intended to stay stable
-- evaluate whether `PipelineConfig` fields should be exposed for tooling consumers
+- consider adding a `model_json_schema()` helper that produces OpenAPI-ready schemas from handler configs
