@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from azure.functions import HttpResponse
 
@@ -29,7 +29,7 @@ def format_error_response(
     exception: Exception,
     status_code: int,
     adapter: ValidationAdapter,
-    error_formatter: Optional[ErrorFormatter] = None,
+    error_formatter: ErrorFormatter | None = None,
 ) -> HttpResponse:
     """Build an ``HttpResponse`` for a validation or parsing error.
 
@@ -44,6 +44,17 @@ def format_error_response(
     """
     if error_formatter is not None:
         error_response = error_formatter(exception, status_code)
+    elif status_code >= 500:
+        # Sanitize server errors — never leak internal details to the client
+        error_response = {
+            "detail": [
+                {
+                    "loc": [],
+                    "msg": "Internal Server Error",
+                    "type": "server_error",
+                }
+            ]
+        }
     else:
         error_response = adapter.format_error(exception)
 

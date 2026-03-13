@@ -331,8 +331,8 @@ class TestSuccessfulValidation:
         self, mock_request_factory: RequestFactory
     ) -> None:
         @validate_http(body=UserModel, query=QueryModel)
-        def handler(req: HttpRequest, payload: UserModel, query: QueryModel) -> ResponseModel:
-            return ResponseModel(message=f"{payload.name}:{query.limit}")
+        def handler(req: HttpRequest, body: UserModel, query: QueryModel) -> ResponseModel:
+            return ResponseModel(message=f"{body.name}:{query.limit}")
 
         request = mock_request_factory(
             body=b'{"name": "Rae", "age": 33}',
@@ -440,12 +440,11 @@ class TestValidationErrors:
         with pytest.raises(ValueError, match="HttpRequest-like object"):
             handler(req="not-a-request")
 
-    def test_non_value_error_body_parse_returns_422(
+    def test_non_value_error_body_parse_returns_500(
         self, mock_request_factory: RequestFactory
     ) -> None:
         adapter = Mock()
         adapter.parse_body.side_effect = RuntimeError("adapter exploded")
-        adapter.format_error.return_value = {"detail": [{"msg": "adapter exploded"}]}
 
         @validate_http(body=UserModel, adapter=adapter)
         def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
@@ -454,9 +453,9 @@ class TestValidationErrors:
         request = mock_request_factory(body=b'{"name": "Valid", "age": 30}')
         response = handler(request)
 
-        assert response.status_code == 422
+        assert response.status_code == 500
         data = json.loads(response.get_body().decode())
-        assert data["detail"][0]["msg"] == "adapter exploded"
+        assert data["detail"][0]["msg"] == "Internal Server Error"
 
     def test_all_validation_sources(self, mock_request_factory: RequestFactory) -> None:
         """Test validation of all input sources at once."""

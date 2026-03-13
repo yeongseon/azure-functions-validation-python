@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from azure.functions import HttpResponse
+from pydantic import ValidationError as PydanticValidationError
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter, ResponseValidationError, format_error_response
@@ -33,9 +34,9 @@ class PipelineConfig:
     request_model: Any = None
     response_model: Any = None
     adapter: ValidationAdapter = field(default_factory=PydanticAdapter)
-    error_formatter: Optional[ErrorFormatter] = None
+    error_formatter: ErrorFormatter | None = None
     func_params: Mapping[str, Any] = field(default_factory=dict)
-    request_param_name: Optional[str] = None
+    request_param_name: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -139,37 +140,17 @@ def _parse_inputs(
         try:
             parsed_body = config.adapter.parse_body(http_request, config.body)
 
-            # Check if handler expects the 'body' parameter
+            # Inject body into the appropriate parameter
             if "body" in config.func_params:
                 parsed_inputs["body"] = parsed_body
             elif "req_model" in config.func_params and config.request_model is not None:
-                # Handle request_model shorthand parameter name
                 parsed_inputs["req_model"] = parsed_body
-            else:
-                # Try to find a parameter that is not the request, not http_request,
-                # and not a name used by another configured validation source
-                reserved_names = {config.request_param_name, "http_request"}
-                if config.query is not None:
-                    reserved_names.add("query")
-                if config.path is not None:
-                    reserved_names.add("path")
-                if config.headers is not None:
-                    reserved_names.add("headers")
-                for param_name in config.func_params:
-                    if param_name not in reserved_names:
-                        parsed_inputs[param_name] = parsed_body
-                        break
-
+        except PydanticValidationError as e:
+            return format_error_response(e, 422, config.adapter, config.error_formatter)
+        except ValueError as e:
+            return format_error_response(e, 400, config.adapter, config.error_formatter)
         except Exception as e:
-            from pydantic import ValidationError as PydanticValidationError
-
-            if isinstance(e, PydanticValidationError):
-                return format_error_response(e, 422, config.adapter, config.error_formatter)
-            elif isinstance(e, ValueError):
-                return format_error_response(e, 400, config.adapter, config.error_formatter)
-            else:
-                return format_error_response(e, 422, config.adapter, config.error_formatter)
-
+            return format_error_response(e, 500, config.adapter, config.error_formatter)
     # Parse query parameters
     if config.query is not None:
         try:
@@ -178,9 +159,12 @@ def _parse_inputs(
             # If function expects query parameter, pass it
             if "query" in config.func_params:
                 parsed_inputs["query"] = parsed_query
-        except Exception as e:
+        except PydanticValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
-
+        except ValueError as e:
+            return format_error_response(e, 400, config.adapter, config.error_formatter)
+        except Exception as e:
+            return format_error_response(e, 500, config.adapter, config.error_formatter)
     # Parse path parameters
     if config.path is not None:
         try:
@@ -189,9 +173,12 @@ def _parse_inputs(
             # If function expects path parameter, pass it
             if "path" in config.func_params:
                 parsed_inputs["path"] = parsed_path
-        except Exception as e:
+        except PydanticValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
-
+        except ValueError as e:
+            return format_error_response(e, 400, config.adapter, config.error_formatter)
+        except Exception as e:
+            return format_error_response(e, 500, config.adapter, config.error_formatter)
     # Parse headers
     if config.headers is not None:
         try:
@@ -200,9 +187,12 @@ def _parse_inputs(
             # If function expects headers parameter, pass it
             if "headers" in config.func_params:
                 parsed_inputs["headers"] = parsed_headers
-        except Exception as e:
+        except PydanticValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
-
+        except ValueError as e:
+            return format_error_response(e, 400, config.adapter, config.error_formatter)
+        except Exception as e:
+            return format_error_response(e, 500, config.adapter, config.error_formatter)
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":
         parsed_inputs["http_request"] = http_request
@@ -238,8 +228,8 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             return HttpResponse(
                 body=content, status_code=200, headers={"Content-Type": content_type}
             )
-        except Exception as e:
-            response_error = ResponseValidationError(f"Response validation failed: {e}")
+        except Exception:
+            response_error = ResponseValidationError("Response validation failed")
             if config.error_formatter is not None:
                 error_response = config.error_formatter(response_error, 500)
             else:
@@ -247,7 +237,7 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
                     "detail": [
                         {
                             "loc": ["response"],
-                            "msg": str(response_error),
+                            "msg": "Response validation failed",
                             "type": "response_validation_error",
                         }
                     ]
