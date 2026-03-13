@@ -1,7 +1,7 @@
-# azure-functions-validation
+# Azure Functions Validation
 
 [![PyPI](https://img.shields.io/pypi/v/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
-[![Python Version](https://img.shields.io/pypi/pyversions/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation/)
 [![CI](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml)
 [![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml)
 [![Security Scans](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml)
@@ -32,6 +32,13 @@ Azure Functions Python v2 处理函数经常会逐渐出现同样的问题：
 - 基于 Pydantic v2 的 request 与 response validation
 
 此包不面向传统的基于 `function.json` 的 v1 编程模型。
+
+## Features
+
+- 通过 `@validate_http` 提供 typed body、query、path 和 header validation
+- 自动返回 `{"detail": [...]}` 格式的 `400` / `422` 响应
+- response model validation，若不匹配则抛出 `ResponseValidationError`（HTTP 500）
+- 通过 `ErrorFormatter` 支持每个处理函数的自定义错误格式化
 
 ## Installation
 
@@ -83,19 +90,20 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
-## Features
-
-- 通过 `@validate_http` 提供 typed body、query、path 和 header validation
-- 自动返回 `{"detail": [...]}` 格式的 `400` / `422` 响应
-- response model validation，若不匹配则抛出 `ResponseValidationError`（HTTP 500）
-- 通过 `ErrorFormatter` 支持每个处理函数的自定义错误格式化
-
 ## Documentation
 
 - 项目文档位于 `docs/`
 - 经过 smoke test 的示例位于 `examples/`
 - 产品需求文档：`PRD.md`
 - 设计原则：`DESIGN.md`
+
+## Ecosystem
+
+- [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI 与 Swagger UI
+- [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) — 结构化日志
+- [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) — 诊断 CLI
+- [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) — 项目脚手架
+- [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) — 食谱与示例
 
 ## Disclaimer
 

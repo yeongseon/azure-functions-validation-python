@@ -1,7 +1,7 @@
-# azure-functions-validation
+# Azure Functions Validation
 
 [![PyPI](https://img.shields.io/pypi/v/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
-[![Python Version](https://img.shields.io/pypi/pyversions/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation/)
 [![CI](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml)
 [![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml)
 [![Security Scans](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml)
@@ -32,6 +32,13 @@ Azure Functions Python v2 のハンドラーは、次のような問題を繰り
 - Pydantic v2 ベースの request / response validation
 
 このパッケージは従来の `function.json` ベースの v1 プログラミング モデルを対象としていません。
+
+## Features
+
+- `@validate_http` による typed body / query / path / header validation
+- `{"detail": [...]}` 形式の自動 `400` / `422` レスポンス
+- response model validation。不一致時は `ResponseValidationError` を送出（HTTP 500）
+- `ErrorFormatter` によるハンドラー単位の custom error formatting
 
 ## Installation
 
@@ -83,19 +90,20 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
-## Features
-
-- `@validate_http` による typed body / query / path / header validation
-- `{"detail": [...]}` 形式の自動 `400` / `422` レスポンス
-- response model validation。不一致時は `ResponseValidationError` を送出（HTTP 500）
-- `ErrorFormatter` によるハンドラー単位の custom error formatting
-
 ## Documentation
 
 - プロジェクトドキュメント: `docs/`
 - スモークテスト済みサンプル: `examples/`
 - 製品要件: `PRD.md`
 - 設計原則: `DESIGN.md`
+
+## Ecosystem
+
+- [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI と Swagger UI
+- [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) — 構造化ロギング
+- [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) — 診断 CLI
+- [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) — プロジェクトスキャフォールディング
+- [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) — レシピとサンプル
 
 ## Disclaimer
 
