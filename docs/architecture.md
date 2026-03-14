@@ -1,96 +1,177 @@
 # Architecture
 
-This library is intentionally small and composable.
+`azure-functions-validation` is intentionally small, explicit, and composable.
+The package centers on one public abstraction: a decorator that enforces request
+and response contracts around Azure Functions HTTP handlers.
 
-Key ideas:
+## Design principles
 
-- Decorator-based validation entry points
-- Pydantic v2 models for parsing and validation
-- Minimal coupling to Azure Functions runtime
-- No global mutable state
+- Keep public API minimal.
+- Keep runtime validation deterministic.
+- Separate framework integration from validation mechanics.
+- Favor typed contracts over ad-hoc request parsing.
+- Avoid global mutable configuration.
 
-For design principles, see `DESIGN.md`.
+!!! tip "Mental model"
+    The decorator builds a pipeline once at import time and executes that
+    pipeline for each request.
 
-## Package Ownership
+## High-level flow
 
-`azure-functions-validation` and `azure-functions-openapi` are separate packages with complementary but distinct responsibilities. Neither should duplicate the other's logic.
+```text
+HttpRequest
+  -> validate_http configuration
+  -> parse request inputs (body/query/path/headers)
+  -> validate against Pydantic models
+  -> call handler with typed arguments
+  -> validate handler output (optional response_model)
+  -> serialize result to HttpResponse
+```
 
-### What `azure-functions-validation` owns
+This flow is shared by sync and async handlers.
+
+## Module responsibilities
+
+### `decorator.py` (public entry point)
+
+Owns:
+
+- `validate_http(...)` API
+- import-time configuration checks
+- sync/async wrapper selection
+- creation of immutable pipeline configuration
+
+Not responsible for:
+
+- actual per-request parsing and serialization logic
+
+### `pipeline.py` (internal execution engine)
+
+Owns:
+
+- `PipelineConfig` data structure
+- request object resolution
+- input parsing orchestration
+- response validation and serialization orchestration
+
+Primary internal entry points:
+
+- `run_pipeline(...)`
+- `run_pipeline_async(...)`
+
+### `adapter.py` (validation backend abstraction)
+
+Owns:
+
+- adapter protocol shape (`ValidationAdapter`)
+- default implementation (`PydanticAdapter`)
+- source parsing semantics (body/query/path/headers)
+- serialization and default error formatting
+
+!!! note "Extensibility"
+    The adapter abstraction exists for advanced usage. Most deployments should
+    keep the default `PydanticAdapter`.
+
+### `errors.py` (error types and formatting)
+
+Owns:
+
+- `ResponseValidationError`
+- `ErrorFormatter` alias
+- `format_error_response(...)`
+
+Error shaping policy:
+
+- validation/parsing errors use structured JSON payloads
+- 500-level internal errors are sanitized by default unless a custom formatter
+  is provided
+
+## Package ownership boundaries
+
+`azure-functions-validation` and `azure-functions-openapi` are complementary but
+independent projects.
+
+### What this package owns
 
 | Concern | Description |
-|---|---|
-| **Request parsing** | Body, query, path, header extraction from `HttpRequest` |
-| **Request validation** | Pydantic model validation for all request sources |
-| **Response validation** | Pydantic model validation and serialization for responses |
-| **Error payload shape** | The `{"detail": [{"loc": [...], "msg": "...", "type": "..."}]}` structure |
-| **Error formatting** | Per-handler custom error formatters via `ErrorFormatter` |
+| --- | --- |
+| Request extraction | Parse body/query/path/headers from `HttpRequest` |
+| Runtime validation | Enforce Pydantic contracts before handler execution |
+| Response enforcement | Validate outbound payloads against `response_model` |
+| Error envelope policy | Emit consistent validation payload structure |
+| Decorator semantics | Injection names and conflict rules |
 
-The decorator's `PipelineConfig` captures the full validation contract for each
-handler at decoration time.  Tooling that needs to inspect what a handler
-validates can read these config fields directly.
-
-### What `azure-functions-openapi` owns
+### What OpenAPI tooling owns
 
 | Concern | Description |
-|---|---|
-| **OpenAPI document generation** | Assembling the full OpenAPI spec |
-| **Route documentation** | Documenting paths, methods, and parameters |
-| **Schema presentation** | Deciding how schemas appear in the OpenAPI document |
-| **Response documentation** | Documenting response codes and bodies in spec form |
+| --- | --- |
+| Spec generation | Build OpenAPI documents and route operations |
+| Schema presentation | Convert model schemas into API docs representations |
+| Docs UX | Swagger/ReDoc integration, grouping, and rendering |
 
 ### What neither package owns
 
-- Azure Functions routing (`func.FunctionApp`, `@app.route`) — that stays with the Azure Functions SDK
-- Authentication and authorization logic
-- Business logic
+- Azure Functions route registration mechanics
+- Authentication and authorization
+- Business/domain logic
+- Data persistence
 
-When a user wants both runtime validation and OpenAPI documentation, the
-integration point is the Pydantic models themselves:
+## Integration contract with OpenAPI
 
-```
-azure-functions-validation (runtime)
-  └── Pydantic models ──shared──▶ azure-functions-openapi (docs)
-        │                               │
-        │  body / query / path / headers│  reads model JSON schemas
-        │  response_model               │  to build OpenAPI paths/components
-        │  error payload shape          │
-        └───────────────────────────────┘
+The shared contract is the Pydantic model layer.
+
+```text
+Runtime validation package <-> shared Pydantic models <-> OpenAPI generator
 ```
 
-The two packages share Pydantic models as the integration contract.
-`azure-functions-validation` validates at runtime; `azure-functions-openapi`
-reads model schemas to generate documentation. Neither imports the other.
-
-### Example: using models for OpenAPI generation
+Example:
 
 ```python
 from pydantic import BaseModel
 
 
-class CreateUserRequest(BaseModel):
+class CreateUserBody(BaseModel):
     name: str
     email: str
 
 
-class CreateUserResponse(BaseModel):
-    message: str
+class CreateUserResult(BaseModel):
+    user_id: int
+    name: str
 
 
-# azure-functions-validation uses these models at runtime:
-#   @validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
+# Runtime side
+# @validate_http(body=CreateUserBody, response_model=CreateUserResult)
 
-# azure-functions-openapi reads their JSON schemas for docs:
-#   CreateUserRequest.model_json_schema()  → request schema
-#   CreateUserResponse.model_json_schema() → response schema
+# Documentation side
+# CreateUserBody.model_json_schema()
+# CreateUserResult.model_json_schema()
 ```
 
-The OpenAPI package consumes model schemas directly, without reimplementing
-any validation logic.
+## Invariants and guarantees
 
-### What to avoid
+- `validate_http` parameters are keyword-only.
+- first positional handler parameter must be request-like.
+- `request_model` cannot be combined with other request source parameters.
+- response model validation runs unless handler returns `HttpResponse` directly.
+- custom formatter is handler-scoped.
 
-| Anti-pattern | Why it is wrong |
-|---|---|
-| `azure-functions-openapi` re-implementing error schema logic | Duplicates the error payload contract; may drift from runtime behaviour |
-| `azure-functions-validation` importing OpenAPI-specific types | Creates an unwanted coupling in the wrong direction |
-| Generating validation error examples outside `errors.py` | The canonical error shape is defined in `format_error_response` |
+!!! warning "Import-time failures"
+    Invalid decorator configuration raises exceptions when modules are imported,
+    not only at request time.
+
+## Anti-patterns to avoid
+
+| Anti-pattern | Why it causes problems |
+| --- | --- |
+| Reimplementing request parsing inside handlers | Duplicates validation logic and increases drift |
+| Skipping `response_model` on public APIs | Allows accidental contract breakage |
+| Coupling runtime package to OpenAPI types | Reduces modularity and maintainability |
+| Overusing custom formatters everywhere | Fragments client error handling contracts |
+
+## Related pages
+
+- [Usage](usage.md)
+- [Configuration](configuration.md)
+- [API Reference](api.md)
+- [Troubleshooting](troubleshooting.md)

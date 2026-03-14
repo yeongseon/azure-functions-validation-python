@@ -2,21 +2,29 @@
 
 ## Overview
 
-This example demonstrates the smallest complete Azure Functions Python v2 HTTP
-function app that uses `validate_http` for request body validation and typed
-response serialization.
+This example is the smallest useful production baseline for
+`azure-functions-validation`.
 
-It is useful when you want to enforce an explicit schema for incoming JSON and
-ensure the response payload always matches a declared model.
+It demonstrates request body validation and response model validation in one
+HTTP endpoint using the Azure Functions Python v2 decorator model.
 
-## What It Shows
+Source code path:
 
-- Full `func.FunctionApp()` setup for the Python v2 programming model
-- Request body parsing into a Pydantic v2 `BaseModel`
-- Response validation with `response_model`
-- Automatic `422` validation responses with `{"detail": [...]}`
+- `examples/hello_validation/function_app.py`
 
-## Complete Example
+## Prerequisites
+
+Before running this example, make sure you have:
+
+1. Python 3.10+
+2. Azure Functions Python v2 app structure
+3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic` v2)
+
+!!! note "First-time setup"
+    If you have not completed setup yet, follow [Quickstart](../getting-started.md)
+    and [Installation](../installation.md).
+
+## Complete Working Code
 
 ```python
 import azure.functions as func
@@ -47,69 +55,113 @@ def hello_validation(req: func.HttpRequest, body: HelloRequest) -> HelloResponse
     return HelloResponse(message=f"Hello {body.name}")
 ```
 
-## How It Works
+## Step-by-step walkthrough
 
-`validate_http` wraps the handler and applies validation before your business
-logic runs:
+### Step 1: define request schema
 
-1. The decorator reads the HTTP request body and parses it as JSON.
-2. The JSON payload is validated against `HelloRequest`.
-3. If validation succeeds, the typed `body` argument is passed to the handler.
-4. The handler returns a `HelloResponse` instance.
-5. The decorator validates and serializes the response model to JSON.
+`HelloRequest` declares what the API accepts:
 
-If request validation fails, the handler is not executed. The decorator returns
-an HTTP `422` response with a structured error body.
-
-## Expected Responses
-
-Successful request (`POST /api/hello_validation`):
-
-Request body:
-
-```json
-{
-  "name": "Ada"
-}
+```python
+class HelloRequest(BaseModel):
+    name: str
 ```
 
-Response (`200 OK`):
+Any request body missing `name` fails before handler logic runs.
 
-```json
-{
-  "message": "Hello Ada"
-}
+### Step 2: define response schema
+
+`HelloResponse` declares what the API returns:
+
+```python
+class HelloResponse(BaseModel):
+    message: str
 ```
 
-Validation error example with missing required field:
+If handler output does not match this schema, response validation fails.
 
-Request body:
+### Step 3: attach decorator
 
-```json
-{}
+```python
+@validate_http(body=HelloRequest, response_model=HelloResponse)
 ```
 
-Response (`422 Unprocessable Entity`):
+This line activates request and response contract enforcement.
 
-```json
-{
-  "detail": [
-    {
-      "type": "missing",
-      "loc": [
-        "body",
-        "name"
-      ],
-      "msg": "Field required"
-    }
-  ]
-}
+### Step 4: use typed handler arguments
+
+The handler receives validated data as `body: HelloRequest` and returns a
+typed model instance.
+
+!!! tip "Typed development flow"
+    IDE autocompletion and static checks become much more useful when handler
+    parameters are validated model instances.
+
+## Test with curl
+
+### Valid request
+
+```bash
+curl -i -X POST http://localhost:7071/api/hello_validation \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ada"}'
 ```
 
-## Smoke Coverage
+Expected response:
 
-This documentation page matches the smoke-tested behavior in
-`examples/hello_validation`:
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
 
-- valid JSON body returns `200` with typed response data
-- invalid JSON body returns `422` with a validation error envelope
+{"message":"Hello Ada"}
+```
+
+### Missing required field
+
+```bash
+curl -i -X POST http://localhost:7071/api/hello_validation \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Expected response:
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{"detail":[{"loc":["body","name"],"msg":"Field required","type":"missing"}]}
+```
+
+### Malformed JSON
+
+```bash
+curl -i -X POST http://localhost:7071/api/hello_validation \
+  -H "Content-Type: application/json" \
+  -d '{name:"Ada"}'
+```
+
+Expected response:
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
+```
+
+!!! warning "JSON syntax"
+    Property names and string values must use double quotes in JSON.
+
+## What you learned
+
+- How to enforce body contracts with `body=...`
+- How to enforce response contracts with `response_model=...`
+- Why invalid input returns structured errors consistently
+- Why this pattern reduces manual parsing and repetitive checks
+
+## Related docs
+
+- [Usage](../usage.md)
+- [Configuration](../configuration.md)
+- [API Reference](../api.md)
+- [Troubleshooting](../troubleshooting.md)

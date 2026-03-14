@@ -1,24 +1,28 @@
 # Async Validation
 
-Use this example when you want `validate_http` on an `async def` Azure
-Functions Python v2 handler.
-
 ## Overview
 
-This example shows end-to-end request and response validation on an asynchronous
-HTTP trigger function.
+This example shows how `@validate_http` works with `async def` handlers in
+Azure Functions Python v2.
 
-The validation behavior is the same as synchronous handlers, but the function
-can `await` I/O-bound work without blocking the worker thread.
+It corresponds to:
 
-## What It Shows
+- `examples/async_validation/function_app.py`
 
-- typed body validation on an async handler
-- typed response validation and serialization
-- a minimal await boundary inside the handler body
-- full `FunctionApp` setup with route decorators
+The key point: validation behavior is the same as sync handlers, while handler
+logic can `await` asynchronous work.
 
-## Complete Example
+## Prerequisites
+
+1. Python 3.10+
+2. Azure Functions Python v2 app
+3. Installed dependencies
+
+!!! note "Baseline knowledge"
+    If this is your first endpoint, start with
+    [Basic Validation](basic_validation.md) first.
+
+## Complete Working Code
 
 ```python
 import asyncio
@@ -42,11 +46,7 @@ app = func.FunctionApp()
 
 
 @app.function_name(name="async_validation")
-@app.route(
-    route="async_validation",
-    methods=["POST"],
-    auth_level=func.AuthLevel.ANONYMOUS,
-)
+@app.route(route="async_validation", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=AsyncGreetingRequest, response_model=AsyncGreetingResponse)
 async def async_validation(
     req: func.HttpRequest,
@@ -56,84 +56,99 @@ async def async_validation(
     return AsyncGreetingResponse(message=f"Hello {body.name}")
 ```
 
-## Async Behavior in Azure Functions
+## Step-by-step walkthrough
 
-For an `async def` handler, Azure Functions executes the coroutine and awaits it
-inside the runtime integration for Python v2.
+### Step 1: define async-safe contract models
 
-With `validate_http`:
+`AsyncGreetingRequest` and `AsyncGreetingResponse` are standard Pydantic models.
+No async-specific schema type is required.
 
-1. The decorator validates request inputs before entering your async body.
-2. Your handler runs and may `await` asynchronous operations.
-3. The returned object is validated against `response_model`.
-4. The validated response is serialized to JSON.
+### Step 2: use the same decorator configuration
 
-No `asyncio.run()` call is needed inside the handler; the runtime manages the
-event loop integration.
+`@validate_http(body=..., response_model=...)` is identical to sync handlers.
 
-## When to Use Async vs Sync Handlers
+### Step 3: write async business logic
 
-Use `async def` when the handler primarily performs I/O-bound work:
+Inside the handler you can await I/O operations:
 
-- outbound HTTP calls
-- asynchronous SDK/database calls
-- concurrent waits on multiple external resources
-
-Use `def` (sync) when the handler is simple and CPU-light:
-
-- straightforward data mapping
-- basic request/response shaping
-- no asynchronous dependencies
-
-Validation semantics from `validate_http` are consistent in both cases.
-
-## Expected Responses
-
-Successful request (`POST /api/async_validation`):
-
-```json
-{
-  "name": "Kai"
-}
+```python
+await asyncio.sleep(0)
 ```
 
-Response (`200 OK`):
+In real services, this would be HTTP calls, async SDK calls, or database I/O.
 
-```json
-{
-  "message": "Hello Kai",
-  "source": "async"
-}
+### Step 4: rely on validated output
+
+The returned object is validated against `AsyncGreetingResponse` before the
+HTTP response is produced.
+
+!!! tip "No manual loop management"
+    Do not call `asyncio.run()` in handlers. Azure Functions runtime manages the
+    event loop for `async def` handlers.
+
+## Test with curl
+
+### Valid request
+
+```bash
+curl -i -X POST http://localhost:7071/api/async_validation \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Kai"}'
 ```
 
-Validation error request:
+Expected response:
 
-```json
-{
-  "name": 123
-}
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"message":"Hello Kai","source":"async"}
 ```
 
-Response (`422 Unprocessable Entity`):
+### Validation error
 
-```json
-{
-  "detail": [
-    {
-      "type": "string_type",
-      "loc": [
-        "body",
-        "name"
-      ],
-      "msg": "Input should be a valid string"
-    }
-  ]
-}
+```bash
+curl -i -X POST http://localhost:7071/api/async_validation \
+  -H "Content-Type: application/json" \
+  -d '{"name":123}'
 ```
 
-## Smoke Coverage
+Expected response:
 
-This example is smoke-tested for:
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
 
-- a valid typed response
-- a structured `422` validation error on invalid input
+{"detail":[{"loc":["body","name"],"msg":"Input should be a valid string","type":"string_type"}]}
+```
+
+### Invalid JSON error
+
+```bash
+curl -i -X POST http://localhost:7071/api/async_validation \
+  -H "Content-Type: application/json" \
+  -d '{name:"Kai"}'
+```
+
+Expected response:
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
+```
+
+## What you learned
+
+- `@validate_http` supports `async def` without extra config
+- request/response validation semantics stay consistent in async mode
+- async handlers remain ideal for I/O-bound workflows
+- runtime error and validation behavior remains predictable
+
+## Related docs
+
+- [Usage](../usage.md)
+- [Configuration](../configuration.md)
+- [Troubleshooting](../troubleshooting.md)
+- [Custom Error Handler Example](custom_error_handler.md)

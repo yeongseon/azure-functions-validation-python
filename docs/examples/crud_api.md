@@ -2,36 +2,47 @@
 
 ## Overview
 
-This example implements a task management REST API that demonstrates the full
-range of `azure-functions-validation` features in a single function app.
+This example implements a realistic task-management API and demonstrates how
+`azure-functions-validation` scales from simple handlers to multi-route apps.
 
-Use this as a reference when building a realistic multi-endpoint API that
-combines body, query, path, and response validation.
+Source code path:
 
-## What It Shows
+- `examples/crud_api/function_app.py`
 
-- **Body validation** with field constraints (`min_length`, `ge`, `le`)
-- **Query parameter filtering** on list endpoints
-- **Path parameter validation** with `task_id: int = Field(ge=1)`
-- **List response model** using `response_model=list[TaskResponse]`
-- **`request_model` shorthand** as a convenient alias for `body`
-- **Combined body + path** validation in a single handler
-- **`HttpResponse` bypass** for endpoints that return non-JSON responses (204)
+The app includes list, read, create, update, and delete endpoints with explicit
+request and response contracts.
 
-## Endpoints
+## Prerequisites
+
+1. Python 3.10+
+2. Azure Functions Python v2 project
+3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic`)
+
+!!! note "Recommended order"
+    Read [Basic Validation](basic_validation.md) first,
+    then use this page as the production-style extension.
+
+## Endpoint Map
 
 | Method | Route | Description |
 | --- | --- | --- |
-| `GET` | `/api/tasks` | List tasks with optional `done` / `priority` filters |
-| `GET` | `/api/tasks/{task_id}` | Get a single task by id |
-| `POST` | `/api/tasks` | Create a task (`request_model` shorthand) |
-| `PATCH` | `/api/tasks/{task_id}` | Partial update (body + path combined) |
-| `DELETE` | `/api/tasks/{task_id}` | Delete a task (HttpResponse bypass, 204) |
+| `GET` | `/api/tasks` | List tasks with optional query filters |
+| `GET` | `/api/tasks/{task_id}` | Get one task by id |
+| `POST` | `/api/tasks` | Create task with `request_model` shorthand |
+| `PATCH` | `/api/tasks/{task_id}` | Partial update with body + path validation |
+| `DELETE` | `/api/tasks/{task_id}` | Delete task and return `204 No Content` |
 
-## Models
+## Complete Working Code
+
+The complete code lives in `examples/crud_api/function_app.py`.
 
 ```python
+from __future__ import annotations
+
+import azure.functions as func
 from pydantic import BaseModel, Field
+
+from azure_functions_validation import validate_http
 
 
 class TaskCreateRequest(BaseModel):
@@ -62,46 +73,71 @@ class TaskPath(BaseModel):
 class TaskListQuery(BaseModel):
     done: bool | None = None
     priority: int | None = Field(default=None, ge=1, le=5)
-```
 
-## Key Patterns
 
-### List endpoint with query filters
+_TASKS: dict[int, dict[str, object]] = {
+    1: {"id": 1, "title": "Write docs", "description": "Add examples", "priority": 2, "done": False},
+    2: {"id": 2, "title": "Fix bug #42", "description": "", "priority": 5, "done": True},
+    3: {"id": 3, "title": "Add tests", "description": "Cover edge cases", "priority": 3, "done": False},
+}
+_NEXT_ID = 4
 
-```python
+
+app = func.FunctionApp()
+
+
+@app.function_name(name="list_tasks")
+@app.route(route="tasks", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(query=TaskListQuery, response_model=list[TaskResponse])
-def list_tasks(req: func.HttpRequest, query: TaskListQuery) -> list[dict]:
+def list_tasks(req: func.HttpRequest, query: TaskListQuery) -> list[dict[str, object]]:
     results = list(_TASKS.values())
     if query.done is not None:
         results = [t for t in results if t["done"] == query.done]
     if query.priority is not None:
         results = [t for t in results if t["priority"] == query.priority]
     return results
-```
 
-The `response_model=list[TaskResponse]` validates that every item in the
-returned list conforms to `TaskResponse`.
 
-### `request_model` shorthand
+@app.function_name(name="get_task")
+@app.route(route="tasks/{task_id}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(path=TaskPath, response_model=TaskResponse)
+def get_task(req: func.HttpRequest, path: TaskPath) -> dict[str, object]:
+    task = _TASKS.get(path.task_id)
+    if task is None:
+        return func.HttpResponse(  # type: ignore[return-value]
+            body='{"detail": [{"msg": "Task not found"}]}',
+            status_code=404,
+            headers={"Content-Type": "application/json"},
+        )
+    return task
 
-```python
+
+@app.function_name(name="create_task")
+@app.route(route="tasks", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(request_model=TaskCreateRequest, response_model=TaskResponse)
 def create_task(req: func.HttpRequest, req_model: TaskCreateRequest) -> TaskResponse:
-    ...
-```
+    global _NEXT_ID  # noqa: PLW0603
 
-`request_model=TaskCreateRequest` is equivalent to `body=TaskCreateRequest`.
-The validated object is injected as the `req_model` parameter.
+    task = TaskResponse(
+        id=_NEXT_ID,
+        title=req_model.title,
+        description=req_model.description,
+        priority=req_model.priority,
+        done=False,
+    )
+    _TASKS[_NEXT_ID] = task.model_dump()
+    _NEXT_ID += 1
+    return task
 
-### Combined body + path validation
 
-```python
+@app.function_name(name="update_task")
+@app.route(route="tasks/{task_id}", methods=["PATCH"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=TaskUpdateRequest, path=TaskPath, response_model=TaskResponse)
 def update_task(
     req: func.HttpRequest,
     body: TaskUpdateRequest,
     path: TaskPath,
-) -> dict | func.HttpResponse:
+) -> dict[str, object] | func.HttpResponse:
     task = _TASKS.get(path.task_id)
     if task is None:
         return func.HttpResponse(
@@ -109,63 +145,149 @@ def update_task(
             status_code=404,
             headers={"Content-Type": "application/json"},
         )
+
     updates = body.model_dump(exclude_unset=True)
     for key, value in updates.items():
         task[key] = value
     return task
-```
 
-When the handler returns an `HttpResponse` directly, response model validation
-is bypassed — useful for 404 or other non-standard responses.
 
-### HttpResponse bypass (DELETE → 204)
-
-```python
+@app.function_name(name="delete_task")
+@app.route(route="tasks/{task_id}", methods=["DELETE"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(path=TaskPath)
 def delete_task(req: func.HttpRequest, path: TaskPath) -> func.HttpResponse:
     _TASKS.pop(path.task_id, None)
     return func.HttpResponse(status_code=204)
 ```
 
-No `response_model` is needed when the handler always returns an
-`HttpResponse`. The path parameter is still validated.
+## Step-by-step walkthrough
 
-## Expected Responses
+### Step 1: model each request source
 
-List all tasks (`GET /api/tasks`):
+- `TaskCreateRequest`: create body contract
+- `TaskUpdateRequest`: partial update body contract
+- `TaskPath`: route id contract
+- `TaskListQuery`: list filter query contract
 
-```json
-[
-  {"id": 1, "title": "Write docs", "description": "Add examples", "priority": 2, "done": false},
-  {"id": 2, "title": "Fix bug #42", "description": "", "priority": 5, "done": true},
-  {"id": 3, "title": "Add tests", "description": "Cover edge cases", "priority": 3, "done": false}
-]
+### Step 2: enforce response contracts
+
+- collection endpoints use `list[TaskResponse]`
+- item endpoints use `TaskResponse`
+
+This catches accidental response drift early.
+
+### Step 3: implement create with `request_model`
+
+`request_model=TaskCreateRequest` is concise and injects `req_model`.
+
+### Step 4: implement PATCH safely
+
+```python
+updates = body.model_dump(exclude_unset=True)
+for key, value in updates.items():
+    task[key] = value
 ```
 
-Filter by status (`GET /api/tasks?done=true`):
+This applies only fields provided by the client.
 
-```json
-[
-  {"id": 2, "title": "Fix bug #42", "description": "", "priority": 5, "done": true}
-]
+### Step 5: return raw `HttpResponse` for `204`
+
+Delete endpoint intentionally bypasses model serialization.
+
+!!! tip "Practical pattern"
+    Use typed model responses for normal JSON paths, and return `HttpResponse`
+    directly for no-content or custom-status control paths.
+
+## curl checks with expected output
+
+### List tasks
+
+```bash
+curl -i "http://localhost:7071/api/tasks"
 ```
 
-Invalid path parameter (`GET /api/tasks/0`):
+Expected response:
 
-```json
-{
-  "detail": [
-    {
-      "type": "greater_than_equal",
-      "loc": ["path", "task_id"],
-      "msg": "Input should be greater than or equal to 1"
-    }
-  ]
-}
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"id":1,"title":"Write docs","description":"Add examples","priority":2,"done":false}, ...]
 ```
 
-## Smoke Coverage
+### List tasks with filter
 
-This example is smoke-tested in `tests/test_examples.py` with 21 test cases
-covering all endpoints, query filters, validation errors, 404 responses, and
-the 204 delete path.
+```bash
+curl -i "http://localhost:7071/api/tasks?done=true"
+```
+
+Expected response:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"id":2,"title":"Fix bug #42","description":"","priority":5,"done":true}]
+```
+
+### Create task
+
+```bash
+curl -i -X POST http://localhost:7071/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Ship release notes","priority":2}'
+```
+
+Expected response:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id":4,"title":"Ship release notes","description":"","priority":2,"done":false}
+```
+
+### Invalid path parameter
+
+```bash
+curl -i "http://localhost:7071/api/tasks/0"
+```
+
+Expected response:
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{"detail":[{"loc":["path","task_id"],"msg":"Input should be greater than or equal to 1","type":"greater_than_equal"}]}
+```
+
+### Delete task
+
+```bash
+curl -i -X DELETE "http://localhost:7071/api/tasks/2"
+```
+
+Expected response:
+
+```http
+HTTP/1.1 204 No Content
+```
+
+!!! warning "404 handling"
+    This example uses custom `HttpResponse` for not-found cases, which bypasses
+    response model validation by design.
+
+## What you learned
+
+- How to apply validation consistently across CRUD endpoints
+- How list response validation works in production APIs
+- How to perform safe partial updates with typed optional fields
+- How to combine strict contracts with custom status-code behavior
+
+## Related docs
+
+- [Usage](../usage.md)
+- [Configuration](../configuration.md)
+- [API Reference](../api.md)
+- [Troubleshooting](../troubleshooting.md)

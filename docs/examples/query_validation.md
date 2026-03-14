@@ -2,21 +2,30 @@
 
 ## Overview
 
-This example demonstrates validating HTTP data from multiple input sources in a
-single Azure Functions Python v2 handler: query string parameters, URL path
-segments, and HTTP headers.
+This example demonstrates validating non-body request sources in one endpoint:
 
-Use this pattern when your endpoint behavior depends on routing values and
-request metadata, not only the JSON request body.
+- query parameters
+- route path parameters
+- HTTP headers
 
-## What It Shows
+It corresponds to:
 
-- Query validation using a dedicated Pydantic model
-- Path validation from a route template such as `users/{user_id}`
-- Header validation with explicit alias mapping (`x-request-id`)
-- Typed response generation via `response_model`
+- `examples/profile_validation/function_app.py`
 
-## Complete Example
+This pattern is ideal for read-heavy APIs where request context comes mostly
+from URL and headers rather than JSON body.
+
+## Prerequisites
+
+1. Python 3.10+
+2. Azure Functions Python v2 project
+3. Installed `azure-functions-validation` and dependencies
+
+!!! note "Related baseline"
+    If you are new to body validation first, read
+    [Basic Validation](basic_validation.md) before this page.
+
+## Complete Working Code
 
 ```python
 import azure.functions as func
@@ -26,7 +35,6 @@ from azure_functions_validation import validate_http
 
 
 class ProfileQuery(BaseModel):
-    limit: int = Field(default=10, ge=1, le=100)
     verbose: bool = False
 
 
@@ -37,16 +45,13 @@ class ProfilePath(BaseModel):
 class ProfileHeaders(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    authorization: str
     x_request_id: str = Field(alias="x-request-id")
 
 
 class ProfileResponse(BaseModel):
     user_id: int
-    limit: int
     view: str
     request_id: str
-    token_type: str
 
 
 app = func.FunctionApp()
@@ -67,80 +72,116 @@ def get_profile(
     headers: ProfileHeaders,
 ) -> ProfileResponse:
     view = "detailed" if query.verbose else "summary"
-    token_type = headers.authorization.split(" ", maxsplit=1)[0]
     return ProfileResponse(
         user_id=path.user_id,
-        limit=query.limit,
         view=view,
         request_id=headers.x_request_id,
-        token_type=token_type,
     )
 ```
 
-## Parameter Sources
+## Step-by-step walkthrough
 
-- `query: ProfileQuery` comes from URL query string values (for example,
-  `?limit=25&verbose=true`).
-- `path: ProfilePath` comes from route parameters defined in
-  `@app.route(route="users/{user_id}")`.
-- `headers: ProfileHeaders` comes from HTTP request headers.
-- `x_request_id` maps to the `x-request-id` header using a Pydantic alias.
+### Step 1: define source-specific models
 
-This split keeps each input source explicit and separately validated.
+- `ProfileQuery` validates `?verbose=true` style values.
+- `ProfilePath` validates route value `{user_id}`.
+- `ProfileHeaders` validates `x-request-id`.
 
-## Field Constraints
+Each source has its own schema and constraints.
 
-`Field` constraints define numeric rules and defaults directly in the model:
+### Step 2: map header aliases
 
-- `limit: int = Field(default=10, ge=1, le=100)` sets:
-  - a default value (`10`) when the query parameter is omitted
-  - a lower bound (`ge=1`)
-  - an upper bound (`le=100`)
-- `user_id: int = Field(ge=1)` ensures route IDs are positive integers.
+`x-request-id` is not a valid Python identifier, so alias mapping is used:
 
-If a value is out of range or wrong type, `validate_http` returns `422` with a
-structured `detail` list.
-
-## Expected Responses
-
-Successful request:
-
-`GET /api/users/42?limit=25&verbose=true`
-
-Headers:
-
-```text
-authorization: Bearer abc.def.ghi
-x-request-id: req-7f5c8a4a
+```python
+class ProfileHeaders(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    x_request_id: str = Field(alias="x-request-id")
 ```
 
-Response (`200 OK`):
+### Step 3: combine decorator parameters
 
-```json
-{
-  "user_id": 42,
-  "limit": 25,
-  "view": "detailed",
-  "request_id": "req-7f5c8a4a",
-  "token_type": "Bearer"
-}
+```python
+@validate_http(query=ProfileQuery, path=ProfilePath, headers=ProfileHeaders)
 ```
 
-Validation error example (invalid `limit=500`):
+The decorator validates all three inputs before entering your handler logic.
 
-Response (`422 Unprocessable Entity`):
+### Step 4: consume typed inputs
 
-```json
-{
-  "detail": [
-    {
-      "type": "less_than_equal",
-      "loc": [
-        "query",
-        "limit"
-      ],
-      "msg": "Input should be less than or equal to 100"
-    }
-  ]
-}
+Inside the handler you get typed objects:
+
+- `query.verbose` as `bool`
+- `path.user_id` as `int`
+- `headers.x_request_id` as `str`
+
+!!! tip "Source separation"
+    Keeping each source in a dedicated model reduces accidental coupling and
+    makes endpoint behavior easier to test.
+
+## Test with curl
+
+### Valid request
+
+```bash
+curl -i "http://localhost:7071/api/users/42?verbose=true" \
+  -H "x-request-id: req-7f5c8a4a"
 ```
+
+Expected response:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"user_id":42,"view":"detailed","request_id":"req-7f5c8a4a"}
+```
+
+### Invalid path parameter
+
+```bash
+curl -i "http://localhost:7071/api/users/0?verbose=true" \
+  -H "x-request-id: req-7f5c8a4a"
+```
+
+Expected response:
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{"detail":[{"loc":["path","user_id"],"msg":"Input should be greater than or equal to 1","type":"greater_than_equal"}]}
+```
+
+### Missing required header
+
+```bash
+curl -i "http://localhost:7071/api/users/42?verbose=true"
+```
+
+Expected response:
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{"detail":[{"loc":["headers","x-request-id"],"msg":"Field required","type":"missing"}]}
+```
+
+!!! warning "Route template alignment"
+    Your path model field names must match route placeholders,
+    such as `{user_id}` <-> `user_id`.
+
+## What you learned
+
+- How to validate query, path, and headers simultaneously
+- How to map headers with aliases
+- How route parameter constraints produce predictable `422` errors
+- How response models enforce outbound data structure
+
+## Related docs
+
+- [Usage](../usage.md)
+- [Configuration](../configuration.md)
+- [Troubleshooting](../troubleshooting.md)
+- [CRUD API Example](crud_api.md)

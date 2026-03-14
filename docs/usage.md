@@ -1,25 +1,28 @@
 # Usage
 
-This package is intended for the **Azure Functions Python v2 programming model**.
-Examples below assume a decorator-based `func.FunctionApp()` HTTP application.
+This guide covers production patterns for `@validate_http` in the Azure Functions
+Python v2 programming model.
 
-## Basic Request and Response Validation
+If you are new to the package, start with [Quickstart](getting-started.md) and
+then return here for deeper patterns.
+
+## Baseline Pattern
 
 ```python
 import azure.functions as func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from azure_functions_validation import validate_http
 
 
-class CreateUserRequest(BaseModel):
-    name: str
+class CreateUserBody(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
     email: str
 
 
-class CreateUserResponse(BaseModel):
+class CreateUserResult(BaseModel):
+    user_id: int
     message: str
-    status: str = "success"
 
 
 app = func.FunctionApp()
@@ -27,134 +30,369 @@ app = func.FunctionApp()
 
 @app.function_name(name="create_user")
 @app.route(route="users", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-@validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
-def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserResponse:
-    return CreateUserResponse(message=f"Hello {body.name}")
+@validate_http(body=CreateUserBody, response_model=CreateUserResult)
+def create_user(req: func.HttpRequest, body: CreateUserBody) -> CreateUserResult:
+    return CreateUserResult(user_id=1, message=f"Created {body.name}")
 ```
 
-## Query, Path, and Header Validation
+!!! tip "Mental model"
+    Think of the decorator as a request/response contract layer:
+    parse -> validate -> call handler -> validate response -> serialize.
+
+## Input source patterns
+
+### Body only
+
+Use `body=Model` when your endpoint is driven only by JSON payload data.
 
 ```python
-import azure.functions as func
-from pydantic import BaseModel, Field
+@validate_http(body=CreateUserBody)
+def handler(req: func.HttpRequest, body: CreateUserBody) -> dict[str, str]:
+    return {"name": body.name}
+```
 
-from azure_functions_validation import validate_http
+### Query only
+
+```python
+class ListQuery(BaseModel):
+    limit: int = Field(default=20, ge=1, le=100)
+    offset: int = Field(default=0, ge=0)
 
 
-class QueryModel(BaseModel):
-    limit: int = Field(ge=1, le=100, default=10)
-    offset: int = Field(ge=0, default=0)
+@validate_http(query=ListQuery)
+def list_items(req: func.HttpRequest, query: ListQuery) -> dict[str, int]:
+    return {"limit": query.limit, "offset": query.offset}
+```
 
+### Path only
 
-class PathModel(BaseModel):
+```python
+class UserPath(BaseModel):
     user_id: int = Field(ge=1)
 
 
-class HeaderModel(BaseModel):
-    authorization: str
-    user_agent: str = Field(default="unknown")
+@validate_http(path=UserPath)
+def get_user(req: func.HttpRequest, path: UserPath) -> dict[str, int]:
+    return {"user_id": path.user_id}
+```
+
+### Headers only
+
+```python
+from pydantic import ConfigDict
+
+
+class RequestHeaders(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    x_request_id: str = Field(alias="x-request-id")
+
+
+@validate_http(headers=RequestHeaders)
+def inspect_headers(req: func.HttpRequest, headers: RequestHeaders) -> dict[str, str]:
+    return {"request_id": headers.x_request_id}
+```
+
+!!! note "Header aliases"
+    Header keys usually contain hyphens. Use `Field(alias="x-header-name")`
+    plus `ConfigDict(populate_by_name=True)` when your Python attribute uses
+    underscores.
+
+## Combining body + query + headers
+
+This is a common production shape for list/search endpoints.
+
+```python
+import azure.functions as func
+from pydantic import BaseModel, ConfigDict, Field
+
+from azure_functions_validation import validate_http
+
+
+class SearchBody(BaseModel):
+    terms: list[str]
+
+
+class SearchQuery(BaseModel):
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+
+
+class SearchHeaders(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    x_request_id: str = Field(alias="x-request-id")
+
+
+class SearchResponse(BaseModel):
+    request_id: str
+    page: int
+    page_size: int
+    count: int
+    items: list[str]
 
 
 app = func.FunctionApp()
 
 
-@app.function_name(name="get_user")
-@app.route(route="users/{user_id}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
-@validate_http(query=QueryModel, path=PathModel, headers=HeaderModel)
-def get_user(
+@app.function_name(name="search")
+@app.route(route="search", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(
+    body=SearchBody,
+    query=SearchQuery,
+    headers=SearchHeaders,
+    response_model=SearchResponse,
+)
+def search(
     req: func.HttpRequest,
-    query: QueryModel,
-    path: PathModel,
-    headers: HeaderModel,
-):
-    return {"ok": True, "user_id": path.user_id, "limit": query.limit}
+    body: SearchBody,
+    query: SearchQuery,
+    headers: SearchHeaders,
+) -> SearchResponse:
+    items = [term.upper() for term in body.terms]
+    return SearchResponse(
+        request_id=headers.x_request_id,
+        page=query.page,
+        page_size=query.page_size,
+        count=len(items),
+        items=items,
+    )
 ```
 
-## Custom Error Formatter
+!!! example "When to combine"
+    Use combined validation when each source has distinct semantics:
+    body for domain payload, query for paging/filtering, headers for metadata.
 
-Custom formatters receive the exception and HTTP status code and return a dict that becomes the JSON response body. They are applied to validation errors (400/422) only. Unexpected exceptions are re-raised so Azure Functions runtime logging can handle them.
+## `request_model` shorthand
+
+`request_model` is shorthand for body validation and injects `req_model`.
 
 ```python
-def custom_formatter(exc: Exception, status_code: int) -> dict:
-    return {
-        "custom": True,
-        "code": f"ERR_{status_code}",
-        "message": str(exc),
-    }
+class CreateTaskBody(BaseModel):
+    title: str
 
 
-@validate_http(error_formatter=custom_formatter)
-def handler(req):
-    return {"ok": True}
+@validate_http(request_model=CreateTaskBody)
+def create_task(req: func.HttpRequest, req_model: CreateTaskBody) -> dict[str, str]:
+    return {"title": req_model.title}
 ```
 
-## Async Handlers
+!!! warning "Non-combinable shorthand"
+    Do not combine `request_model` with `body`, `query`, `path`, or `headers`.
+    The decorator rejects this configuration at import time.
 
-`validate_http` also supports `async def` handlers in the Azure Functions Python v2 programming model.
+## Response validation patterns
+
+### Pattern A: model instance return
 
 ```python
-import asyncio
-import azure.functions as func
-from pydantic import BaseModel
-
-from azure_functions_validation import validate_http
+class PingResponse(BaseModel):
+    status: str
 
 
-class AsyncGreetingRequest(BaseModel):
+@validate_http(response_model=PingResponse)
+def ping(req: func.HttpRequest) -> PingResponse:
+    return PingResponse(status="ok")
+```
+
+### Pattern B: dict return validated against model
+
+```python
+class HealthResponse(BaseModel):
+    name: str
+    status: str
+
+
+@validate_http(response_model=HealthResponse)
+def health(req: func.HttpRequest) -> dict[str, str]:
+    return {"name": "api", "status": "ready"}
+```
+
+### Pattern C: list response model
+
+```python
+class ItemOut(BaseModel):
+    id: int
     name: str
 
 
-class AsyncGreetingResponse(BaseModel):
+@validate_http(response_model=list[ItemOut])
+def list_items(req: func.HttpRequest) -> list[dict[str, object]]:
+    return [{"id": 1, "name": "alpha"}, {"id": 2, "name": "beta"}]
+```
+
+### Pattern D: bypass with `HttpResponse`
+
+```python
+@validate_http(response_model=HealthResponse)
+def custom_status(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse(status_code=204)
+```
+
+!!! note "Bypass behavior"
+    Returning `func.HttpResponse` skips response model validation intentionally.
+
+## Error handling strategies
+
+### Default strategy: standardized envelope
+
+Without custom formatting, parsing/validation errors are emitted as:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["query", "limit"],
+      "msg": "Input should be less than or equal to 100",
+      "type": "less_than_equal"
+    }
+  ]
+}
+```
+
+### Custom strategy: per-handler `error_formatter`
+
+```python
+from typing import Any
+
+
+def formatter(exc: Exception, status_code: int) -> dict[str, Any]:
+    return {
+        "error": {
+            "code": f"VALIDATION_{status_code}",
+            "message": str(exc),
+        }
+    }
+
+
+@validate_http(body=CreateUserBody, error_formatter=formatter)
+def create_user_custom(req: func.HttpRequest, body: CreateUserBody) -> dict[str, str]:
+    return {"name": body.name}
+```
+
+### Strategy guidance
+
+- Keep one default format for most handlers.
+- Use custom formatters only when external contracts require it.
+- Include status-coded machine fields in custom payloads.
+- Avoid exposing internal implementation details in `500` errors.
+
+!!! tip "Formatter scope"
+    Formatters apply per handler; there is no global registry in this package.
+
+## Async handlers
+
+`@validate_http` supports `async def` handlers directly.
+
+```python
+import asyncio
+
+
+class AsyncBody(BaseModel):
+    name: str
+
+
+class AsyncResult(BaseModel):
     message: str
 
 
-app = func.FunctionApp()
-
-
-@app.function_name(name="async_greeting")
-@app.route(route="async_greeting", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-@validate_http(body=AsyncGreetingRequest, response_model=AsyncGreetingResponse)
-async def async_greeting(
-    req: func.HttpRequest, body: AsyncGreetingRequest
-) -> AsyncGreetingResponse:
+@validate_http(body=AsyncBody, response_model=AsyncResult)
+async def async_hello(req: func.HttpRequest, body: AsyncBody) -> AsyncResult:
     await asyncio.sleep(0)
-    return AsyncGreetingResponse(message=f"Hello {body.name}")
+    return AsyncResult(message=f"Hello {body.name}")
 ```
 
-## `request_model` Shorthand
+## Testing validated handlers
 
-When your handler only needs body validation, `request_model` is a convenient
-alias for `body`. The validated object is injected as a `req_model` parameter.
+You can unit-test decorated handlers by constructing a mocked `HttpRequest`.
 
 ```python
-import azure.functions as func
-from pydantic import BaseModel, Field
+import json
+from unittest.mock import Mock
 
-from azure_functions_validation import validate_http
-
-
-class TaskCreateRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    priority: int = Field(ge=1, le=5, default=3)
+from azure.functions import HttpRequest
 
 
-class TaskResponse(BaseModel):
-    id: int
-    title: str
-    priority: int
-    done: bool
+def make_request(body: bytes, params: dict[str, str] | None = None) -> Mock:
+    req = Mock(spec=HttpRequest)
+    req.method = "POST"
+    req.url = "http://localhost"
+    req.get_body.return_value = body
+    req.params = params or {}
+    req.route_params = {}
+    req.headers = {}
+    return req
 
 
-app = func.FunctionApp()
+def test_create_user_success() -> None:
+    response = create_user(make_request(b'{"name": "Ada", "email": "ada@example.com"}'))
+    payload = json.loads(response.get_body().decode())
+    assert response.status_code == 200
+    assert payload["message"] == "Created Ada"
 
 
-@app.function_name(name="create_task")
-@app.route(route="tasks", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-@validate_http(request_model=TaskCreateRequest, response_model=TaskResponse)
-def create_task(req: func.HttpRequest, req_model: TaskCreateRequest) -> TaskResponse:
-    return TaskResponse(id=1, title=req_model.title, priority=req_model.priority, done=False)
+def test_create_user_validation_error() -> None:
+    response = create_user(make_request(b'{"name": "", "email": "bad"}'))
+    payload = json.loads(response.get_body().decode())
+    assert response.status_code == 422
+    assert "detail" in payload
 ```
 
-`request_model` cannot be combined with `body`, `query`, `path`, or `headers`.
-Use `body=` directly when you need to validate multiple input sources in the
-same handler.
+!!! note "Test level"
+    Use unit tests for validation behavior and integration tests for full
+    route wiring inside an Azure Functions host.
+
+## Integration with `azure-functions-openapi`
+
+`azure-functions-validation` and `azure-functions-openapi` are complementary:
+
+- this package validates runtime requests/responses
+- OpenAPI tooling generates API documentation
+- both share the same Pydantic models
+
+```python
+from pydantic import BaseModel
+
+
+class CreateOrderBody(BaseModel):
+    item_id: str
+    quantity: int
+
+
+class CreateOrderResponse(BaseModel):
+    order_id: str
+    status: str
+
+
+# Runtime contract
+@validate_http(body=CreateOrderBody, response_model=CreateOrderResponse)
+def create_order(req: func.HttpRequest, body: CreateOrderBody) -> CreateOrderResponse:
+    return CreateOrderResponse(order_id="ord_1", status="created")
+
+
+# Documentation tooling can consume these model schemas:
+# CreateOrderBody.model_json_schema()
+# CreateOrderResponse.model_json_schema()
+```
+
+!!! tip "Single source of truth"
+    Define schema constraints once in Pydantic models and reuse them for runtime
+    validation and generated API docs.
+
+## Common gotchas
+
+- Empty request body with `body=` configured returns `422`.
+- Invalid JSON syntax returns `400`.
+- Response shape mismatch with `response_model=` returns `500`.
+- First positional parameter must be the request object.
+- Naming the first positional parameter `body`/`query`/`path`/`headers` can conflict.
+
+See [Troubleshooting](troubleshooting.md) for issue-by-issue fixes.
+
+## Related pages
+
+- [Configuration](configuration.md)
+- [API Reference](api.md)
+- [Architecture](architecture.md)
+- [FAQ](faq.md)
+- [Basic Validation Example](examples/basic_validation.md)

@@ -1,17 +1,16 @@
 # Azure Functions Validation
 
-`azure-functions-validation` is a validation layer for the **Azure Functions Python v2 programming model**.
-It is designed for HTTP-triggered handlers registered on `func.FunctionApp()` using the decorator-based model.
+Typed request and response validation for Azure Functions Python v2 HTTP handlers.
 
-## Highlights
+`azure-functions-validation` helps you remove repetitive `req.get_json()` parsing,
+enforce consistent validation behavior, and keep your handler contracts explicit.
+It is designed for the decorator-based `func.FunctionApp()` model.
 
-- Pydantic v2 request and response validation
-- Query, path, and header parsing
-- Standardized validation error responses
-- Contract testing utilities
-- Decorator-first integration with Azure Functions Python v2
+!!! tip "5-second rule"
+    If you can paste one decorator and one Pydantic model, you can get immediate
+    request validation plus typed response serialization.
 
-## Example
+## Quick Copy-Paste Example
 
 ```python
 import azure.functions as func
@@ -27,6 +26,7 @@ class CreateUserRequest(BaseModel):
 
 class CreateUserResponse(BaseModel):
     message: str
+    status: str = "ok"
 
 
 app = func.FunctionApp()
@@ -36,15 +36,95 @@ app = func.FunctionApp()
 @app.route(route="users", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
 def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserResponse:
-    return CreateUserResponse(message=f"Hello {body.name}")
+    return CreateUserResponse(message=f"Created user {body.name}")
 ```
 
-See the Usage guide for more patterns.
+### What you get
 
-## Examples
+1. Incoming JSON is validated against `CreateUserRequest`.
+2. Invalid input returns a structured `422` response.
+3. Return values are validated against `CreateUserResponse`.
+4. Output is serialized as JSON with a consistent content type.
 
-- Representative: `examples/hello_validation`
-- Complex: `examples/profile_validation`
-- Focused: `examples/async_validation`
-- Focused: `examples/custom_error_handler`
-- Complete: `examples/crud_api`
+!!! note "Default error envelope"
+    Validation errors are returned as JSON with a `detail` array.
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "name"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
+
+## Why teams use this package
+
+- **Less boilerplate**: no repeated parsing and validation glue in each handler.
+- **Typed contracts**: request and response schemas are first-class and testable.
+- **Consistent client experience**: same error shape across endpoints.
+- **Safer changes**: response validation catches drift before clients do.
+- **Async support**: same decorator works for `def` and `async def` handlers.
+
+## Feature Snapshot
+
+### Request validation sources
+
+- `body`: JSON request body validation.
+- `query`: query string validation.
+- `path`: route parameter validation.
+- `headers`: header validation.
+- `request_model`: shorthand alias for body validation.
+
+### Response validation
+
+- `response_model` validates what your handler returns.
+- Invalid response payloads return a `500` with a safe validation envelope.
+- Returning `func.HttpResponse` bypasses model validation intentionally.
+
+!!! warning "Use `request_model` carefully"
+    `request_model` cannot be combined with `body`, `query`, `path`, or `headers`.
+    Use explicit `body=...` when validating multiple input sources.
+
+## Where to go next
+
+- Start with [Quickstart](getting-started.md).
+- Learn all decorator options in [Configuration](configuration.md).
+- See full patterns in [Usage](usage.md).
+- Browse production-style scenarios in [Examples](examples/basic_validation.md).
+- Explore public APIs in [API Reference](api.md).
+
+## Ecosystem Fit
+
+`azure-functions-validation` focuses on runtime validation behavior.
+If you also need OpenAPI documents and Swagger UI, pair it with
+`azure-functions-openapi` and share the same Pydantic models.
+
+!!! example "Runtime + docs together"
+    Use this package to validate real requests and responses at runtime,
+    and use OpenAPI tooling to generate API docs from those same models.
+
+## Compatibility
+
+- Python 3.10+
+- Azure Functions Python v2 programming model
+- Pydantic v2
+
+For dependency setup details, see [Installation](installation.md).
+
+## Example Index
+
+- [Basic Validation](examples/basic_validation.md)
+- [Query / Path / Header Validation](examples/query_validation.md)
+- [Async Validation](examples/async_validation.md)
+- [Custom Error Handler](examples/custom_error_handler.md)
+- [CRUD API](examples/crud_api.md)
+
+## Need help?
+
+- Common fixes: [Troubleshooting](troubleshooting.md)
+- Frequent questions: [FAQ](faq.md)
+- Contribution workflow: [Guidelines](contributing.md)

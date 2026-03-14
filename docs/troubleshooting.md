@@ -1,203 +1,256 @@
 # Troubleshooting
 
-This guide addresses common issues encountered when using the azure-functions-validation library. It covers installation, request/response validation, decorator configuration, and development environment setup.
+This guide covers the most common issues when using
+`azure-functions-validation` in Azure Functions Python v2 apps.
 
-## Installation and Environment
+If you are still setting up, read [Installation](installation.md) and
+[Quickstart](getting-started.md) first.
 
-### Python Version Requirements
-**Problem**: The library fails to import or shows syntax errors.
-**Cause**: This library requires Python 3.10 or higher to support modern type hinting and Pydantic v2 features.
-**Solution**: Ensure your environment (local and Azure) is running Python 3.10+. Check your version with:
-```bash
-python --version
-```
+## Fast triage checklist
 
-### Pydantic v2 Requirement
-**Problem**: `ImportError` or `AttributeError` related to Pydantic models.
-**Cause**: The library specifically requires Pydantic v2 (>= 2.0, < 3.0). It is not compatible with Pydantic v1.
-**Solution**: Update Pydantic in your requirements.txt or pyproject.toml:
-```text
-pydantic>=2.0,<3.0
-```
+Before deep debugging, confirm:
 
-### Missing azure-functions Package
-**Problem**: `ModuleNotFoundError: No module named 'azure.functions'`.
-**Cause**: The core Azure Functions SDK is not installed in the current environment.
-**Solution**: Install the required SDK:
-```bash
-pip install azure-functions
-```
+1. Python 3.10+
+2. Pydantic v2 installed
+3. Azure Functions Python v2 decorator model in use
+4. `@validate_http` placed directly above function definition
+5. Handler first positional argument is request-like (`req`)
 
-### Virtual Environment Issues
-**Problem**: Installed packages are not recognized by the Azure Functions host.
-**Cause**: The host might be using a different Python interpreter or the virtual environment is not activated.
-**Solution**: Ensure you activate your virtual environment before running or deploying.
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
-```
+## Import and environment issues
 
-## Request Validation Issues
+### `ImportError: No module named 'azure_functions_validation'`
 
-### Empty Request Body (422 Unprocessable Entity)
-**Problem**: API returns 422 for a request that should have a body.
-**Cause**: When a `body` or `request_model` is defined but the request body is empty, the library raises a `PydanticValidationError` with `type="missing"`.
-**Solution**: Ensure the client sends a non-empty JSON body. If the body is optional, use `Optional[MyModel] = None` in the decorator.
+Cause:
+
+- package not installed in active environment
+
+Fix:
+
+- reinstall package in the same interpreter used by the function host
+- verify environment activation before running host
+
+### `ModuleNotFoundError: No module named 'azure.functions'`
+
+Cause:
+
+- `azure-functions` dependency missing
+
+Fix:
+
+- add `azure-functions` to dependencies
+- ensure local and deployment environments both include it
+
+### Pydantic version mismatch
+
+Symptoms:
+
+- attribute errors or model behavior inconsistent with v2
+
+Cause:
+
+- Pydantic v1 installed transitively
+
+Fix:
+
+- pin and install `pydantic>=2,<3`
+
+!!! warning "Version drift"
+    If local tests pass but deployed runtime fails, compare the lockfile and the
+    deployed package set.
+
+## Validation errors not showing as expected
+
+### Problem: handler runs even though input seems invalid
+
+Likely causes:
+
+- wrong decorator order
+- decorator not attached to the targeted function
+- validating wrong source (`body` vs `query` vs `path` vs `headers`)
+
+Fix pattern:
+
 ```python
-@validate_http(body=Optional[MyModel])
-def handler(req: func.HttpRequest, body: Optional[MyModel]):
-    ...
+@app.function_name(name="my_handler")
+@app.route(route="items", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(body=MyBodyModel)
+def my_handler(req: func.HttpRequest, body: MyBodyModel) -> dict[str, str]:
+    return {"ok": "true"}
 ```
 
-### Malformed JSON (400 Bad Request)
-**Problem**: API returns 400 with "Invalid JSON" message.
-**Cause**: The request body is not valid JSON. `PydanticAdapter` raises `ValueError("Invalid JSON")`.
-**Solution**: Validate the JSON payload sent by the client. Standard JSON requires double quotes for keys and strings.
+### Problem: expected body validation but got `400 Invalid JSON`
 
-### Query Parameters as Strings
-**Problem**: Query parameter validation fails for non-string types.
-**Cause**: Azure Functions provides query parameters as strings. Pydantic handles coercion, but complex custom types might fail if they cannot be initialized from a string.
-**Solution**: Use Pydantic's built-in coercion or custom validators.
+Cause:
+
+- payload is not valid JSON syntax
+
+Fix:
+
+- ensure body is valid JSON with double-quoted keys/strings
+
+### Problem: expected optional body but got `422`
+
+Cause:
+
+- empty body is treated as missing when `body=` or `request_model=` is configured
+
+Fix:
+
+- send `{}` and model optional fields explicitly
+- or remove body validation for endpoints that truly allow empty body
+
+!!! note "Optional field vs optional body"
+    Optional model fields do not make the request body itself optional.
+
+## Response model mismatch
+
+### Problem: HTTP `500` with `response_validation_error`
+
+Cause:
+
+- return value does not conform to `response_model`
+
+Typical examples:
+
+- missing required field
+- wrong field type
+- wrong shape for `list[Model]`
+
+Fix:
+
+1. compare returned object to response schema
+2. ensure nested objects match schema types
+3. add unit tests for both happy and edge paths
+
+Example mismatch:
+
 ```python
-class QueryModel(BaseModel):
-    id: int  # Pydantic will coerce "123" to 123
+class OutModel(BaseModel):
+    message: str
+
+
+@validate_http(response_model=OutModel)
+def handler(req: func.HttpRequest) -> dict[str, str]:
+    return {"msg": "wrong key"}
 ```
 
-### Path Parameters and Route Templates
-**Problem**: Path parameters are missing or validation fails.
-**Cause**: The route template in `@app.route` must match the field names in your path model.
-**Solution**:
+Corrected:
+
 ```python
-@app.route(route="users/{user_id}")
-@validate_http(path=PathModel)
-def handler(req, path: PathModel):
-    ...
-# PathModel should have a field named 'user_id'
+@validate_http(response_model=OutModel)
+def handler(req: func.HttpRequest) -> dict[str, str]:
+    return {"message": "ok"}
 ```
 
-### Header Case Sensitivity
-**Problem**: Header validation fails even when the header is present.
-**Cause**: HTTP headers are case-insensitive, but Pydantic field names are case-sensitive by default.
-**Solution**: Use Pydantic `AliasChoices` or `Field(alias=...)` to match header names.
+### Problem: response validation seems skipped
+
+Cause:
+
+- handler returns `func.HttpResponse` directly
+
+Fix:
+
+- return model/dict if you want response validation
+- keep direct `HttpResponse` only when bypass is intentional
+
+## Async handler issues
+
+### Problem: confusion about async support
+
+Answer:
+
+- `@validate_http` supports `async def` out of the box
+
+### Problem: `RuntimeError: no running event loop` in tests
+
+Cause:
+
+- async handler test executed in sync-only test context
+
+Fix:
+
+- run async tests with an async-capable test runner setup
+
+Example:
+
 ```python
-from pydantic import Field, AliasChoices
+import pytest
 
-class HeaderModel(BaseModel):
-    content_type: str = Field(validation_alias=AliasChoices("Content-Type", "content-type"))
-```
 
-### request_model vs body Parameter
-**Problem**: `ValueError: Cannot use request_model together with body/query/path/headers`.
-**Cause**: `request_model` is a shorthand alias specifically for the `body`. It cannot be used if any other validation source is explicitly defined.
-**Solution**: Use `body` instead of `request_model` when you need to validate multiple sources.
-
-## Response Validation Issues
-
-### ResponseValidationError (500 Internal Server Error)
-**Problem**: API returns 500 with `response_validation_error`.
-**Cause**: The value returned by the handler does not match the `response_model` schema.
-**Solution**: Verify the handler returns a dictionary or model instance that satisfies the `response_model` constraints.
-
-### Bypassing Response Validation
-**Problem**: Response validation is skipped.
-**Cause**: Returning an `azure.functions.HttpResponse` directly bypasses the validation and serialization layer.
-**Solution**: This is intentional. If you need validation, return a Pydantic model instance or a dictionary.
-
-### List Response Validation
-**Problem**: Validating a list of objects fails.
-**Cause**: Incorrect usage of `response_model`.
-**Solution**: Use the standard Python list type hinting for the `response_model`.
-```python
-@validate_http(response_model=list[ItemModel])
-def get_items(req: func.HttpRequest) -> list[ItemModel]:
-    return [ItemModel(id=1), ItemModel(id=2)]
-```
-
-## Decorator Configuration Errors
-
-### First Argument Requirement
-**Problem**: `ValueError: Function X must accept an HttpRequest parameter as its first positional argument`.
-**Cause**: The handler function must take an `HttpRequest` (or similar) as its first argument.
-**Solution**: Ensure the signature starts with the request object.
-```python
-@validate_http(body=MyModel)
-def my_function(req: func.HttpRequest, body: MyModel):
-    ...
-```
-
-### Parameter Name Conflicts
-**Problem**: `ValueError: Function X: first positional parameter 'body' conflicts with a @validate_http injected parameter`.
-**Cause**: If you name the first parameter `body` and also use `body=MyModel` in the decorator, the names collide.
-**Solution**: Rename the first parameter to `req` or `http_request`.
-
-### Decorator Order
-**Problem**: Validation does not trigger or arguments are not injected.
-**Cause**: The `@validate_http` decorator must be placed closest to the function definition, below Azure Functions decorators like `@app.route`.
-**Solution**:
-```python
-@app.route(route="hello")
-@validate_http(body=MyModel)  # Correct: Below @app.route
-def handler(req, body):
-    ...
-```
-
-## Async Handler Issues
-
-### Async Support
-**Problem**: Confusion about whether `async` handlers are supported.
-**Cause**: The library automatically detects `async` functions using `inspect.iscoroutinefunction`.
-**Solution**: No special configuration is needed. `@validate_http` works with both sync and async handlers.
-
-### Testing Async Handlers
-**Problem**: `RuntimeError: no running event loop` during tests.
-**Cause**: Testing async handlers requires an async test runner.
-**Solution**: Use `pytest-anyio` or `pytest-asyncio` for your test suite.
-```python
 @pytest.mark.anyio
-async def test_handler():
-    pass  # Test logic here
+async def test_async_handler() -> None:
+    ...
 ```
 
-## Custom Error Formatter Issues
+### Problem: unexpected blocking in async handlers
 
-### Formatter Signature
-**Problem**: `TypeError` when the error formatter is called.
-**Cause**: The custom error formatter must accept exactly two arguments: the exception and the status code.
-**Solution**: Define the formatter with the signature `(Exception, int) -> dict`.
-```python
-def my_formatter(exc: Exception, status: int) -> dict:
-    return {"error": str(exc), "code": status}
-```
+Cause:
 
-### Global Application
-**Problem**: Formatter does not catch specific errors.
-**Cause**: The formatter is applied to ALL error types within the handler's pipeline, including validation errors, JSON parsing errors, and response validation errors.
-**Solution**: Use `isinstance` checks within the formatter if you need specific logic for different error types.
+- blocking I/O used inside `async def`
 
-## Development and Testing
+Fix:
 
-### PYTHONPATH Configuration
-**Problem**: Tests or examples cannot find the `azure_functions_validation` module.
-**Cause**: The `src/` directory is not in the Python path.
-**Solution**: Include `src/` in your `PYTHONPATH`. The provided Makefile handles this automatically for most commands.
-```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-```
+- switch to async-compatible libraries for network/database calls
 
-### Quality Checks
-**Problem**: Commits rejected by CI.
-**Cause**: Linting or type checking failures.
-**Solution**: Run the comprehensive check suite locally before committing:
-```bash
-make check-all
-```
+!!! tip "Keep async valuable"
+    Use `async def` for I/O-bound paths. Keep CPU-heavy work outside request path
+    or offload as needed.
 
-### Coverage Reports
-**Problem**: Cannot find test coverage details.
-**Cause**: Coverage files are generated but not viewed.
-**Solution**: After running tests, check the `htmlcov/` directory or the terminal output.
-```bash
-make test
-# View coverage in terminal or open htmlcov/index.html
-```
+## Decorator configuration errors
+
+### `ValueError: Cannot use request_model together with body/query/path/headers`
+
+Fix:
+
+- use `request_model` alone
+- or switch to explicit `body=...` if combining sources
+
+### `ValueError: must accept an HttpRequest parameter as its first positional argument`
+
+Fix:
+
+- make first positional parameter the request object
+
+### Parameter name conflict errors
+
+Cause:
+
+- first positional parameter uses injected names like `body` or `query`
+
+Fix:
+
+- rename request parameter to `req` or `http_request`
+
+## Custom formatter issues
+
+### Problem: formatter not called
+
+Check:
+
+- formatter passed to the same handler decorator
+- signature is exactly `(Exception, int) -> dict[...]`
+
+### Problem: inconsistent custom error payload
+
+Fix:
+
+- keep a stable schema (`code`, `message`, optional `details`)
+- do not rely on raw exception text for client logic
+
+!!! example "Stable formatter"
+    ```python
+    def formatter(exc: Exception, status_code: int) -> dict[str, object]:
+        return {
+            "error": {
+                "code": f"VALIDATION_{status_code}",
+                "message": str(exc),
+            }
+        }
+    ```
+
+## Still stuck?
+
+- Compare behavior with examples in `examples/`
+- Confirm your handler signatures match docs exactly
+- Re-check [Configuration](configuration.md) parameter semantics
+- Review [Usage](usage.md) patterns for multi-source and response validation

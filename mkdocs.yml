@@ -8,44 +8,60 @@ theme:
   name: material
   features:
     - navigation.tabs
+    - navigation.sections
     - content.code.copy
 
 nav:
   - Home: index.md
   - Getting Started:
       - Installation: installation.md
-      - Quickstart: usage.md
-      - Development: development.md
-      - Testing: testing.md
-  - API Reference: api.md
-  - Architecture: architecture.md
+      - Quickstart: getting-started.md
+      - Configuration: configuration.md
+  - User Guide:
+      - Usage: usage.md
+      - Architecture: architecture.md
   - Examples:
       - Basic Validation: examples/basic_validation.md
       - Query/Path/Header: examples/query_validation.md
       - Async Validation: examples/async_validation.md
       - Custom Error Handler: examples/custom_error_handler.md
       - CRUD API: examples/crud_api.md
+  - API Reference: api.md
+  - Contributing:
+      - Development: development.md
+      - Testing: testing.md
+      - Guidelines: contributing.md
   - Troubleshooting: troubleshooting.md
+  - FAQ: faq.md
   - Security: security.md
   - Changelog: changelog.md
-  - Contributing: contributing.md
 
 markdown_extensions:
   - admonition
-  - codehilite
   - toc:
       permalink: true
       toc_depth: 3
   - tables
   - pymdownx.superfences
-  - pymdownx.highlight
-  - pymdownx.tabbed
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.details
   - pymdownx.inlinehilite
-  - pymdownx.emoji
 
 plugins:
   - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_signature: true
+            show_root_full_path: false
+            merge_init_into_class: true
 
 extra:
   social:
