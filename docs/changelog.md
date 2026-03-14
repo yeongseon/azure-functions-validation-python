@@ -26,6 +26,36 @@ The v0.5.0 release significantly reduced the public API surface to focus on the 
 
 ## Full Version History
 
+### v0.5.1 (2026-03-14)
+
+#### Changed
+
+- Switched to `TypeAdapter` for response validation; pass through native Pydantic v2 error types
+- Modernized type annotations to PEP 604 (`X | Y` instead of `Optional[X]`)
+
+#### Fixed
+
+- Guard against `UnicodeDecodeError` when parsing non-UTF-8 request bodies
+- Harden error handling hierarchy: body → 400/422, query/path/headers → 400/422, unexpected → 500
+- Sanitize 500 error responses to prevent leaking internal details
+
+#### Added
+
+- Test coverage for `UnicodeDecodeError`, query/path/headers error branches, and 500 sanitization
+- CRUD API example (`examples/crud_api`) with 21 smoke tests covering list, get, create, update, delete
+- Unified tooling: Ruff (lint + format), pre-commit hooks, standardized Makefile
+- Comprehensive documentation overhaul (MkDocs site with 15+ pages)
+- Translated README files (Korean, Japanese, Chinese)
+- Runnable examples with smoke tests
+
+#### Docs
+
+- Remove stale `register_global_error_handler` and `metadata.py` references from docs
+- Update architecture docs to reflect v0.5.0 module structure
+- Add `request_model` shorthand example to usage guide
+- Add CRUD API example documentation to mkdocs site
+- Standardized nav structure and documentation quality across ecosystem
+
 ### v0.5.0 (2026-03-11)
 
 #### Breaking Changes

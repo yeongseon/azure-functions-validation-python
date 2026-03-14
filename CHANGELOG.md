@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.5.1] - 2026-03-14
 
 ### Changed
 
@@ -19,6 +19,10 @@ All notable changes to this project will be documented in this file.
 
 - Test coverage for `UnicodeDecodeError`, query/path/headers error branches, and 500 sanitization
 - CRUD API example (`examples/crud_api`) with 21 smoke tests covering list, get, create, update, delete
+- Unified tooling: Ruff (lint + format), pre-commit hooks, standardized Makefile
+- Comprehensive documentation overhaul (MkDocs site with 15+ pages)
+- Translated README files (Korean, Japanese, Chinese)
+- Runnable examples with smoke tests
 
 ### Docs
 
@@ -26,7 +30,7 @@ All notable changes to this project will be documented in this file.
 - Update architecture docs to reflect v0.5.0 module structure
 - Add `request_model` shorthand example to usage guide
 - Add CRUD API example documentation to mkdocs site
-
+- Standardized nav structure and documentation quality across ecosystem
 ## [0.5.0] - 2026-03-11
 
 ### Breaking Changes
