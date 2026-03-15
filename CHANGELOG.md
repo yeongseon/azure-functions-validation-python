@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `py.typed` marker for PEP 561 inline type checking support
+- `Typing :: Typed` PyPI classifier
+
+
 ## [0.5.1] - 2026-03-14
 
 ### Changed
