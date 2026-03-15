@@ -97,16 +97,6 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 - Browse production-style scenarios in [Examples](examples/basic_validation.md).
 - Explore public APIs in [API Reference](api.md).
 
-## Ecosystem Fit
-
-`azure-functions-validation` focuses on runtime validation behavior.
-If you also need OpenAPI documents and Swagger UI, pair it with
-`azure-functions-openapi` and share the same Pydantic models.
-
-!!! example "Runtime + docs together"
-    Use this package to validate real requests and responses at runtime,
-    and use OpenAPI tooling to generate API docs from those same models.
-
 ## Compatibility
 
 - Python 3.10+

@@ -342,43 +342,6 @@ def test_create_user_validation_error() -> None:
     Use unit tests for validation behavior and integration tests for full
     route wiring inside an Azure Functions host.
 
-## Integration with `azure-functions-openapi`
-
-`azure-functions-validation` and `azure-functions-openapi` are complementary:
-
-- this package validates runtime requests/responses
-- OpenAPI tooling generates API documentation
-- both share the same Pydantic models
-
-```python
-from pydantic import BaseModel
-
-
-class CreateOrderBody(BaseModel):
-    item_id: str
-    quantity: int
-
-
-class CreateOrderResponse(BaseModel):
-    order_id: str
-    status: str
-
-
-# Runtime contract
-@validate_http(body=CreateOrderBody, response_model=CreateOrderResponse)
-def create_order(req: func.HttpRequest, body: CreateOrderBody) -> CreateOrderResponse:
-    return CreateOrderResponse(order_id="ord_1", status="created")
-
-
-# Documentation tooling can consume these model schemas:
-# CreateOrderBody.model_json_schema()
-# CreateOrderResponse.model_json_schema()
-```
-
-!!! tip "Single source of truth"
-    Define schema constraints once in Pydantic models and reuse them for runtime
-    validation and generated API docs.
-
 ## Common gotchas
 
 - Empty request body with `body=` configured returns `422`.

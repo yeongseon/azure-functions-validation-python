@@ -88,9 +88,6 @@ Error shaping policy:
 
 ## Package ownership boundaries
 
-`azure-functions-validation` and `azure-functions-openapi` are complementary but
-independent projects.
-
 ### What this package owns
 
 | Concern | Description |
@@ -98,55 +95,16 @@ independent projects.
 | Request extraction | Parse body/query/path/headers from `HttpRequest` |
 | Runtime validation | Enforce Pydantic contracts before handler execution |
 | Response enforcement | Validate outbound payloads against `response_model` |
-| Error envelope policy | Emit consistent validation payload structure |
+| Error envelope policy | Emit consistent `{"detail": [...]}` validation payloads |
 | Decorator semantics | Injection names and conflict rules |
 
-### What OpenAPI tooling owns
-
-| Concern | Description |
-| --- | --- |
-| Spec generation | Build OpenAPI documents and route operations |
-| Schema presentation | Convert model schemas into API docs representations |
-| Docs UX | Swagger/ReDoc integration, grouping, and rendering |
-
-### What neither package owns
+### What this package does not own
 
 - Azure Functions route registration mechanics
 - Authentication and authorization
 - Business/domain logic
 - Data persistence
-
-## Integration contract with OpenAPI
-
-The shared contract is the Pydantic model layer.
-
-```text
-Runtime validation package <-> shared Pydantic models <-> OpenAPI generator
-```
-
-Example:
-
-```python
-from pydantic import BaseModel
-
-
-class CreateUserBody(BaseModel):
-    name: str
-    email: str
-
-
-class CreateUserResult(BaseModel):
-    user_id: int
-    name: str
-
-
-# Runtime side
-# @validate_http(body=CreateUserBody, response_model=CreateUserResult)
-
-# Documentation side
-# CreateUserBody.model_json_schema()
-# CreateUserResult.model_json_schema()
-```
+- OpenAPI specification generation or documentation rendering
 
 ## Invariants and guarantees
 
@@ -166,7 +124,7 @@ class CreateUserResult(BaseModel):
 | --- | --- |
 | Reimplementing request parsing inside handlers | Duplicates validation logic and increases drift |
 | Skipping `response_model` on public APIs | Allows accidental contract breakage |
-| Coupling runtime package to OpenAPI types | Reduces modularity and maintainability |
+| Coupling this package to external API documentation types | Reduces modularity and maintainability |
 | Overusing custom formatters everywhere | Fragments client error handling contracts |
 
 ## Related pages
