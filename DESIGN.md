@@ -11,7 +11,7 @@ This document defines the architectural boundaries and design principles of the 
 - Provide typed request parsing and response validation for Azure Functions Python v2 handlers.
 - Keep the programming model Functions-native and decorator-based.
 - Make validation behavior explicit, predictable, and easy to test.
-- Stay small enough to pair cleanly with `azure-functions-openapi`.
+- Stay small, focused, and independently useful.
 
 ## Non-Goals
 
@@ -30,11 +30,14 @@ This project does not aim to:
 - Public APIs should evolve conservatively.
 - Runtime overhead should stay low and implementation details easy to remove.
 
-## Integration Boundaries
+## Ownership
 
-- OpenAPI generation belongs to `azure-functions-openapi`.
-- Project diagnostics belong to `azure-functions-doctor`.
-- This repository owns request parsing, validation, response validation, and validation error formatting.
+This repository owns:
+
+- Request parsing and validation (body, query, path, headers)
+- Response model validation
+- Validation error formatting (`{"detail": [...]}` envelope)
+- The `PipelineConfig` that captures per-handler validation contracts
 
 ## Compatibility Policy
 
@@ -57,45 +60,7 @@ The v0.5.0 pipeline separation addressed the core structural concerns:
 - ~~loosen handler signature assumptions without hiding request resolution errors~~ → done (explicit `_find_request_param` in `decorator.py`)
 - ~~keep documentation and examples aligned with the runtime contract~~ → done (usage.md, architecture.md, 5 smoke-tested examples)
 
-## OpenAPI Pairing
-
-The package should stay small and independent, but it is intentionally designed to pair well with `azure-functions-openapi`.
-
-That means:
-
-- response and request model conventions should stay compatible
-- validation error behavior should be easy to document
-- examples should show both standalone validation and OpenAPI-aligned usage
-
-## Integration Boundary
-
-The integration point between `azure-functions-validation` and
-`azure-functions-openapi` is the Pydantic models themselves.
-
-This repository owns:
-
-- which request models are validated (body, query, path, headers)
-- which response models are validated
-- what validation error payload shape is produced (`{"detail": [...]}`)
-- the `PipelineConfig` that captures per-handler validation contracts
-This repository should not own:
-
-- OpenAPI path generation
-- OpenAPI operation assembly
-- Swagger UI rendering
-
-## Desired Direction
-
-The design target is:
-
-- `azure-functions-validation` as the source of truth for validation contracts
-- `azure-functions-openapi` as the consumer that renders those contracts into OpenAPI documents
-
-This keeps runtime semantics in one place and avoids splitting request and error
-contract logic across multiple packages.
-
 ## Next Design Tasks
 
 - evaluate whether `PipelineConfig` fields should be exposed as a public API for tooling consumers
-- keep examples and smoke tests aligned with both standalone and OpenAPI-paired usage
-- consider adding a `model_json_schema()` helper that produces OpenAPI-ready schemas from handler configs
+- keep examples and smoke tests aligned with the runtime contract

@@ -24,13 +24,13 @@ This creates duplication, uneven error handling, and drift between intended and 
 - Provide a decorator-first API for request and response validation.
 - Normalize validation errors into predictable response payloads.
 - Support typed request sources such as body, query, path, and headers.
-- Keep the package aligned with Azure Functions Python v2 and companion libraries in this ecosystem.
+- Keep the package small, focused, and independently useful.
 
 ## Non-Goals
 
 1. Building a full web framework.
 2. Replacing Azure Functions routing or hosting behavior.
-3. Owning OpenAPI specification generation (model reuse is allowed; schema generation is not).
+3. Owning OpenAPI specification generation or schema rendering.
 4. Supporting the legacy `function.json`-based Python v1 model.
 5. Providing global mutable state such as error-handler registries.
 6. Owning contract-testing utilities — that responsibility belongs to test tooling.
@@ -39,7 +39,7 @@ This creates duplication, uneven error handling, and drift between intended and 
 
 - Azure Functions Python API developers
 - Teams that want consistent input and output contracts
-- Users pairing this package with `azure-functions-openapi`
+- Users who need structured validation without a full web framework
 
 ## Validation Pipeline
 
@@ -79,7 +79,7 @@ All validation errors use a **stable** `{"detail": [...]}` envelope:
 | 422 | Schema validation failure (body, query, path, headers) |
 | 500 | Response model contract violation |
 
-This format is intentionally compatible with FastAPI / Pydantic conventions.
+This format follows FastAPI / Pydantic conventions for broad tooling compatibility.
 
 ## Compatibility
 
@@ -103,17 +103,6 @@ This format is intentionally compatible with FastAPI / Pydantic conventions.
 - Runtime validation behavior stays aligned with tests and documentation
 - `make check-all` is the minimum merge gate
 
-## Ecosystem
-
-`azure-functions-validation` is one piece of a planned companion stack:
-
-| Package | Responsibility |
-|---|---|
-| **azure-functions-validation** | Runtime request/response validation, error formatting |
-| **azure-functions-openapi** *(planned)* | OpenAPI spec generation from Pydantic models |
-
-Model reuse across the two packages is expected; schema generation is **not**
-a responsibility of the validation package.
 
 ## Example-First Design
 
