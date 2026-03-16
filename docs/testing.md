@@ -151,3 +151,33 @@ This is managed via the `.github/workflows/ci-test.yml` configuration.
 - **Pydantic Version**: The project supports Pydantic v2. Tests may fail if an older version of Pydantic is installed.
 - **Async Setup**: Ensure `pytest-anyio` is installed and tests are correctly marked with `@pytest.mark.anyio`.
 - **Missing Dependencies**: If you see import errors for `azure.functions`, ensure you have installed the development dependencies using `pip install -e .[dev]`.
+
+## Real Azure E2E Tests
+
+The project includes a real Azure end-to-end test workflow that deploys an actual Function App to Azure and validates HTTP endpoints.
+
+### Workflow
+
+- **File**: `.github/workflows/e2e-azure.yml`
+- **Trigger**: Manual (`workflow_dispatch`) or weekly schedule (Mondays 02:00 UTC)
+- **Infrastructure**: Azure Consumption plan, `koreacentral` region
+- **Cleanup**: Resource group deleted immediately after tests (`if: always()`)
+
+### Running E2E Tests
+
+```bash
+gh workflow run e2e-azure.yml --ref main
+```
+
+### Required Secrets & Variables
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `AZURE_CLIENT_ID` | Secret | App Registration Client ID (OIDC) |
+| `AZURE_TENANT_ID` | Secret | Azure Tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Secret | Azure Subscription ID |
+| `AZURE_LOCATION` | Variable | Azure region (default: `koreacentral`) |
+
+### Test Report
+
+HTML test report is uploaded as a GitHub Actions artifact (retained 30 days).

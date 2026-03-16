@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Real Azure end-to-end test workflow (`e2e-azure.yml`) deploying to Consumption plan (`koreacentral`)
+- `docs/testing.md` — Real Azure E2E Tests section
+
+### Changed
+
+- GitHub Actions versions upgraded to Node.js 24 compatible: `checkout@v6`, `setup-python@v6`, `upload-artifact@v7`, `azure/login@v2.3.0`
+
+### Fixed
+
+- `@validate_http` decorator `co_argcount` bug — Azure Functions worker now correctly recognizes decorated handlers (v0.5.3)
 ## [0.5.2] - 2026-03-15
 
 ### Added
