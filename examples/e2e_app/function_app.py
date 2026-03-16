@@ -1,8 +1,7 @@
-"""E2E test function app for azure-functions-validation — direct API (no decorator)."""
+"""E2E test function app for azure-functions-validation."""
 from __future__ import annotations
 
 import json
-import logging
 
 from pydantic import BaseModel, Field, ValidationError
 import azure.functions as func
@@ -10,8 +9,6 @@ from azure_functions_validation.adapter import PydanticAdapter
 
 app = func.FunctionApp()
 _adapter = PydanticAdapter()
-
-logger = logging.getLogger(__name__)
 
 
 class CreateItemRequest(BaseModel):

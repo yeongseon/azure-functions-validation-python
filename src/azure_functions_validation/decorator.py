@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from functools import wraps
+import functools
 import inspect
 from typing import Any, Callable, Mapping
-
-from azure.functions import HttpResponse
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
@@ -71,15 +69,7 @@ def validate_http(
             request_param_name=request_param_name,
         )
 
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
-            return run_pipeline(func, args, kwargs, config)
-
-        @wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> HttpResponse:
-            return await run_pipeline_async(func, args, kwargs, config)
-
-        return async_wrapper if is_async else wrapper
+        return _make_wrapper(func, config, is_async=is_async)
 
     return decorator
 
@@ -145,3 +135,56 @@ def _validate_no_conflicts(
             f"conflicts with a @validate_http injected parameter of the same name. "
             f"Rename it (e.g. to 'req' or 'http_request')."
         )
+
+
+def _make_wrapper(
+    func: Callable[..., Any],
+    config: Any,
+    *,
+    is_async: bool,
+) -> Callable[..., Any]:
+    """Return a wrapper whose visible signature matches what Azure Functions worker expects.
+
+    Azure Functions Python worker reads ``func.__code__.co_varnames`` and
+    ``co_argcount`` directly (not ``inspect.signature``) to discover the HTTP
+    trigger parameter.  A plain ``*args / **kwargs`` wrapper appears to have
+    ``co_argcount = 0`` and is silently skipped by the worker — resulting in
+    an empty function list on the deployed app.
+
+    The wrapper only needs to declare the *request* positional parameter
+    (e.g. ``req``) so the worker recognises it as a valid HTTP trigger.
+    Injected parameters (``body``, ``query``, etc.) are populated by the
+    pipeline and passed to the original function as keyword arguments.
+
+    We use ``exec`` to synthesise the wrapper with the correct param name so
+    ``co_argcount == 1`` and ``co_varnames[0]`` matches the original function.
+    ``functools.update_wrapper`` copies ``__name__``, ``__doc__``, etc.
+    No extra runtime dependencies are required.
+    """
+    req_param = config.request_param_name or "req"
+
+    if is_async:
+        src = (
+            f"async def _wrapper({req_param}, **_kw):\n"
+            f"    return await _run_pipeline_async(_func, ({req_param},), _kw, _config)\n"
+        )
+        ns: dict[str, Any] = {
+            "_func": func,
+            "_config": config,
+            "_run_pipeline_async": run_pipeline_async,
+        }
+    else:
+        src = (
+            f"def _wrapper({req_param}, **_kw):\n"
+            f"    return _run_pipeline(_func, ({req_param},), _kw, _config)\n"
+        )
+        ns = {
+            "_func": func,
+            "_config": config,
+            "_run_pipeline": run_pipeline,
+        }
+
+    exec(src, ns)  # noqa: S102 – controlled string, no user input
+    wrapper: Callable[..., Any] = ns["_wrapper"]
+    functools.update_wrapper(wrapper, func)
+    return wrapper
