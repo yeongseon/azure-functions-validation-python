@@ -32,7 +32,7 @@ def warmup() -> None:
     while time.time() < deadline:
         try:
             r = requests.get(f"{BASE_URL}/api/health", timeout=10)
-            if r.status_code < 500:
+            if r.status_code == 200:
                 return
         except requests.RequestException:
             pass
