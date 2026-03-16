@@ -119,15 +119,25 @@ jobs:
             curl -s "https://${APP}.azurewebsites.net/admin/host/status" \
               -H "x-functions-key: ${MASTER_KEY}" | python3 -m json.tool 2>/dev/null || true
           fi
-          echo "=== Kudu logstream (10s) ==="
-          PUBLISH_CREDS=$(az webapp deployment list-publishing-credentials \
-            --name "$APP" --resource-group "$RG" \
-            --query '{user:publishingUserName,pass:publishingPassword}' -o json 2>/dev/null || echo '{}')
-          KUDU_USER=$(echo "$PUBLISH_CREDS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('user',''))" 2>/dev/null || echo '')
-          KUDU_PASS=$(echo "$PUBLISH_CREDS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('pass',''))" 2>/dev/null || echo '')
+          echo "=== Kudu: Python worker error log ==="
           if [ -n "$KUDU_USER" ] && [ -n "$KUDU_PASS" ]; then
+            # Try to fetch worker error logs via Kudu VFS
             curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
-              "https://${APP}.scm.azurewebsites.net/api/logstream" --max-time 10 2>&1 | head -120 || true
+              "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/" \
+              2>/dev/null | python3 -m json.tool 2>/dev/null | head -20 || true
+            # Fetch most recent log file content
+            LOGFILE=$(curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
+              "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/" \
+              2>/dev/null | python3 -c "import json,sys; files=json.load(sys.stdin); print(sorted([f['name'] for f in files if f.get('name','').endswith('.txt')], reverse=True)[0])" 2>/dev/null || echo '')
+            if [ -n "$LOGFILE" ]; then
+              echo "=== Content of $LOGFILE ==="
+              curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
+                "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/${LOGFILE}" \
+                2>/dev/null | tail -80 || true
+            fi
+            echo "=== Kudu logstream (15s) ==="
+            curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
+              "https://${APP}.scm.azurewebsites.net/api/logstream" --max-time 15 2>&1 | head -150 || true
           fi
       - name: Run e2e tests
         run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
