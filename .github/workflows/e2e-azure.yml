@@ -58,7 +58,7 @@ jobs:
                 location="$AZURE_LOCATION" \
                 functionAppName="${{ steps.names.outputs.app }}" \
                 storageName="${{ steps.names.outputs.st }}" \
-                enableAppInsights=false
+                enableAppInsights=true
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -109,14 +109,25 @@ jobs:
           echo "=== App Settings ==="
           az functionapp config appsettings list --name "$APP" --resource-group "$RG" \
             --query "[].{name:name,value:value}" -o table 2>/dev/null || true
-          echo "=== Live log snapshot (5s) ==="
-          timeout 10 az webapp log tail --name "$APP" --resource-group "$RG" 2>&1 | head -80 || true
           echo "=== Registered functions (admin API) ==="
           MASTER_KEY=$(az functionapp keys list --name "$APP" --resource-group "$RG" \
             --query 'masterKey' -o tsv 2>/dev/null || echo '')
           if [ -n "$MASTER_KEY" ]; then
             curl -s "https://${APP}.azurewebsites.net/admin/functions" \
               -H "x-functions-key: ${MASTER_KEY}" | python3 -m json.tool 2>/dev/null | head -40 || true
+            echo "=== Host status ==="
+            curl -s "https://${APP}.azurewebsites.net/admin/host/status" \
+              -H "x-functions-key: ${MASTER_KEY}" | python3 -m json.tool 2>/dev/null || true
+          fi
+          echo "=== Kudu logstream (10s) ==="
+          PUBLISH_CREDS=$(az webapp deployment list-publishing-credentials \
+            --name "$APP" --resource-group "$RG" \
+            --query '{user:publishingUserName,pass:publishingPassword}' -o json 2>/dev/null || echo '{}')
+          KUDU_USER=$(echo "$PUBLISH_CREDS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('user',''))" 2>/dev/null || echo '')
+          KUDU_PASS=$(echo "$PUBLISH_CREDS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('pass',''))" 2>/dev/null || echo '')
+          if [ -n "$KUDU_USER" ] && [ -n "$KUDU_PASS" ]; then
+            curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
+              "https://${APP}.scm.azurewebsites.net/api/logstream" --max-time 10 2>&1 | head -120 || true
           fi
       - name: Run e2e tests
         run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
