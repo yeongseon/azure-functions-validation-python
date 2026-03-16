@@ -78,30 +78,10 @@ jobs:
           pip install -e ".[dev]"
           pip install requests pytest pytest-html
 
-      - name: Build function app packages (local build)
-        working-directory: examples/e2e_app
-        run: |
-          pip install \
-            -r requirements.txt \
-            --target .python_packages/lib/site-packages \
-            --upgrade
-          echo "=== Installed packages ==="
-          pip show pydantic pydantic-core azure-functions-validation 2>&1 || true
-          ls .python_packages/lib/site-packages/ | grep -E '(pydantic|typing_inspection|azure_functions)' || true
-
-      - name: Disable remote build on function app
-        run: |
-          az functionapp config appsettings set \
-            --name "${{ steps.names.outputs.app }}" \
-            --resource-group "${{ steps.names.outputs.rg }}" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false \
-            --output none
-
       - name: Publish function app
         working-directory: examples/e2e_app
         run: |
-          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --no-build
-
+          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --build remote
       - name: Restart app and wait for functions to load
         run: |
           APP="${{ steps.names.outputs.app }}"

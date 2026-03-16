@@ -1,3 +1,2 @@
 azure-functions
 azure-functions-validation==0.5.2
-pydantic>=2.0,<2.10
