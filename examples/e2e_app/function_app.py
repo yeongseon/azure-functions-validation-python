@@ -11,6 +11,10 @@ from azure_functions_validation import validate_http
 
 app = func.FunctionApp()
 
+logging.getLogger(__name__).warning(
+    "function_app module loaded successfully; pydantic and azure_functions_validation imported OK"
+)
+
 
 class CreateItemRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)

@@ -99,6 +99,22 @@ jobs:
             [ "$STATUS" = "200" ] && break
             sleep 15
           done
+      - name: Capture application logs (on failure)
+        if: failure()
+        run: |
+          APP="${{ steps.names.outputs.app }}"
+          RG="${{ steps.names.outputs.rg }}"
+          echo "=== App Settings ==="
+          az functionapp config appsettings list --name "$APP" --resource-group "$RG" --query "[].{name:name,value:value}" -o table || true
+          echo "=== App State ==="
+          az functionapp show --name "$APP" --resource-group "$RG" --query "{state:state,runtimeSite:siteConfig.linuxFxVersion}" -o json || true
+          echo "=== Deployment logs ==="
+          az webapp log download --name "$APP" --resource-group "$RG" --log-file /tmp/app-logs.zip 2>&1 || true
+          if [ -f /tmp/app-logs.zip ]; then
+            unzip -o /tmp/app-logs.zip -d /tmp/app-logs/ 2>&1 | head -20 || true
+            find /tmp/app-logs -name '*.txt' -exec head -100 {} \; 2>/dev/null || true
+          fi
+
       - name: Run e2e tests
         run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
         env:
