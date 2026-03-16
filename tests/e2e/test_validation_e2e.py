@@ -44,7 +44,10 @@ def warmup() -> None:
 def test_health_returns_200() -> None:
     r = requests.get(f"{BASE_URL}/api/health", timeout=30)
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    body = r.json()
+    if body.get("import_error"):
+        pytest.fail(f"Library import failed on Azure host:\n{body['import_error']}")
+    assert body["status"] == "ok"
 
 
 @pytest.mark.skipif(not BASE_URL, reason=SKIP_REASON)
