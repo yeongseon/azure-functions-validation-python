@@ -30,8 +30,8 @@ class TestAPISurface:
             "ErrorFormatter",
         }
 
-    def test_version_is_0_5_3(self) -> None:
-        assert azure_functions_validation.__version__ == "0.5.3"
+    def test_version_is_0_5_4(self) -> None:
+        assert azure_functions_validation.__version__ == "0.5.4"
 
     def test_validate_http_is_callable(self) -> None:
         assert callable(validate_http)

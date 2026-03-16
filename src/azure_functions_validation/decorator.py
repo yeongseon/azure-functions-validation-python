@@ -186,5 +186,14 @@ def _make_wrapper(
 
     exec(src, ns)  # noqa: S102 – controlled string, no user input
     wrapper: Callable[..., Any] = ns["_wrapper"]
-    functools.update_wrapper(wrapper, func)
+    # Manually copy metadata WITHOUT setting __wrapped__.
+    # functools.update_wrapper would set __wrapped__ = func, and some versions
+    # of the Azure Functions Python worker follow __wrapped__ to discover the
+    # original function — seeing co_argcount > 1 and failing to register the
+    # function.  We copy only the safe attributes.
+    for attr in ("__name__", "__qualname__", "__doc__", "__dict__", "__module__", "__annotations__"):
+        try:
+            object.__setattr__(wrapper, attr, getattr(func, attr))
+        except (AttributeError, TypeError):
+            pass
     return wrapper
