@@ -99,8 +99,8 @@ jobs:
             [ "$STATUS" = "200" ] && break
             sleep 15
           done
-      - name: Capture application logs (on failure)
-        if: failure()
+      - name: Capture application logs
+        if: always()
         run: |
           APP="${{ steps.names.outputs.app }}"
           RG="${{ steps.names.outputs.rg }}"
