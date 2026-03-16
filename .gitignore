@@ -177,3 +177,4 @@ cython_debug/
 
 # Coverage
 junit.xml
+.venv-review/
