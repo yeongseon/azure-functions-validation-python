@@ -1,2 +1,2 @@
 azure-functions
-azure-functions-validation==0.5.2
+azure-functions-validation==0.5.3

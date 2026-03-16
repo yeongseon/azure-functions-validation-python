@@ -1,14 +1,13 @@
-"""E2E test function app for azure-functions-validation."""
+"""E2E test function app for azure-functions-validation — uses @validate_http decorator."""
 from __future__ import annotations
 
 import json
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 import azure.functions as func
-from azure_functions_validation.adapter import PydanticAdapter
+from azure_functions_validation import validate_http
 
 app = func.FunctionApp()
-_adapter = PydanticAdapter()
 
 
 class CreateItemRequest(BaseModel):
@@ -28,25 +27,15 @@ def health(req: func.HttpRequest) -> func.HttpResponse:
 
 
 @app.route(route="items", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def create_item(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        body = _adapter.parse_body(req, CreateItemRequest)
-    except (ValidationError, ValueError) as e:
-        errors = _adapter.format_error(e)
-        return func.HttpResponse(json.dumps(errors), status_code=422, mimetype="application/json")
-    result = ItemResponse(id=1, name=body.name, quantity=body.quantity)
-    content, content_type = _adapter.serialize(result)
-    return func.HttpResponse(content, status_code=200, headers={"Content-Type": content_type})
+@validate_http(body=CreateItemRequest, response_model=ItemResponse)
+def create_item(req: func.HttpRequest, body: CreateItemRequest) -> ItemResponse:
+    return ItemResponse(id=1, name=body.name, quantity=body.quantity)
 
 
 @app.route(route="items/bad", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def create_item_bad_request(req: func.HttpRequest) -> func.HttpResponse:
-    """Intentionally returns 422 when body is invalid — used by e2e tests."""
-    try:
-        body = _adapter.parse_body(req, CreateItemRequest)
-    except (ValidationError, ValueError) as e:
-        errors = _adapter.format_error(e)
-        return func.HttpResponse(json.dumps(errors), status_code=422, mimetype="application/json")
+@validate_http(body=CreateItemRequest)
+def create_item_bad_request(req: func.HttpRequest, body: CreateItemRequest) -> func.HttpResponse:
+    """Intentionally returns 200 when body is valid — e2e tests validate the happy path here."""
     return func.HttpResponse(
         json.dumps({"id": 2, "name": body.name, "quantity": body.quantity}),
         mimetype="application/json",
