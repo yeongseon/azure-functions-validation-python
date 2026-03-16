@@ -78,10 +78,21 @@ jobs:
           pip install -e ".[dev]"
           pip install requests pytest pytest-html
 
+      - name: Build function app packages (local build)
+        working-directory: examples/e2e_app
+        run: |
+          pip install \
+            -r requirements.txt \
+            --target .python_packages/lib/site-packages \
+            --upgrade
+          echo "=== Installed packages ==="
+          pip show pydantic pydantic-core azure-functions-validation 2>&1 || true
+          ls .python_packages/lib/site-packages/ | grep -E '(pydantic|typing_inspection|azure_functions)' || true
+
       - name: Publish function app
         working-directory: examples/e2e_app
         run: |
-          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --build remote
+          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --no-build
 
       - name: Restart app and wait for functions to load
         run: |
@@ -104,17 +115,21 @@ jobs:
         run: |
           APP="${{ steps.names.outputs.app }}"
           RG="${{ steps.names.outputs.rg }}"
-          echo "=== App Settings ==="
-          az functionapp config appsettings list --name "$APP" --resource-group "$RG" --query "[].{name:name,value:value}" -o table || true
           echo "=== App State ==="
-          az functionapp show --name "$APP" --resource-group "$RG" --query "{state:state,runtimeSite:siteConfig.linuxFxVersion}" -o json || true
-          echo "=== Deployment logs ==="
-          az webapp log download --name "$APP" --resource-group "$RG" --log-file /tmp/app-logs.zip 2>&1 || true
-          if [ -f /tmp/app-logs.zip ]; then
-            unzip -o /tmp/app-logs.zip -d /tmp/app-logs/ 2>&1 | head -20 || true
-            find /tmp/app-logs -name '*.txt' -exec head -100 {} \; 2>/dev/null || true
+          az functionapp show --name "$APP" --resource-group "$RG" \
+            --query "{state:state,runtime:siteConfig.linuxFxVersion}" -o json || true
+          echo "=== App Settings ==="
+          az functionapp config appsettings list --name "$APP" --resource-group "$RG" \
+            --query "[].{name:name,value:value}" -o table 2>/dev/null || true
+          echo "=== Live log snapshot (5s) ==="
+          timeout 10 az webapp log tail --name "$APP" --resource-group "$RG" 2>&1 | head -80 || true
+          echo "=== Registered functions (admin API) ==="
+          MASTER_KEY=$(az functionapp keys list --name "$APP" --resource-group "$RG" \
+            --query 'masterKey' -o tsv 2>/dev/null || echo '')
+          if [ -n "$MASTER_KEY" ]; then
+            curl -s "https://${APP}.azurewebsites.net/admin/functions" \
+              -H "x-functions-key: ${MASTER_KEY}" | python3 -m json.tool 2>/dev/null | head -40 || true
           fi
-
       - name: Run e2e tests
         run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
         env:
