@@ -184,7 +184,7 @@ def _make_wrapper(
 
     # Copy safe metadata attributes without setting __wrapped__.
     _COPY_ATTRS = (
-        "__name__", "__qualname__", "__doc__", "__dict__", "__module__", "__annotations__",
+        "__name__", "__qualname__", "__doc__", "__dict__", "__module__",
     )
     for attr in _COPY_ATTRS:
         try:
