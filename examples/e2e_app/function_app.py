@@ -1,6 +1,4 @@
 """E2E test function app for azure-functions-validation."""
-from __future__ import annotations
-
 import json
 
 from pydantic import BaseModel, Field
