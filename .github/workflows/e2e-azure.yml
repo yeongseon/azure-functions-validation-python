@@ -80,10 +80,36 @@ jobs:
           pip install -e ".[dev]"
           pip install requests pytest pytest-html
 
+      - name: Build wheel and pre-install packages for deploy
+        run: |
+          # Build the current source wheel (includes __signature__ fix)
+          pip install build
+          python3 -m build --wheel --outdir /tmp/dist
+          WHEEL=$(ls /tmp/dist/azure_functions_validation-*.whl | head -1)
+          echo "Built wheel: $WHEEL"
+
+          # Pre-install all function app dependencies into .python_packages
+          # (Linux Consumption picks up .python_packages/lib/site-packages at runtime)
+          # Use the local wheel instead of PyPI azure-functions-validation
+          mkdir -p examples/e2e_app/.python_packages/lib/site-packages
+          pip install \
+            --target examples/e2e_app/.python_packages/lib/site-packages \
+            --platform manylinux2014_x86_64 \
+            --python-version 3.10 \
+            --only-binary=:all: \
+            --implementation cp \
+            "azure-functions" \
+            "pydantic>=2.0,<3.0"
+          # Install local wheel last (overrides any PyPI version)
+          pip install \
+            --target examples/e2e_app/.python_packages/lib/site-packages \
+            --upgrade \
+            "$WHEEL"
+
       - name: Publish function app
         working-directory: examples/e2e_app
         run: |
-          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --build remote
+          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --no-build
       - name: Restart app and wait for functions to load
         run: |
           APP="${{ steps.names.outputs.app }}"
