@@ -141,6 +141,13 @@ jobs:
             curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
               "https://${APP}.scm.azurewebsites.net/api/logstream" --max-time 15 2>&1 | head -150 || true
           fi
+          echo "=== Azure app logs (last 50 lines) ==="
+          az webapp log download --name "$APP" --resource-group "$RG" --log-file /tmp/app-logs.zip 2>/dev/null || true
+          if [ -f /tmp/app-logs.zip ]; then
+            unzip -p /tmp/app-logs.zip 2>/dev/null | tail -100 || true
+          fi
+          echo "=== Live logstream (20s) ==="
+          timeout 20 az webapp log tail --name "$APP" --resource-group "$RG" 2>&1 | head -200 || true
       - name: Run e2e tests
         run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
         env:
