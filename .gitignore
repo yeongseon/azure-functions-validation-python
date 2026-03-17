@@ -179,3 +179,6 @@ cython_debug/
 # Coverage
 junit.xml
 .venv-review/
+
+# Azure Functions local build artifacts
+examples/e2e_app/.python_packages/

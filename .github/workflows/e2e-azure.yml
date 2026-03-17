@@ -83,7 +83,11 @@ jobs:
       - name: Publish function app
         working-directory: examples/e2e_app
         run: |
-          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --build remote
+          # Build locally: install deps into .python_packages for reliable deployment
+          pip install \
+            --target .python_packages/lib/site-packages \
+            -r requirements.txt
+          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --no-build
       - name: Restart app and wait for functions to load
         run: |
           APP="${{ steps.names.outputs.app }}"
@@ -121,26 +125,15 @@ jobs:
             curl -s "https://${APP}.azurewebsites.net/admin/host/status" \
               -H "x-functions-key: ${MASTER_KEY}" | python3 -m json.tool 2>/dev/null || true
           fi
-          echo "=== Kudu: Python worker error log ==="
-          if [ -n "$KUDU_USER" ] && [ -n "$KUDU_PASS" ]; then
-            # Try to fetch worker error logs via Kudu VFS
-            curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
-              "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/" \
-              2>/dev/null | python3 -m json.tool 2>/dev/null | head -20 || true
-            # Fetch most recent log file content
-            LOGFILE=$(curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
-              "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/" \
-              2>/dev/null | python3 -c "import json,sys; files=json.load(sys.stdin); print(sorted([f['name'] for f in files if f.get('name','').endswith('.txt')], reverse=True)[0])" 2>/dev/null || echo '')
-            if [ -n "$LOGFILE" ]; then
-              echo "=== Content of $LOGFILE ==="
-              curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
-                "https://${APP}.scm.azurewebsites.net/api/vfs/LogFiles/Application/${LOGFILE}" \
-                2>/dev/null | tail -80 || true
-            fi
-            echo "=== Kudu logstream (15s) ==="
-            curl -s -u "${KUDU_USER}:${KUDU_PASS}" \
-              "https://${APP}.scm.azurewebsites.net/api/logstream" --max-time 15 2>&1 | head -150 || true
-          fi
+          echo "=== Application Insights: exceptions & worker errors ==="
+          AI_NAME="${APP}-ai"
+          # Wait briefly for AI to ingest logs
+          sleep 30
+          az monitor app-insights query \
+            --app "$AI_NAME" \
+            --resource-group "$RG" \
+            --analytics-query "union exceptions, traces | where timestamp > ago(30m) | order by timestamp desc | take 30 | project timestamp, itemType, message, outerMessage, innermostMessage, severityLevel" \
+            --output json 2>/dev/null || true
           echo "=== Azure app logs (last 50 lines) ==="
           az webapp log download --name "$APP" --resource-group "$RG" --log-file /tmp/app-logs.zip 2>/dev/null || true
           if [ -f /tmp/app-logs.zip ]; then

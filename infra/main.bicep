@@ -76,6 +76,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
           { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'python' }
           { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
+          { name: 'PYTHON_ENABLE_WORKER_EXTENSIONS', value: '1' }
         ],
         enableAppInsights
           ? [
