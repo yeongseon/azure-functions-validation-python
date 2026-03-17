@@ -18,14 +18,35 @@ and response contracts around Azure Functions HTTP handlers.
 
 ## High-level flow
 
-```text
-HttpRequest
-  -> validate_http configuration
-  -> parse request inputs (body/query/path/headers)
-  -> validate against Pydantic models
-  -> call handler with typed arguments
-  -> validate handler output (optional response_model)
-  -> serialize result to HttpResponse
+```mermaid
+sequenceDiagram
+    participant Client as HTTP Client
+    participant AZ as Azure Functions
+    participant DEC as @validate_http
+    participant PL as pipeline.py
+    participant AD as adapter.py
+    participant H as Handler
+
+    Client->>AZ: HTTP Request
+    AZ->>DEC: HttpRequest
+    DEC->>PL: run_pipeline(config, req)
+    PL->>AD: parse body / query / path / headers
+
+    alt validation passes
+        AD-->>PL: typed arguments
+        PL->>H: handler(req, body, query, ...)
+        H-->>PL: return value
+        PL->>AD: validate response_model (optional)
+        AD-->>PL: serialized HttpResponse
+        PL-->>Client: 200 OK
+    else validation fails
+        AD-->>PL: ValidationError
+        PL-->>Client: 422 Unprocessable Entity {"detail": [...]}
+    else handler error
+        H-->>PL: exception
+        PL->>AD: format_error_response
+        AD-->>Client: 500 Internal Server Error
+    end
 ```
 
 This flow is shared by sync and async handlers.
@@ -86,7 +107,22 @@ Error shaping policy:
 - 500-level internal errors are sanitized by default unless a custom formatter
   is provided
 
-## Package ownership boundaries
+
+## Module boundaries
+
+```mermaid
+flowchart LR
+    DEC["decorator.py\n@validate_http"]
+    PL["pipeline.py\nrun_pipeline()"]
+    AD["adapter.py\nPydanticAdapter"]
+    ERR["errors.py\nResponseValidationError"]
+
+    DEC -- "creates PipelineConfig" --> PL
+    PL -- "delegates parsing\n+ serialization" --> AD
+    PL -- "on error" --> ERR
+    AD -- "raises" --> ERR
+```
+
 
 ### What this package owns
 

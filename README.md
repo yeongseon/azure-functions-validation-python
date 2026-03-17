@@ -25,6 +25,19 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 
 `azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
 
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AZ as Azure Functions
+    participant V as @validate_http
+    participant H as Your Handler
+
+    Client->>AZ: POST /users {name, email}
+    AZ->>V: HttpRequest
+    V->>H: handler(req, body: CreateUserRequest)
+    H-->>V: CreateUserResponse
+    V-->>Client: 200 OK (validated + serialized)
+```
 ## Scope
 
 - Azure Functions Python **v2 programming model**
