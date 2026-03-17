@@ -18,6 +18,7 @@ jobs:
   deploy_and_test:
     name: Deploy & Test
     runs-on: ubuntu-latest
+    environment: azure-e2e
     outputs:
       resource_group: ${{ steps.names.outputs.rg }}
 
@@ -156,6 +157,7 @@ jobs:
   cleanup:
     name: Cleanup Azure Resources
     runs-on: ubuntu-latest
+    environment: azure-e2e
     needs: [deploy_and_test]
     if: always()
     steps:
