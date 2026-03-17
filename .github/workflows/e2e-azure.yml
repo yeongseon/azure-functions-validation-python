@@ -83,11 +83,7 @@ jobs:
       - name: Publish function app
         working-directory: examples/e2e_app
         run: |
-          # Build locally: install deps into .python_packages for reliable deployment
-          pip install \
-            --target .python_packages/lib/site-packages \
-            -r requirements.txt
-          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --no-build
+          func azure functionapp publish "${{ steps.names.outputs.app }}" --python --build remote
       - name: Restart app and wait for functions to load
         run: |
           APP="${{ steps.names.outputs.app }}"
