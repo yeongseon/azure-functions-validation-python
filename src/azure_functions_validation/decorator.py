@@ -199,4 +199,13 @@ def _make_wrapper(
     _req_param = inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)
     wrapper.__signature__ = inspect.Signature([_req_param])  # type: ignore[attr-defined]
 
+    # Clear __annotations__ so typing.get_type_hints(wrapper) returns {} instead of
+    # {'req': Any, '_kw': Any, 'return': Any}.  The Azure Functions worker calls
+    # typing.get_type_hints(func) to build its annotation map; if it sees
+    # ``req: typing.Any``, it raises:
+    #   FunctionLoadError: binding req has invalid non-type annotation typing.Any
+    # With no annotations, the worker skips annotation validation for ``req``
+    # entirely and falls back to its default HttpRequest type inference.
+    wrapper.__annotations__ = {}
+
     return wrapper
