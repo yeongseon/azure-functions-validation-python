@@ -191,4 +191,12 @@ def _make_wrapper(
             object.__setattr__(wrapper, attr, getattr(func, attr))
         except (AttributeError, TypeError):  # pragma: no cover
             pass
+
+    # Override __signature__ so inspect.signature() and the Azure Functions worker
+    # see only the single ``req`` parameter — not the internal ``**_kw`` catch-all.
+    # This prevents FunctionLoadError: 'the following parameters are declared in
+    # Python but not in the function definition: {\'_kw\'}' at function load time.
+    _req_param = inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    wrapper.__signature__ = inspect.Signature([_req_param])  # type: ignore[attr-defined]
+
     return wrapper
