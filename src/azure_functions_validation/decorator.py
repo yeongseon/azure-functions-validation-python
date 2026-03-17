@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import inspect
 from typing import Any, Callable, Mapping
 
@@ -137,63 +136,59 @@ def _validate_no_conflicts(
         )
 
 
+_MISSING: Any = object()  # sentinel for absent req argument
+
+
 def _make_wrapper(
     func: Callable[..., Any],
     config: Any,
     *,
     is_async: bool,
 ) -> Callable[..., Any]:
-    """Return a wrapper whose visible signature matches what Azure Functions worker expects.
+    """Return a wrapper whose visible signature satisfies the Azure Functions worker.
 
-    Azure Functions Python worker reads ``func.__code__.co_varnames`` and
-    ``co_argcount`` directly (not ``inspect.signature``) to discover the HTTP
-    trigger parameter.  A plain ``*args / **kwargs`` wrapper appears to have
-    ``co_argcount = 0`` and is silently skipped by the worker — resulting in
-    an empty function list on the deployed app.
+    The worker (``index_function_app`` / ``loader.py``) inspects ``co_argcount``
+    and ``co_varnames`` on the registered callable to locate the HTTP trigger
+    parameter.  A ``*args``/``**kwargs``-only wrapper has ``co_argcount == 0``
+    and is silently skipped — producing an empty function list on the deployed app.
 
-    The wrapper only needs to declare the *request* positional parameter
-    (e.g. ``req``) so the worker recognises it as a valid HTTP trigger.
-    Injected parameters (``body``, ``query``, etc.) are populated by the
-    pipeline and passed to the original function as keyword arguments.
+    We declare a real ``req`` positional parameter (``co_argcount == 1``) so the
+    worker recognises the handler.  Callers may also pass the request via its
+    *original* parameter name as a keyword argument (e.g. ``handler(request=r)``).
+    In that case ``req`` receives a sentinel value and we look up the real object
+    from ``**_kw`` using ``config.request_param_name``.
 
-    We use ``exec`` to synthesise the wrapper with the correct param name so
-    ``co_argcount == 1`` and ``co_varnames[0]`` matches the original function.
-    ``functools.update_wrapper`` copies ``__name__``, ``__doc__``, etc.
-    No extra runtime dependencies are required.
+    ``functools.update_wrapper`` is intentionally **not** used because it sets
+    ``__wrapped__ = func``, and some Azure Functions worker builds follow
+    ``__wrapped__`` to the original function — seeing ``co_argcount > 1`` and
+    failing to register the handler.  We copy only the safe metadata attributes.
     """
-    req_param = config.request_param_name or "req"
+    orig_name: str = config.request_param_name or "req"
 
     if is_async:
-        src = (
-            f"async def _wrapper({req_param}, **_kw):\n"
-            f"    return await _run_pipeline_async(_func, ({req_param},), _kw, _config)\n"
-        )
-        ns: dict[str, Any] = {
-            "_func": func,
-            "_config": config,
-            "_run_pipeline_async": run_pipeline_async,
-        }
-    else:
-        src = (
-            f"def _wrapper({req_param}, **_kw):\n"
-            f"    return _run_pipeline(_func, ({req_param},), _kw, _config)\n"
-        )
-        ns = {
-            "_func": func,
-            "_config": config,
-            "_run_pipeline": run_pipeline,
-        }
+        async def _async_wrapper(  # noqa: ANN202
+            req: Any = _MISSING, **_kw: Any
+        ) -> Any:  # noqa: ANN401
+            _req = _kw.pop(orig_name, req) if req is _MISSING else req
+            return await run_pipeline_async(func, (_req,), _kw, config)
 
-    exec(src, ns)  # noqa: S102 – controlled string, no user input
-    wrapper: Callable[..., Any] = ns["_wrapper"]
-    # Manually copy metadata WITHOUT setting __wrapped__.
-    # functools.update_wrapper would set __wrapped__ = func, and some versions
-    # of the Azure Functions Python worker follow __wrapped__ to discover the
-    # original function — seeing co_argcount > 1 and failing to register the
-    # function.  We copy only the safe attributes.
-    for attr in ("__name__", "__qualname__", "__doc__", "__dict__", "__module__", "__annotations__"):
+        wrapper: Callable[..., Any] = _async_wrapper
+    else:
+        def _sync_wrapper(  # noqa: ANN202
+            req: Any = _MISSING, **_kw: Any
+        ) -> Any:  # noqa: ANN401
+            _req = _kw.pop(orig_name, req) if req is _MISSING else req
+            return run_pipeline(func, (_req,), _kw, config)
+
+        wrapper = _sync_wrapper
+
+    # Copy safe metadata attributes without setting __wrapped__.
+    _COPY_ATTRS = (
+        "__name__", "__qualname__", "__doc__", "__dict__", "__module__", "__annotations__",
+    )
+    for attr in _COPY_ATTRS:
         try:
             object.__setattr__(wrapper, attr, getattr(func, attr))
-        except (AttributeError, TypeError):
+        except (AttributeError, TypeError):  # pragma: no cover
             pass
     return wrapper
