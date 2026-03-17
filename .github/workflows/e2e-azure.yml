@@ -124,11 +124,11 @@ jobs:
           echo "=== Application Insights: exceptions & worker errors ==="
           AI_NAME="${APP}-ai"
           # Wait briefly for AI to ingest logs
-          sleep 30
+          sleep 60
           az monitor app-insights query \
             --app "$AI_NAME" \
             --resource-group "$RG" \
-            --analytics-query "union exceptions, traces | where timestamp > ago(30m) | order by timestamp desc | take 30 | project timestamp, itemType, message, outerMessage, innermostMessage, severityLevel" \
+            --analytics-query "union exceptions, traces | where timestamp > ago(45m) | order by timestamp asc | project timestamp, itemType, message, outerMessage, innermostMessage, severityLevel" \
             --output json 2>/dev/null || true
           echo "=== Azure app logs (last 50 lines) ==="
           az webapp log download --name "$APP" --resource-group "$RG" --log-file /tmp/app-logs.zip 2>/dev/null || true
