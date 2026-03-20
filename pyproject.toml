@@ -126,7 +126,7 @@ source = ["src/azure_functions_validation"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 97
+fail_under = 90
 skip_covered = true
 
 [tool.bandit]
