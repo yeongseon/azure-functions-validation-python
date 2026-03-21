@@ -6,7 +6,6 @@
 ## Read First
 - `README.md`
 - `CONTRIBUTING.md`
-- `docs/agent-playbook.md`
 
 ## Working Rules
 - Runtime code must remain compatible with Python 3.10+.
