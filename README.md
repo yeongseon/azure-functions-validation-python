@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation/)
 [![CI](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml)
-[![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml)
+[![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/publish-pypi.yml)
 [![Security Scans](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml)
 [![codecov](https://codecov.io/gh/yeongseon/azure-functions-validation/branch/main/graph/badge.svg)](https://codecov.io/gh/yeongseon/azure-functions-validation)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
@@ -13,31 +13,38 @@
 Read this in: [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
 Validation and serialization for the **Azure Functions Python v2 programming model**.
-This package provides typed request parsing and response validation for decorator-based `FunctionApp` HTTP handlers.
 
-## Why Use It
+---
+
+Part of the **Azure Functions Python DX Toolkit**
+→ Bring FastAPI-like developer experience to Azure Functions
+
+## Why this exists
 
 Azure Functions Python v2 handlers often drift into the same repeated problems:
 
-- repeated `req.get_json()` and manual request parsing
-- inconsistent `400` and `422` validation responses
-- response payloads that silently diverge from the intended schema
+- **Repeated manual parsing** — every handler calls `req.get_json()`, `req.params.get()`, handles `ValueError` individually
+- **Inconsistent error responses** — some handlers return 400, others 422, formats vary across the project
+- **Missing response contracts** — response payloads silently diverge from the intended schema
+- **No type safety** — request data flows through as untyped dicts, bugs surface only at runtime
 
-`azure-functions-validation` addresses those problems with a decorator-first validation layer that stays close to the Azure Functions programming model.
+## What it does
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant AZ as Azure Functions
-    participant V as @validate_http
-    participant H as Your Handler
+- **Typed validation** — body, query, path, and header parameters validated via Pydantic v2
+- **Automatic error responses** — invalid requests get consistent `400`/`422` JSON error bodies
+- **Response model enforcement** — mismatches raise `ResponseValidationError` (HTTP 500)
+- **Decorator-first API** — `@validate_http` wraps your handler, no boilerplate needed
 
-    Client->>AZ: POST /users {name, email}
-    AZ->>V: HttpRequest
-    V->>H: handler(req, body: CreateUserRequest)
-    H-->>V: CreateUserResponse
-    V-->>Client: 200 OK (validated + serialized)
-```
+## FastAPI comparison
+
+| Feature | FastAPI | azure-functions-validation |
+|---------|---------|---------------------------|
+| Request body parsing | Built-in via type hints | `@validate_http(body=Model)` |
+| Query/path/header validation | `Query()`, `Path()`, `Header()` | `@validate_http(query=Model, path=Model, headers=Model)` |
+| Response model | `response_model=` | `@validate_http(response_model=Model)` |
+| Validation errors | Automatic 422 | Automatic 422 with `{"detail": [...]}` |
+| Error customization | Exception handlers | `ErrorFormatter` callback |
+
 ## Scope
 
 - Azure Functions Python **v2 programming model**
@@ -103,6 +110,13 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
+## When to use
+
+- You have HTTP-triggered Azure Functions that accept JSON request bodies
+- You want Pydantic-based validation without writing manual parsing code
+- You need consistent error response formats across handlers
+- You want response schema enforcement to catch contract drift
+
 ## Documentation
 
 - Project docs live under `docs/`
@@ -112,11 +126,16 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Ecosystem
 
-- [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI and Swagger UI
-- [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) — Structured logging
-- [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) — Diagnostic CLI
-- [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) — Project scaffolding
-- [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) — Recipes and examples
+Part of the **Azure Functions Python DX Toolkit**:
+
+| Package | Role |
+|---------|------|
+| **azure-functions-validation** | Request and response validation |
+| [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) | OpenAPI spec and Swagger UI |
+| [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) | Structured logging and observability |
+| [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) | Pre-deploy diagnostic CLI |
+| [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) | Project scaffolding |
+| [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) | Recipes and examples |
 
 ## Disclaimer
 
