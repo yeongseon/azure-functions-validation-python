@@ -8,6 +8,7 @@ from azure.functions import HttpResponse
 from azure_functions_validation.errors import (
     ErrorFormatter,
     ResponseValidationError,
+    SerializationError,
     format_error_response,
 )
 
@@ -129,3 +130,26 @@ class TestFormatErrorResponse:
         assert data["custom"] is True
         assert data["status"] == 500
         adapter.format_error.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# SerializationError
+# ---------------------------------------------------------------------------
+
+
+class TestSerializationError:
+    """Tests for the SerializationError exception class."""
+
+    def test_is_type_error_subclass(self) -> None:
+        assert issubclass(SerializationError, TypeError)
+
+    def test_message_contains_type_name(self) -> None:
+        error = SerializationError("MyClass")
+        assert str(error) == "Cannot serialize type MyClass"
+        assert error.type_name == "MyClass"
+
+    def test_raisable(self) -> None:
+        import pytest
+
+        with pytest.raises(SerializationError, match="Cannot serialize type Foo"):
+            raise SerializationError("Foo")

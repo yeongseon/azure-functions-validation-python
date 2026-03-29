@@ -360,3 +360,58 @@ class TestFormatError:
         assert error["loc"] == []
         assert error["msg"] == "Something went wrong"
         assert error["type"] == "value_error"
+
+
+class TestSerializeBroaderTypes:
+    """Tests for broader return type support in serialize (Issue #98)."""
+
+    def test_serialize_int(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(42)
+        assert content_type == "application/json"
+        assert content == "42"
+
+    def test_serialize_float(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(3.14)
+        assert content_type == "application/json"
+        assert content == "3.14"
+
+    def test_serialize_bool(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(True)
+        assert content_type == "application/json"
+        assert content == "true"
+
+    def test_serialize_dataclass(self, adapter: PydanticAdapter) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        content, content_type = adapter.serialize(Point(x=1, y=2))
+        assert content_type == "application/json"
+        import json
+        assert json.loads(content) == {"x": 1, "y": 2}
+
+    def test_serialize_nested_dataclass_in_dict(
+        self, adapter: PydanticAdapter,
+    ) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        content, content_type = adapter.serialize({"point": Point(x=1, y=2)})
+        assert content_type == "application/json"
+        import json
+        assert json.loads(content) == {"point": {"x": 1, "y": 2}}
+
+    def test_serialize_unsupported_type_raises(
+        self, adapter: PydanticAdapter,
+    ) -> None:
+        from azure_functions_validation.errors import SerializationError
+
+        with pytest.raises(SerializationError, match="Cannot serialize type object"):
+            adapter.serialize(object())
