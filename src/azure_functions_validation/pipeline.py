@@ -9,14 +9,18 @@ keeps ``decorator.py`` focused on configuration and wiring.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
 from typing import Any, Callable, Mapping
 
 from azure.functions import HttpResponse
 from pydantic import ValidationError as PydanticValidationError
 
 from .adapter import PydanticAdapter, ValidationAdapter
-from .errors import ErrorFormatter, ResponseValidationError, format_error_response
+from .errors import (
+    ErrorFormatter,
+    ResponseValidationError,
+    SerializationError,
+    format_error_response,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +55,10 @@ def run_pipeline(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the sync validation pipeline."""
-    http_request = _resolve_http_request(args, kwargs, config)
+    try:
+        http_request = _resolve_http_request(args, kwargs, config)
+    except ValueError as e:
+        return format_error_response(e, 400, config.adapter, config.error_formatter)
     parsed = _parse_inputs(http_request, config)
     if isinstance(parsed, HttpResponse):
         return parsed
@@ -70,7 +77,10 @@ async def run_pipeline_async(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the async validation pipeline."""
-    http_request = _resolve_http_request(args, kwargs, config)
+    try:
+        http_request = _resolve_http_request(args, kwargs, config)
+    except ValueError as e:
+        return format_error_response(e, 400, config.adapter, config.error_formatter)
     parsed = _parse_inputs(http_request, config)
     if isinstance(parsed, HttpResponse):
         return parsed
@@ -227,33 +237,39 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     # Validate and serialize response
     if config.response_model is not None:
         try:
-            validated_result = config.adapter.validate_response(result, config.response_model)
-            content, content_type = config.adapter.serialize(validated_result)
-            return HttpResponse(
-                body=content, status_code=200, headers={"Content-Type": content_type}
+            validated_result = config.adapter.validate_response(
+                result, config.response_model,
+            )
+        except PydanticValidationError:
+            response_error = ResponseValidationError("Response validation failed")
+            return format_error_response(
+                response_error, 500, config.adapter, config.error_formatter,
             )
         except Exception:
             response_error = ResponseValidationError("Response validation failed")
-            if config.error_formatter is not None:
-                error_response = config.error_formatter(response_error, 500)
-            else:
-                error_response = {
-                    "detail": [
-                        {
-                            "loc": ["response"],
-                            "msg": "Response validation failed",
-                            "type": "response_validation_error",
-                        }
-                    ]
-                }
-            return HttpResponse(
-                body=json.dumps(error_response),
-                status_code=500,
-                headers={"Content-Type": "application/json"},
+            return format_error_response(
+                response_error, 500, config.adapter, config.error_formatter,
             )
 
+        try:
+            content, content_type = config.adapter.serialize(validated_result)
+        except (SerializationError, TypeError) as e:
+            return format_error_response(
+                e, 500, config.adapter, config.error_formatter,
+            )
+
+        return HttpResponse(
+            body=content, status_code=200, headers={"Content-Type": content_type}
+        )
+
     # No response model, serialize directly
-    content, content_type = config.adapter.serialize(result)
+    try:
+        content, content_type = config.adapter.serialize(result)
+    except (SerializationError, TypeError) as e:
+        return format_error_response(
+            e, 500, config.adapter, config.error_formatter,
+        )
+
     return HttpResponse(
         body=content,
         status_code=200,
