@@ -499,3 +499,140 @@ class TestCrudDeleteTask:
         )
         response = self.mod.delete_task(request)
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# E2E App example
+# ---------------------------------------------------------------------------
+
+
+def test_e2e_app_health_endpoint() -> None:
+    function_app = _load_example_module("e2e_app")
+    request = func.HttpRequest(
+        method="GET",
+        url="/api/health",
+        body=b"",
+        headers={},
+    )
+    response = function_app.health(request)
+    assert response.status_code == 200
+    assert json.loads(response.get_body()) == {"status": "ok"}
+
+
+def test_e2e_app_create_item_success() -> None:
+    function_app = _load_example_module("e2e_app")
+    request = func.HttpRequest(
+        method="POST",
+        url="/api/items",
+        body=json.dumps({"name": "Widget", "quantity": 5}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    response = function_app.create_item(request)
+    assert response.status_code == 200
+    payload = json.loads(response.get_body())
+    assert payload == {"id": 1, "name": "Widget", "quantity": 5}
+
+
+def test_e2e_app_create_item_validation_error() -> None:
+    function_app = _load_example_module("e2e_app")
+    request = func.HttpRequest(
+        method="POST",
+        url="/api/items",
+        body=json.dumps({"name": "", "quantity": 0}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    response = function_app.create_item(request)
+    assert response.status_code == 422
+    assert "detail" in json.loads(response.get_body())
+
+
+# ---------------------------------------------------------------------------
+# README Quick Start - docs <-> runtime sync verification
+# ---------------------------------------------------------------------------
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_README_FILES = [
+    "README.md",
+    "README.ko.md",
+    "README.ja.md",
+    "README.zh-CN.md",
+]
+
+
+def _extract_quickstart_code(readme_path: Path) -> str:
+    import re
+
+    text = readme_path.read_text(encoding="utf-8")
+    qs_match = re.search(r"^## Quick Start\s*$", text, re.MULTILINE)
+    if qs_match is None:
+        raise ValueError(f"No '## Quick Start' section in {readme_path.name}")
+
+    after_qs = text[qs_match.end() :]
+    code_match = re.search(r"```python\n(.*?)```", after_qs, re.DOTALL)
+    if code_match is None:
+        raise ValueError(f"No python code block in Quick Start of {readme_path.name}")
+
+    return code_match.group(1)
+
+
+class TestReadmeQuickStart:
+    def test_quickstart_code_compiles(self) -> None:
+        code = _extract_quickstart_code(_PROJECT_ROOT / "README.md")
+        compile(code, "README.md-quick-start", "exec")
+
+    def test_quickstart_imports_resolve(self) -> None:
+        import importlib
+
+        validate_http = getattr(
+            importlib.import_module("azure_functions_validation"),
+            "validate_http",
+        )
+        base_model = getattr(importlib.import_module("pydantic"), "BaseModel")
+
+        assert callable(validate_http)
+        assert isinstance(base_model, type)
+
+    def test_quickstart_decorated_function_works(self) -> None:
+        code = _extract_quickstart_code(_PROJECT_ROOT / "README.md")
+        namespace: dict[str, Any] = {}
+        exec(code, namespace)
+
+        create_user = namespace["create_user"]
+        request = func.HttpRequest(
+            method="POST",
+            url="/api/users",
+            body=json.dumps({"name": "Azure", "email": "test@example.com"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        response = create_user(request)
+        assert response.status_code == 200
+        payload = json.loads(response.get_body())
+        assert payload["message"] == "Hello Azure"
+        assert payload["status"] == "success"
+
+    def test_quickstart_validation_error(self) -> None:
+        code = _extract_quickstart_code(_PROJECT_ROOT / "README.md")
+        namespace: dict[str, Any] = {}
+        exec(code, namespace)
+
+        create_user = namespace["create_user"]
+        request = func.HttpRequest(
+            method="POST",
+            url="/api/users",
+            body=json.dumps({}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        response = create_user(request)
+        assert response.status_code == 422
+
+    def test_all_readme_variants_have_identical_quickstart(self) -> None:
+        codes = {}
+        for name in _README_FILES:
+            path = _PROJECT_ROOT / name
+            if path.exists():
+                codes[name] = _extract_quickstart_code(path)
+
+        assert len(codes) >= 2, "Expected at least 2 README variants"
+        reference = codes["README.md"]
+        for name, code in codes.items():
+            assert code == reference, f"{name} Quick Start differs from README.md"
