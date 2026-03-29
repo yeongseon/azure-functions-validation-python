@@ -790,3 +790,109 @@ class TestCustomErrorFormatter:
         data = json.loads(response.get_body().decode())
         assert data["error_type"] == "CONTRACT_VIOLATION"
         assert data["http_status"] == 500
+
+
+# ---------------------------------------------------------------------------
+# None return → 204 (Issue #98)
+# ---------------------------------------------------------------------------
+
+
+class TestNoneReturn:
+    """Tests for None return type producing 204 No Content."""
+
+    def test_none_return_gives_204(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        """Test that returning None produces a 204 response."""
+
+        @validate_http()
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 204
+
+    def test_none_return_with_response_model_gives_204(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        """Test that None return bypasses response model validation with 204."""
+
+        @validate_http(response_model=ResponseModel)
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 204
+
+
+class TestScalarReturn:
+    """Tests for scalar return types (Issue #98)."""
+
+    def test_int_return(self, mock_request_factory: RequestFactory) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> int:
+            return 42
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == 42
+
+    def test_float_return(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> float:
+            return 3.14
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == 3.14
+
+    def test_bool_return(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> bool:
+            return True
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data is True
+
+
+class TestDataclassReturn:
+    """Tests for dataclass return type (Issue #98)."""
+
+    def test_dataclass_return_serializes_to_json(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        @validate_http()
+        def handler(req: HttpRequest) -> Point:
+            return Point(x=1, y=2)
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == {"x": 1, "y": 2}
