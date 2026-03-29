@@ -26,6 +26,24 @@ The v0.5.0 release significantly reduced the public API surface to focus on the 
 
 ## Full Version History
 
+### v0.6.0 (2026-03-29)
+
+#### Features
+
+- Normalize error paths in validation pipeline (#104)
+- Support broader return types in response serialization (#102)
+- Cache TypeAdapter at decoration time to avoid per-request allocation (#101)
+
+#### Tests
+
+- Docs-runtime sync verification tests for README examples (#110)
+- Golden snapshot tests for error response shapes (400/422/500) (#109)
+
+#### Internal
+
+- Update README with Azure Functions Python DX Toolkit branding
+- CI/CD workflow unification
+
 ### v0.5.1 (2026-03-14)
 
 #### Changed
