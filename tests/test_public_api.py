@@ -136,6 +136,100 @@ class TestErrorFormat:
 
 
 # ---------------------------------------------------------------------------
+# 6. Golden Error Shape Snapshots
+# ---------------------------------------------------------------------------
+
+
+class TestGoldenErrorShapes:
+    """Freeze exact key sets and values of error response payloads."""
+
+    def test_golden_422_validation_error_keys(self) -> None:
+        """422 validation errors must have exactly loc, msg, type keys."""
+        @validate_http(body=BodyModel)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"ok": True}
+
+        resp = handler(_make_request(b'{"name": "", "age": -1}'))
+        assert resp.status_code == 422
+        data = json.loads(resp.get_body().decode())
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert len(data["detail"]) > 0
+        # Each detail object must have EXACTLY these keys, no more, no less
+        for detail in data["detail"]:
+            assert set(detail.keys()) == {"loc", "msg", "type"}
+
+    def test_golden_400_json_parse_error_keys(self) -> None:
+        """400 JSON parse errors must have exactly loc, msg, type keys."""
+        @validate_http(body=BodyModel)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"ok": True}
+
+        resp = handler(_make_request(b"not-json"))
+        assert resp.status_code == 400
+        data = json.loads(resp.get_body().decode())
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert len(data["detail"]) > 0
+        # Each detail object must have EXACTLY these keys, no more, no less
+        for detail in data["detail"]:
+            assert set(detail.keys()) == {"loc", "msg", "type"}
+
+    def test_golden_500_server_error_shape(self) -> None:
+        """500 response validation errors must have sanitized shape."""
+        @validate_http(body=BodyModel, response_model=RespModel)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"wrong": True}
+
+        resp = handler(_make_request(b'{"name": "ok", "age": 1}'))
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert len(data["detail"]) == 1
+        detail = data["detail"][0]
+        # 500 errors have exactly these three keys
+        assert set(detail.keys()) == {"loc", "msg", "type"}
+        # Specific 500 error values
+        assert detail["loc"] == []
+        assert detail["msg"] == "Internal Server Error"
+        assert detail["type"] == "server_error"
+
+    def test_golden_500_no_internal_leak(self) -> None:
+        """500 errors must not leak internal validation details."""
+        @validate_http(body=BodyModel, response_model=RespModel)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"no_message": True}
+
+        resp = handler(_make_request(b'{"name": "ok", "age": 1}'))
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        detail_msg = data["detail"][0]["msg"]
+        # Verify no Pydantic validation details leak into the message
+        assert "missing" not in detail_msg.lower()
+        assert "field required" not in detail_msg.lower()
+        assert "value_error" not in detail_msg.lower()
+        assert detail_msg == "Internal Server Error"
+
+    def test_golden_custom_formatter_replaces_shape(self) -> None:
+        """Custom formatter must replace default detail shape entirely."""
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            return {"custom_error": True, "status": status}
+
+        @validate_http(body=BodyModel, error_formatter=fmt)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"ok": True}
+
+        resp = handler(_make_request(b'{"name": "", "age": -1}'))
+        assert resp.status_code == 422
+        data = json.loads(resp.get_body().decode())
+        # Custom formatter response has ONLY custom keys, no 'detail' key
+        assert "detail" not in data
+        assert "custom_error" in data
+        assert data["custom_error"] is True
+        assert data["status"] == 422
+
+# ---------------------------------------------------------------------------
 # 3. Error Path — custom formatter takes precedence
 # ---------------------------------------------------------------------------
 
