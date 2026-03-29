@@ -72,12 +72,16 @@ class ValidationAdapter(Protocol):
         """
         ...
 
-    def validate_response(self, obj: Any, model: Any) -> Any:
+    def validate_response(
+        self, obj: Any, model: Any,
+        *, type_adapter: TypeAdapter[Any] | None = None,
+    ) -> Any:
         """Validate response object against model.
 
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
             model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
+            type_adapter: Optional pre-built TypeAdapter for reuse.
 
         Returns:
             Validated model instance
@@ -239,15 +243,22 @@ class PydanticAdapter:
         # Validate with Pydantic
         return model.model_validate(header_data)
 
-    def validate_response(self, obj: Any, model: Any) -> Any:
+    def validate_response(
+        self, obj: Any, model: Any,
+        *, type_adapter: TypeAdapter[Any] | None = None,
+    ) -> Any:
         """Validate response object against model.
 
         Uses ``TypeAdapter`` to support both concrete ``BaseModel`` subclasses
         and parameterized generic types such as ``list[SomeModel]``.
 
+        When *type_adapter* is provided (pre-built at decoration time), it is
+        reused to avoid per-request allocation.
+
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
             model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
+            type_adapter: Optional pre-built TypeAdapter for reuse.
 
         Returns:
             Validated model instance
@@ -255,7 +266,7 @@ class PydanticAdapter:
         Raises:
             PydanticValidationError: If validation fails
         """
-        ta = TypeAdapter(model)
+        ta = type_adapter if type_adapter is not None else TypeAdapter(model)
         return ta.validate_python(obj)
 
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:

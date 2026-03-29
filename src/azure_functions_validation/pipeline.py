@@ -37,6 +37,7 @@ class PipelineConfig:
     error_formatter: ErrorFormatter | None = None
     func_params: Mapping[str, Any] = field(default_factory=dict)
     request_param_name: str | None = None
+    response_type_adapter: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +224,9 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     # Validate and serialize response
     if config.response_model is not None:
         try:
-            validated_result = config.adapter.validate_response(result, config.response_model)
+            validated_result = config.adapter.validate_response(
+                result, config.response_model, type_adapter=config.response_type_adapter
+            )
             content, content_type = config.adapter.serialize(validated_result)
             return HttpResponse(
                 body=content, status_code=200, headers={"Content-Type": content_type}
