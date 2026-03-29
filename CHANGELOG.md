@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-29
+
+### Added
+
+- Normalize error paths in validation pipeline (#104)
+- Support broader return types in response serialization (#102)
+- Cache TypeAdapter at decoration time to avoid per-request allocation (#101)
+- Docs-runtime sync verification tests for README examples (#110)
+- Golden snapshot tests for error response shapes (400/422/500) (#109)
+
+### Internal
+
+- Update README with Azure Functions Python DX Toolkit branding
+- Rename publish environment from production to release
+- Rename release.yml to publish-pypi.yml
+
 ## [0.5.7] - 2026-03-21
 
 ### Added
