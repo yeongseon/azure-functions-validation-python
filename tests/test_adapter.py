@@ -360,3 +360,89 @@ class TestFormatError:
         assert error["loc"] == []
         assert error["msg"] == "Something went wrong"
         assert error["type"] == "value_error"
+
+
+class TestValidateResponseWithTypeAdapter:
+    """Tests for validate_response with pre-built TypeAdapter (Issue #97)."""
+
+    def test_reuses_prebuilt_type_adapter(self, adapter: PydanticAdapter) -> None:
+        """Test that a pre-built TypeAdapter is used instead of creating a new one."""
+        from pydantic import TypeAdapter
+
+        ta = TypeAdapter(UserModel)
+        data = {"name": "Alice", "age": 30}
+        result = adapter.validate_response(data, UserModel, type_adapter=ta)
+
+        assert isinstance(result, UserModel)
+        assert result.name == "Alice"
+        assert result.age == 30
+
+    def test_falls_back_when_no_type_adapter(self, adapter: PydanticAdapter) -> None:
+        """Test that validate_response still works without pre-built TypeAdapter."""
+        data = {"name": "Bob", "age": 25}
+        result = adapter.validate_response(data, UserModel, type_adapter=None)
+
+        assert isinstance(result, UserModel)
+        assert result.name == "Bob"
+
+    def test_prebuilt_type_adapter_with_generic(self, adapter: PydanticAdapter) -> None:
+        """Test pre-built TypeAdapter with generic type like list[UserModel]."""
+        from pydantic import TypeAdapter
+
+        ta = TypeAdapter(list[UserModel])
+        data = [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]
+        result = adapter.validate_response(data, list[UserModel], type_adapter=ta)
+
+        assert len(result) == 2
+        assert all(isinstance(item, UserModel) for item in result)
+
+
+class TestSerializeBroaderTypes:
+    """Tests for broader return type support in serialize (Issue #98)."""
+
+    def test_serialize_int(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(42)
+        assert content_type == "application/json"
+        assert content == "42"
+
+    def test_serialize_float(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(3.14)
+        assert content_type == "application/json"
+        assert content == "3.14"
+
+    def test_serialize_bool(self, adapter: PydanticAdapter) -> None:
+        content, content_type = adapter.serialize(True)
+        assert content_type == "application/json"
+        assert content == "true"
+
+    def test_serialize_dataclass(self, adapter: PydanticAdapter) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        content, content_type = adapter.serialize(Point(x=1, y=2))
+        assert content_type == "application/json"
+        import json
+        assert json.loads(content) == {"x": 1, "y": 2}
+
+    def test_serialize_nested_dataclass_in_dict(self, adapter: PydanticAdapter) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        content, content_type = adapter.serialize({"point": Point(x=1, y=2)})
+        assert content_type == "application/json"
+        import json
+        assert json.loads(content) == {"point": {"x": 1, "y": 2}}
+
+    def test_serialize_unsupported_type_raises(self, adapter: PydanticAdapter) -> None:
+        from azure_functions_validation.errors import SerializationError
+
+        with pytest.raises(SerializationError, match="Cannot serialize type object"):
+            adapter.serialize(object())

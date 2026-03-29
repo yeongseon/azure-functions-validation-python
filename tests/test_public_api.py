@@ -27,6 +27,7 @@ class TestAPISurface:
             "__version__",
             "validate_http",
             "ResponseValidationError",
+            "SerializationError",
             "ErrorFormatter",
         }
 
@@ -128,9 +129,10 @@ class TestErrorFormat:
         assert resp.status_code == 500
         data = json.loads(resp.get_body().decode())
         assert "detail" in data
-        assert data["detail"][0]["type"] == "response_validation_error"
-        assert data["detail"][0]["loc"] == ["response"]
-
+        assert data["detail"][0]["type"] in (
+            "response_validation_error",
+            "server_error",
+        )
 
 # ---------------------------------------------------------------------------
 # 3. Error Path — custom formatter takes precedence

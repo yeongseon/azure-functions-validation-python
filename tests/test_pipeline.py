@@ -432,13 +432,16 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_missing_http_request_like_argument_raises_value_error(self) -> None:
+    def test_missing_http_request_like_argument_returns_400(self) -> None:
         @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
             return ResponseModel(message="ok")
 
-        with pytest.raises(ValueError, match="HttpRequest-like object"):
-            handler(req="not-a-request")
+        response = handler(req="not-a-request")
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
 
     def test_non_value_error_body_parse_returns_500(
         self, mock_request_factory: RequestFactory
@@ -790,3 +793,163 @@ class TestCustomErrorFormatter:
         data = json.loads(response.get_body().decode())
         assert data["error_type"] == "CONTRACT_VIOLATION"
         assert data["http_status"] == 500
+
+
+# ---------------------------------------------------------------------------
+# None return → 204 (Issue #98)
+# ---------------------------------------------------------------------------
+
+
+class TestNoneReturn:
+    """Tests for None return type producing 204 No Content."""
+
+    def test_none_return_gives_204(self, mock_request_factory: RequestFactory) -> None:
+        """Test that returning None produces a 204 response."""
+
+        @validate_http()
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 204
+
+    def test_none_return_with_response_model_gives_204(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Test that None return bypasses response model validation with 204."""
+
+        @validate_http(response_model=ResponseModel)
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 204
+
+
+class TestScalarReturn:
+    """Tests for scalar return types (Issue #98)."""
+
+    def test_int_return(self, mock_request_factory: RequestFactory) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> int:
+            return 42
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == 42
+
+    def test_float_return(self, mock_request_factory: RequestFactory) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> float:
+            return 3.14
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == 3.14
+
+    def test_bool_return(self, mock_request_factory: RequestFactory) -> None:
+        @validate_http()
+        def handler(req: HttpRequest) -> bool:
+            return True
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data is True
+
+
+class TestDataclassReturn:
+    """Tests for dataclass return type (Issue #98)."""
+
+    def test_dataclass_return_serializes_to_json(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        import dataclasses
+
+        @dataclasses.dataclass
+        class Point:
+            x: int
+            y: int
+
+        @validate_http()
+        def handler(req: HttpRequest) -> Point:
+            return Point(x=1, y=2)
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 200
+        data = json.loads(response.get_body().decode())
+        assert data == {"x": 1, "y": 2}
+
+
+# ---------------------------------------------------------------------------
+# Error path normalization (Issue #99)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorPathNormalization:
+    """Tests for normalized error handling (Issue #99)."""
+
+    def test_resolve_http_request_error_returns_400(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Test that _resolve_http_request ValueError produces 400, not unhandled exception."""
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        # Pass non-HttpRequest-like to trigger ValueError in _resolve_http_request
+        response = handler(req="not-a-request")
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
+
+    def test_serialization_error_without_response_model_returns_500(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Test that unsupported return type without response_model returns 500."""
+
+        @validate_http()
+        def handler(req: HttpRequest) -> object:
+            return object()
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
+
+    def test_serialization_error_with_response_model_returns_500(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Test that serialization failure after validation returns structured 500."""
+        adapter = Mock()
+        adapter.validate_response.return_value = object()  # passes validation
+        adapter.serialize.side_effect = TypeError("Cannot serialize type object")
+
+        @validate_http(response_model=ResponseModel, adapter=adapter)
+        def handler(req: HttpRequest) -> object:
+            return object()
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data

@@ -1,5 +1,6 @@
 """Validation adapter layer for request/response validation."""
 
+import dataclasses
 import json
 from typing import Any, Protocol
 
@@ -72,12 +73,16 @@ class ValidationAdapter(Protocol):
         """
         ...
 
-    def validate_response(self, obj: Any, model: Any) -> Any:
+    def validate_response(
+        self, obj: Any, model: Any,
+        *, type_adapter: TypeAdapter[Any] | None = None,
+    ) -> Any:
         """Validate response object against model.
 
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
             model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
+            type_adapter: Optional pre-built TypeAdapter for reuse.
 
         Returns:
             Validated model instance
@@ -91,13 +96,13 @@ class ValidationAdapter(Protocol):
         """Serialize response object to content and content-type.
 
         Args:
-            obj: Object to serialize (BaseModel, dict, list, str, bytes)
+            obj: Object to serialize
 
         Returns:
             Tuple of (content, content_type)
 
         Raises:
-            TypeError: If object type is not supported
+            SerializationError: If object type is not supported
         """
         ...
 
@@ -239,15 +244,22 @@ class PydanticAdapter:
         # Validate with Pydantic
         return model.model_validate(header_data)
 
-    def validate_response(self, obj: Any, model: Any) -> Any:
+    def validate_response(
+        self, obj: Any, model: Any,
+        *, type_adapter: TypeAdapter[Any] | None = None,
+    ) -> Any:
         """Validate response object against model.
 
         Uses ``TypeAdapter`` to support both concrete ``BaseModel`` subclasses
         and parameterized generic types such as ``list[SomeModel]``.
 
+        When *type_adapter* is provided (pre-built at decoration time), it is
+        reused to avoid per-request allocation.
+
         Args:
             obj: Response object (BaseModel instance, dict, list, etc.)
             model: Pydantic model class or generic type (e.g. list[SomeModel]) to validate against
+            type_adapter: Optional pre-built TypeAdapter for reuse.
 
         Returns:
             Validated model instance
@@ -255,21 +267,25 @@ class PydanticAdapter:
         Raises:
             PydanticValidationError: If validation fails
         """
-        ta = TypeAdapter(model)
+        ta = type_adapter if type_adapter is not None else TypeAdapter(model)
         return ta.validate_python(obj)
 
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:
         """Serialize response object to content and content-type.
 
         Args:
-            obj: Object to serialize (BaseModel, dict, list, str, bytes)
+            obj: Object to serialize.
+                Supported: BaseModel, dict, list, str,
+                bytes, int, float, bool, dataclass.
 
         Returns:
             Tuple of (content, content_type)
 
         Raises:
-            TypeError: If object type is not supported
+            SerializationError: If object type is not supported
         """
+        from .errors import SerializationError
+
         content: str | bytes
         content_type: str
 
@@ -282,7 +298,9 @@ class PydanticAdapter:
             def _default_serializer(value: Any) -> Any:
                 if isinstance(value, BaseModel):
                     return value.model_dump(mode="json")
-                raise TypeError(f"Cannot serialize type {type(value).__name__}")
+                if dataclasses.is_dataclass(value) and not isinstance(value, type):
+                    return dataclasses.asdict(value)
+                raise SerializationError(type(value).__name__)
 
             content = json.dumps(obj, default=_default_serializer)
             content_type = "application/json"
@@ -294,8 +312,16 @@ class PydanticAdapter:
             # Binary data
             content = obj
             content_type = "application/octet-stream"
+        elif isinstance(obj, (int, float, bool)):
+            # Scalar types — JSON-serialize
+            content = json.dumps(obj)
+            content_type = "application/json"
+        elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            # Dataclass — serialize via dataclasses.asdict
+            content = json.dumps(dataclasses.asdict(obj))
+            content_type = "application/json"
         else:
-            raise TypeError(f"Cannot serialize type {type(obj).__name__}")
+            raise SerializationError(type(obj).__name__)
 
         return content, content_type
 
