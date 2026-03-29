@@ -432,13 +432,16 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_missing_http_request_like_argument_raises_value_error(self) -> None:
+    def test_missing_http_request_like_argument_returns_400(self) -> None:
         @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
             return ResponseModel(message="ok")
 
-        with pytest.raises(ValueError, match="HttpRequest-like object"):
-            handler(req="not-a-request")
+        response = handler(req="not-a-request")
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
 
     def test_non_value_error_body_parse_returns_500(
         self, mock_request_factory: RequestFactory
@@ -896,3 +899,65 @@ class TestDataclassReturn:
         assert response.status_code == 200
         data = json.loads(response.get_body().decode())
         assert data == {"x": 1, "y": 2}
+
+
+# ---------------------------------------------------------------------------
+# Error path normalization (Issue #99)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorPathNormalization:
+    """Tests for normalized error handling (Issue #99)."""
+
+    def test_resolve_http_request_error_returns_400(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        """Test that _resolve_http_request ValueError produces 400."""
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
+            return ResponseModel(message="ok")
+
+        # Pass non-HttpRequest-like to trigger ValueError
+        response = handler(req="not-a-request")
+
+        assert response.status_code == 400
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
+
+    def test_serialization_error_without_response_model_returns_500(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        """Test that unsupported return type without response_model returns 500."""
+
+        @validate_http()
+        def handler(req: HttpRequest) -> object:
+            return object()
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
+
+    def test_serialization_error_with_response_model_returns_500(
+        self, mock_request_factory: RequestFactory,
+    ) -> None:
+        """Test serialization failure after validation returns structured 500."""
+        adapter = Mock()
+        adapter.validate_response.return_value = object()
+        adapter.serialize.side_effect = TypeError(
+            "Cannot serialize type object",
+        )
+
+        @validate_http(response_model=ResponseModel, adapter=adapter)
+        def handler(req: HttpRequest) -> object:
+            return object()
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 500
+        data = json.loads(response.get_body().decode())
+        assert "detail" in data
