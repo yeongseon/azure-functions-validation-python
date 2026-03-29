@@ -27,6 +27,7 @@ class TestAPISurface:
             "__version__",
             "validate_http",
             "ResponseValidationError",
+            "SerializationError",
             "ErrorFormatter",
         }
 

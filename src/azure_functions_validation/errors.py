@@ -25,6 +25,19 @@ class ResponseValidationError(Exception):
         self.message = message
 
 
+class SerializationError(TypeError):
+    """Raised when an unsupported type is encountered during serialization."""
+
+    def __init__(self, type_name: str) -> None:
+        """Initialize SerializationError.
+
+        Args:
+            type_name: Name of the unsupported type.
+        """
+        super().__init__(f"Cannot serialize type {type_name}")
+        self.type_name = type_name
+
+
 def format_error_response(
     exception: Exception,
     status_code: int,

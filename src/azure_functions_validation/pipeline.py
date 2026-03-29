@@ -221,6 +221,10 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     if isinstance(result, HttpResponse):
         return result
 
+    # Handle None return → 204 No Content
+    if result is None:
+        return HttpResponse(status_code=204)
+
     # Validate and serialize response
     if config.response_model is not None:
         try:
