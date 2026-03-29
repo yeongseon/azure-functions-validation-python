@@ -5,6 +5,8 @@ from __future__ import annotations
 import inspect
 from typing import Any, Callable, Mapping
 
+from pydantic import TypeAdapter
+
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
@@ -55,6 +57,9 @@ def validate_http(
         request_param_name = _find_request_param(func, func_params)
         _validate_no_conflicts(func, request_param_name, body, query, path, headers, request_model)
 
+        # Pre-build TypeAdapter for response_model at decoration time (#97)
+        response_type_adapter = TypeAdapter(response_model) if response_model is not None else None
+
         config = PipelineConfig(
             body=body,
             query=query,
@@ -66,6 +71,7 @@ def validate_http(
             error_formatter=error_formatter,
             func_params=func_params,
             request_param_name=request_param_name,
+            response_type_adapter=response_type_adapter,
         )
 
         return _make_wrapper(func, config, is_async=is_async)

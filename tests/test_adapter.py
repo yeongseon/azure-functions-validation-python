@@ -360,3 +360,42 @@ class TestFormatError:
         assert error["loc"] == []
         assert error["msg"] == "Something went wrong"
         assert error["type"] == "value_error"
+
+
+class TestValidateResponseWithTypeAdapter:
+    """Tests for validate_response with pre-built TypeAdapter (Issue #97)."""
+
+    def test_reuses_prebuilt_type_adapter(self, adapter: PydanticAdapter) -> None:
+        """Test that a pre-built TypeAdapter is used instead of creating a new one."""
+        from pydantic import TypeAdapter
+
+        ta = TypeAdapter(UserModel)
+        data = {"name": "Alice", "age": 30}
+        result = adapter.validate_response(data, UserModel, type_adapter=ta)
+
+        assert isinstance(result, UserModel)
+        assert result.name == "Alice"
+        assert result.age == 30
+
+    def test_falls_back_when_no_type_adapter(self, adapter: PydanticAdapter) -> None:
+        """Test that validate_response still works without pre-built TypeAdapter."""
+        data = {"name": "Bob", "age": 25}
+        result = adapter.validate_response(data, UserModel, type_adapter=None)
+
+        assert isinstance(result, UserModel)
+        assert result.name == "Bob"
+
+    def test_prebuilt_type_adapter_with_generic(
+        self, adapter: PydanticAdapter,
+    ) -> None:
+        """Test pre-built TypeAdapter with generic type like list[UserModel]."""
+        from pydantic import TypeAdapter
+
+        ta = TypeAdapter(list[UserModel])
+        data = [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]
+        result = adapter.validate_response(
+            data, list[UserModel], type_adapter=ta,
+        )
+
+        assert len(result) == 2
+        assert all(isinstance(item, UserModel) for item in result)
