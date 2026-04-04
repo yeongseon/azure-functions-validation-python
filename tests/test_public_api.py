@@ -175,6 +175,21 @@ class TestGoldenErrorShapes:
         for detail in data["detail"]:
             assert set(detail.keys()) == {"loc", "msg", "type"}
 
+    @pytest.mark.parametrize("payload", [b"", b"   "])
+    def test_golden_422_missing_body_shape(self, payload: bytes) -> None:
+        @validate_http(body=BodyModel)
+        def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
+            return {"ok": True}
+
+        resp = handler(_make_request(payload))
+        assert resp.status_code == 422
+
+        data = json.loads(resp.get_body().decode())
+        detail = data["detail"][0]
+        assert set(detail.keys()) == {"loc", "msg", "type"}
+        assert detail["loc"] == ["body"]
+        assert detail["type"] == "missing"
+
     def test_golden_500_server_error_shape(self) -> None:
         """500 response validation errors must have sanitized shape."""
         @validate_http(body=BodyModel, response_model=RespModel)

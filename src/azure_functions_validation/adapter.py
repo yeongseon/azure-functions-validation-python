@@ -121,6 +121,18 @@ class ValidationAdapter(Protocol):
 class PydanticAdapter:
     """Concrete validation adapter implementation using Pydantic v2."""
 
+    @staticmethod
+    def _missing_body_validation_error() -> PydanticValidationError:
+        class _MissingBodyPayload(BaseModel):
+            body: Any
+
+        try:
+            _MissingBodyPayload.model_validate({})
+        except PydanticValidationError as exc:
+            return exc
+
+        raise RuntimeError("Unreachable: expected missing body validation error")
+
     def parse_body(self, req: HttpRequest, model: type[BaseModel]) -> Any:
         """Parse and validate request body from JSON.
 
@@ -139,16 +151,7 @@ class PydanticAdapter:
 
         # Handle empty body
         if not body:
-            raise PydanticValidationError.from_exception_data(
-                "ValidationError",
-                [
-                    {
-                        "type": "missing",
-                        "loc": ("body",),
-                        "input": None,
-                    }
-                ],
-            )
+            raise self._missing_body_validation_error()
 
         # Parse JSON
         try:
@@ -158,16 +161,7 @@ class PydanticAdapter:
 
         if not body_str.strip():
             # Empty JSON string - this is a missing body, not invalid JSON
-            raise PydanticValidationError.from_exception_data(
-                "ValidationError",
-                [
-                    {
-                        "type": "missing",
-                        "loc": ("body",),
-                        "input": None,
-                    }
-                ],
-            )
+            raise self._missing_body_validation_error()
 
         try:
             data = json.loads(body_str)
