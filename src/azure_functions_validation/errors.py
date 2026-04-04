@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 from azure.functions import HttpResponse
 
-from .adapter import ValidationAdapter
-
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
+
+
+class ErrorAdapter(Protocol):
+    def format_error(self, exc: Exception) -> dict[str, Any]: ...
 
 
 class ResponseValidationError(Exception):
@@ -41,7 +43,7 @@ class SerializationError(TypeError):
 def format_error_response(
     exception: Exception,
     status_code: int,
-    adapter: ValidationAdapter,
+    adapter: ErrorAdapter,
     error_formatter: ErrorFormatter | None = None,
 ) -> HttpResponse:
     """Build an ``HttpResponse`` for a validation or parsing error.
