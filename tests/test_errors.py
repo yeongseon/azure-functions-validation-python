@@ -3,9 +3,8 @@
 import json
 from unittest.mock import Mock
 
-import pytest
-
 from azure.functions import HttpResponse
+import pytest
 
 from azure_functions_validation.errors import (
     ErrorFormatter,
@@ -133,7 +132,10 @@ class TestFormatErrorResponse:
         assert data["status"] == 500
         adapter.format_error.assert_not_called()
 
-    def test_formatter_exception_returns_sanitized_500(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_formatter_exception_returns_sanitized_500(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         adapter = Mock()
 
         def fmt(exc: Exception, status: int) -> dict[str, object]:
