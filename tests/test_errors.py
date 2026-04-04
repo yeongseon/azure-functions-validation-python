@@ -131,6 +131,21 @@ class TestFormatErrorResponse:
         assert data["status"] == 500
         adapter.format_error.assert_not_called()
 
+    def test_formatter_exception_returns_sanitized_500(self) -> None:
+        adapter = Mock()
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            raise RuntimeError("formatter failed")
+
+        resp = format_error_response(ValueError("bad input"), 422, adapter, error_formatter=fmt)
+
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert data == {
+            "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}]
+        }
+        adapter.format_error.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # SerializationError
