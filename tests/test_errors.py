@@ -131,7 +131,7 @@ class TestFormatErrorResponse:
         assert data["status"] == 500
         adapter.format_error.assert_not_called()
 
-    def test_formatter_exception_returns_sanitized_500(self) -> None:
+    def test_formatter_exception_returns_sanitized_500(self, caplog) -> None:
         adapter = Mock()
 
         def fmt(exc: Exception, status: int) -> dict[str, object]:
@@ -145,6 +145,9 @@ class TestFormatErrorResponse:
             "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}]
         }
         adapter.format_error.assert_not_called()
+        # Verify that the exception was logged
+        assert "error_formatter raised an unexpected exception" in caplog.text
+        assert caplog.records[0].levelname == "ERROR"
 
 
 # ---------------------------------------------------------------------------

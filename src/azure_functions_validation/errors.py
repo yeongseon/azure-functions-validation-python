@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Callable, Protocol
 
 from azure.functions import HttpResponse
+
+logger = logging.getLogger(__name__)
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 
@@ -63,6 +66,7 @@ def format_error_response(
         try:
             error_response = error_formatter(exception, status_code)
         except Exception:
+            logger.exception("error_formatter raised an unexpected exception")
             response_status_code = 500
             error_response = {
                 "detail": [
