@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Callable, Protocol
 
 from azure.functions import HttpResponse
+
+logger = logging.getLogger(__name__)
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 
@@ -57,8 +60,23 @@ def format_error_response(
     Returns:
         An ``HttpResponse`` with a JSON error body.
     """
+    response_status_code = status_code
+
     if error_formatter is not None:
-        error_response = error_formatter(exception, status_code)
+        try:
+            error_response = error_formatter(exception, status_code)
+        except Exception:
+            logger.exception("error_formatter raised an unexpected exception")
+            response_status_code = 500
+            error_response = {
+                "detail": [
+                    {
+                        "loc": [],
+                        "msg": "Internal Server Error",
+                        "type": "server_error",
+                    }
+                ]
+            }
     elif status_code >= 500:
         # Sanitize server errors — never leak internal details to the client
         error_response = {
@@ -75,6 +93,6 @@ def format_error_response(
 
     return HttpResponse(
         body=json.dumps(error_response),
-        status_code=status_code,
+        status_code=response_status_code,
         headers={"Content-Type": "application/json"},
     )
