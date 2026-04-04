@@ -153,6 +153,34 @@ class TestFormatErrorResponse:
         assert "error_formatter raised an unexpected exception" in caplog.text
         assert caplog.records[0].levelname == "ERROR"
 
+    def test_non_serializable_error_response_returns_sanitized_500(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test that non-JSON-serializable error_response is caught and sanitized."""
+        import datetime
+
+        adapter = Mock()
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            return {
+                "custom": True,
+                "timestamp": datetime.datetime.now(),  # Non-serializable
+            }
+
+        resp = format_error_response(ValueError("bad input"), 422, adapter, error_formatter=fmt)
+
+        # Should return 500 with sanitized body
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert data == {
+            "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}]
+        }
+        adapter.format_error.assert_not_called()
+        # Verify that the serialization error was logged
+        assert "error_response could not be serialized to JSON" in caplog.text
+        assert caplog.records[0].levelname == "ERROR"
+
 
 # ---------------------------------------------------------------------------
 # SerializationError

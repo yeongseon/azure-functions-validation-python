@@ -12,6 +12,18 @@ logger = logging.getLogger(__name__)
 
 ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 
+_SANITIZED_500_BODY = json.dumps(
+    {
+        "detail": [
+            {
+                "loc": [],
+                "msg": "Internal Server Error",
+                "type": "server_error",
+            }
+        ]
+    }
+)
+
 
 class ErrorAdapter(Protocol):
     def format_error(self, exc: Exception) -> dict[str, Any]: ...
@@ -68,31 +80,25 @@ def format_error_response(
         except Exception:
             logger.exception("error_formatter raised an unexpected exception")
             response_status_code = 500
-            error_response = {
-                "detail": [
-                    {
-                        "loc": [],
-                        "msg": "Internal Server Error",
-                        "type": "server_error",
-                    }
-                ]
-            }
+
+            error_response = json.loads(_SANITIZED_500_BODY)
     elif status_code >= 500:
         # Sanitize server errors — never leak internal details to the client
-        error_response = {
-            "detail": [
-                {
-                    "loc": [],
-                    "msg": "Internal Server Error",
-                    "type": "server_error",
-                }
-            ]
-        }
+        error_response = json.loads(_SANITIZED_500_BODY)
     else:
         error_response = adapter.format_error(exception)
 
+    try:
+        body = json.dumps(error_response)
+    except (TypeError, ValueError):
+        logger.exception(
+            "error_response could not be serialized to JSON"
+        )
+        body = _SANITIZED_500_BODY
+        response_status_code = 500
+
     return HttpResponse(
-        body=json.dumps(error_response),
+        body=body,
         status_code=response_status_code,
         headers={"Content-Type": "application/json"},
     )
