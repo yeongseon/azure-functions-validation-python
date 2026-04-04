@@ -45,7 +45,7 @@ dev = [
     "pytest",
     "pytest-anyio",
     "pytest-cov",
-    "ruff==0.15.8",
+    "ruff==0.15.9",
     "requests",
     "types-requests",
 ]
