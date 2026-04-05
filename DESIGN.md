@@ -64,3 +64,44 @@ The v0.5.0 pipeline separation addressed the core structural concerns:
 
 - evaluate whether `PipelineConfig` fields should be exposed as a public API for tooling consumers
 - keep examples and smoke tests aligned with the runtime contract
+
+## High-Level Architecture
+
+```mermaid
+flowchart TD
+    subgraph import ["Import Time"]
+        DEC["@validate_http\ndecorator.py"]
+        PC["PipelineConfig\npipeline.py"]
+        DEC -- "builds once" --> PC
+    end
+
+    subgraph request ["Per-Request"]
+        PL["run_pipeline()\nrun_pipeline_async()"]
+        AD["PydanticAdapter\nadapter.py"]
+        H["Handler"]
+        ERR["errors.py\nformat_error_response()"]
+
+        PL -- "parse & validate\nrequest" --> AD
+        AD -- "typed args" --> PL
+        PL -- "invoke" --> H
+        H -- "return value" --> PL
+        PL -- "validate response" --> AD
+        PL -- "on error" --> ERR
+    end
+
+    PC -. "cached config" .-> PL
+```
+
+## Sources
+
+- [Azure Functions Python developer reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python)
+- [Azure Functions HTTP trigger](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger)
+- [Supported languages in Azure Functions](https://learn.microsoft.com/en-us/azure/azure-functions/supported-languages)
+
+## See Also
+
+- [azure-functions-openapi — Architecture](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI spec generation
+- [azure-functions-logging — Architecture](https://github.com/yeongseon/azure-functions-logging) — Structured logging with contextvars
+- [azure-functions-doctor — Architecture](https://github.com/yeongseon/azure-functions-doctor) — Pre-deploy diagnostic CLI
+- [azure-functions-scaffold — Architecture](https://github.com/yeongseon/azure-functions-scaffold) — Project scaffolding CLI
+- [azure-functions-langgraph — Architecture](https://github.com/yeongseon/azure-functions-langgraph) — LangGraph agent deployment
