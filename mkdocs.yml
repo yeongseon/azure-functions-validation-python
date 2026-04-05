@@ -1,6 +1,7 @@
 site_name: Azure Functions Validation
 site_description: Validation and serialization for Python-based Azure Functions
 site_author: Yeongseon Choe
+site_url: https://yeongseon.github.io/azure-functions-validation/
 repo_url: https://github.com/yeongseon/azure-functions-validation
 edit_uri: edit/main/docs/
 
@@ -75,4 +76,4 @@ extra:
     © 2026 Yeongseon Choe – MIT Licensed
 
 extra_javascript:
-  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+  - https://unpkg.com/mermaid@11.14.0/dist/mermaid.min.js
