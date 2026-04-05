@@ -4,7 +4,7 @@
 The package centers on one public abstraction: a decorator that enforces request
 and response contracts around Azure Functions HTTP handlers.
 
-## Design principles
+## Design Objectives
 
 - Keep public API minimal.
 - Keep runtime validation deterministic.
@@ -142,6 +142,40 @@ flowchart LR
 - Data persistence
 - OpenAPI specification generation or documentation rendering
 
+## Public API Boundary
+
+Exported symbols (via `__all__`):
+
+- `validate_http` — decorator for HTTP request/response validation
+- `ResponseValidationError` — exception type for response model validation failures
+- `SerializationError` — exception type for response serialization failures
+- `ErrorFormatter` — type alias for custom error formatting callables
+- `__version__` — package version string
+
+Everything else (`PipelineConfig`, `PydanticAdapter`, `ValidationAdapter` protocol, internal pipeline functions) is not part of the top-level public API.
+
+## Key Design Decisions
+
+### 1. Pydantic v2 adapter pattern
+
+Validation is delegated to a `ValidationAdapter` protocol. The default `PydanticAdapter` uses Pydantic v2 for validation and type coercion. The protocol exists for extensibility but most deployments should use the default.
+
+### 2. Immutable pipeline configuration
+
+`PipelineConfig` captures all decorator parameters at decoration time and is frozen for the lifetime of the handler. Per-request validation reuses the same config without mutation.
+
+### 3. Keyword-only decorator parameters
+
+`validate_http(...)` accepts only keyword arguments. This prevents positional-argument mistakes and makes call sites self-documenting.
+
+### 4. Sync/async wrapper selection
+
+The decorator inspects the handler at decoration time and selects either `_sync_wrapper` or `_async_wrapper`. No runtime branching per request.
+
+### 5. Import-time configuration validation
+
+Invalid decorator configuration (e.g. conflicting parameters) raises exceptions at decoration time (typically module import). This fails fast rather than surfacing errors only at request time.
+
 ## Invariants and guarantees
 
 - `validate_http` parameters are keyword-only.
@@ -163,7 +197,7 @@ flowchart LR
 | Coupling this package to external API documentation types | Reduces modularity and maintainability |
 | Overusing custom formatters everywhere | Fragments client error handling contracts |
 
-## Related pages
+## Related Documents
 
 - [Usage](usage.md)
 - [Configuration](configuration.md)
