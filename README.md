@@ -56,7 +56,7 @@ This package does **not** target the legacy `function.json`-based v1 programming
 ## What this package does not do
 
 This package does not own:
-- OpenAPI spec generation or Swagger UI — use [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi)
+- API documentation and spec generation — use [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi)
 - Runtime exposure or graph deployment — use [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph)
 - Project scaffolding — use [`azure-functions-scaffold`](https://github.com/yeongseon/azure-functions-scaffold)
 

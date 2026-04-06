@@ -140,7 +140,8 @@ flowchart LR
 - Authentication and authorization
 - Business/domain logic
 - Data persistence
-- OpenAPI specification generation or documentation rendering (owned by [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi); use `register_openapi_metadata()` for programmatic integration)
+- OpenAPI specification generation or documentation rendering (owned by [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi); use `register_openapi_metadata()` to register a similar core metadata shape programmatically)
+- LangGraph runtime exposure or graph deployment (owned by [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph))
 
 ## Public API Boundary
 
