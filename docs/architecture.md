@@ -140,7 +140,8 @@ flowchart LR
 - Authentication and authorization
 - Business/domain logic
 - Data persistence
-- OpenAPI specification generation or documentation rendering
+- OpenAPI specification generation or documentation rendering (owned by [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi); use `register_openapi_metadata()` to register a similar core metadata shape programmatically)
+- LangGraph runtime exposure or graph deployment (owned by [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph))
 
 ## Public API Boundary
 
@@ -212,8 +213,8 @@ Invalid decorator configuration (e.g. conflicting parameters) raises exceptions 
 
 ## See Also
 
-- [azure-functions-openapi — Architecture](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI spec generation
+- [azure-functions-langgraph — Architecture](https://github.com/yeongseon/azure-functions-langgraph) — LangGraph deployment adapter
+- [azure-functions-openapi — Architecture](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI spec generation and Swagger UI
 - [azure-functions-logging — Architecture](https://github.com/yeongseon/azure-functions-logging) — Structured logging with contextvars
 - [azure-functions-doctor — Architecture](https://github.com/yeongseon/azure-functions-doctor) — Pre-deploy diagnostic CLI
 - [azure-functions-scaffold — Architecture](https://github.com/yeongseon/azure-functions-scaffold) — Project scaffolding CLI
-- [azure-functions-langgraph — Architecture](https://github.com/yeongseon/azure-functions-langgraph) — LangGraph agent deployment

@@ -99,10 +99,12 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Ecosystem
 
+- [azure-functions-langgraph](https://github.com/yeongseon/azure-functions-langgraph) — LangGraph 部署适配器
 - [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI 与 Swagger UI
 - [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) — 结构化日志
 - [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) — 诊断 CLI
 - [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) — 项目脚手架
+- [azure-functions-durable-graph](https://github.com/yeongseon/azure-functions-durable-graph) — 基于 Durable Functions 的图运行时
 - [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) — 食谱与示例
 
 ## Disclaimer
