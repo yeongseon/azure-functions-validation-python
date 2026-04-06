@@ -1,132 +1,180 @@
-# Deployment Guide
-This guide walks through deploying the validation examples to Azure Functions and verifying request/response behavior end to end. It includes resource provisioning, publish, and endpoint verification for three examples: `hello_validation`, `profile_validation`, and `crud_api`. For package setup and local development, see [`getting-started.md`](./getting-started.md). Outputs are representative examples, not guaranteed byte-for-byte.
+# Deploy to Azure
 
-## Prerequisites
-| Requirement | Minimum | Notes |
+This guide walks you through deploying `azure-functions-validation` examples to Azure, **step by step**.
+No Azure experience required - every command is explained and copy-paste ready.
+
+## Who this guide is for
+
+You know Python and pip. You can run this repo locally. Now you want to deploy it to Azure so your validation endpoints run in the cloud.
+This guide assumes you have **never used Azure before**.
+
+## What you are deploying
+
+`azure-functions-validation` provides request validation for Azure Functions using Pydantic models.
+In this deployment guide, you publish three validation-focused examples:
+
+- **`hello_validation`** - JSON body validation (`200`, `400`, `422` behaviors)
+- **`profile_validation`** - path/query/header validation
+- **`crud_api`** - CRUD routes with request validation and error handling
+
+After this guide, your validation examples are live on Azure and testable with `curl`.
+
+## Azure concepts you need for this guide
+
+> New to Azure? Read [Choose an Azure Functions Hosting Plan](choose-a-plan.md) first. It explains Function App, hosting plans, resource groups, and storage accounts in beginner-friendly terms.
+
+## Recommended plan for this repo
+
+| | |
+|---|---|
+| **Default plan** | Flex Consumption |
+| **Why** | This repo is focused on lightweight HTTP validation examples. Flex Consumption is cost-efficient for low-to-moderate traffic and scales automatically. |
+| **Switch to Premium if** | You need faster cold starts or larger dependency footprints. |
+
+## Before you start
+
+| Requirement | How to check | Install if missing |
 |---|---|---|
-| Azure subscription | Active | Use `<YOUR_SUBSCRIPTION_ID>` |
-| Azure CLI (`az`) | Current | `az --version` |
-| Azure Functions Core Tools (`func`) | v4 | `func --version` |
-| Python | 3.10+ | Deploy runtime shown is Python 3.11 |
-| Storage Account | StorageV2 | Required by Function App |
-| pip packages | Installable | See updated `requirements.txt` |
+| Azure account | [portal.azure.com](https://portal.azure.com) | [Create free account](https://azure.microsoft.com/free/) |
+| Azure CLI | `az --version` | [Install Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) |
+| Azure Functions Core Tools v4 | `func --version` | [Install Core Tools](https://learn.microsoft.com/azure/azure-functions/functions-run-local#install-the-azure-functions-core-tools) |
+| Python 3.10-3.13 | `python3 --version` | [python.org](https://www.python.org/downloads/) |
+| Validation package installed | `python3 -m pip show azure-functions-validation` | `python3 -m pip install -U azure-functions-validation` |
+| Local app works | `func start` + local `curl` checks | See [`getting-started.md`](./getting-started.md) |
 
-After preparing your app with the three example routes, install dependencies:
+> ⚠️ **Verify locally first.** If it fails locally, Azure deployment will not fix it.
+
+## Read these warnings before provisioning
+
+1. **Storage account names must be globally unique** across all of Azure. Use a name like `stmyapp` + a random suffix. Only lowercase letters and numbers, 3-24 characters.
+2. **Use one region for all resources.** Mixing regions adds latency and can cause failures.
+3. **Local `.env` values don't automatically appear on Azure.** You must set app settings separately via `az functionapp config appsettings set`.
+4. **First deploy takes longer than expected.** Azure runs a remote build to install your Python dependencies. Wait for the "Deployment successful" message before testing.
+5. **Deleting local files does not delete Azure resources.** You must explicitly delete the resource group to stop billing (see [Clean up resources](#clean-up-resources)).
+6. **Validation endpoints expect JSON requests with `Content-Type: application/json`.** Missing or incorrect JSON content headers can produce `400` parsing errors before field validation runs.
+7. **`400` and `422` are different failure classes.** `400 Bad Request` means malformed JSON; `422 Unprocessable Entity` means JSON is valid but does not satisfy schema constraints.
+
+---
+
+## Example 1: hello_validation
+
+### Step 1 - Move to your project root
+
 ```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-Representative output:
-```bash
-Requirement already satisfied: pip in ./.venv/lib/python3.11/site-packages (25.0)
-Collecting azure-functions
-Collecting azure-functions-validation
-Collecting pydantic
-Successfully installed azure-functions-1.21.0 azure-functions-validation-0.6.0 pydantic-2.11.0
+cd /path/to/your/azure-functions-validation-project
 ```
 
-## Provision Azure resources
+### Step 2 - Ensure dependencies are installed
+
 ```bash
-az account set --subscription <YOUR_SUBSCRIPTION_ID>
-az group create --name <YOUR_RESOURCE_GROUP> --location eastus
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
 ```
-Representative output:
-```json
-{"name":"<YOUR_RESOURCE_GROUP>","location":"eastus","properties":{"provisioningState":"Succeeded"}}
+
+### Step 3 - Verify locally before Azure deploy
+
+```bash
+func start
 ```
+
+In another terminal:
+
+```bash
+curl -i -s -X POST "http://localhost:7071/api/hello_validation" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Local"}'
+```
+
+Stop the local server with `Ctrl+C`.
+
+### Step 4 - Sign in and select your subscription
+
+```bash
+az login
+AZURE_SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
+az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+```
+
+### Step 5 - Set shell variables
+
+```bash
+RESOURCE_GROUP="rg-validation-hello"
+LOCATION="koreacentral"
+STORAGE_ACCOUNT="stvalidation$(date +%s | tail -c 6)"
+FUNCTIONAPP_NAME="func-validation-hello"
+```
+
+To see valid Flex Consumption regions:
+
+```bash
+az functionapp list-flexconsumption-locations -o table
+```
+
+### Step 6 - Create a resource group
+
+```bash
+az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
+```
+
+### Step 7 - Create a storage account
+
 ```bash
 az storage account create \
-  --name <YOUR_STORAGE_ACCOUNT> \
-  --resource-group <YOUR_RESOURCE_GROUP> \
-  --location eastus \
-  --sku Standard_LRS \
-  --kind StorageV2
+  --name "$STORAGE_ACCOUNT" \
+  --resource-group "$RESOURCE_GROUP" \
+  --location "$LOCATION" \
+  --sku Standard_LRS
 ```
-Representative output:
-```json
-{"name":"<YOUR_STORAGE_ACCOUNT>","kind":"StorageV2","provisioningState":"Succeeded"}
-```
+
+### Step 8 - Create the Function App (Flex Consumption)
+
 ```bash
 az functionapp create \
-  --name <YOUR_FUNCTION_APP_NAME> \
-  --resource-group <YOUR_RESOURCE_GROUP> \
-  --storage-account <YOUR_STORAGE_ACCOUNT> \
-  --consumption-plan-location eastus \
+  --name "$FUNCTIONAPP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --storage-account "$STORAGE_ACCOUNT" \
+  --flexconsumption-location "$LOCATION" \
   --runtime python \
-  --runtime-version 3.11 \
-  --functions-version 4
-```
-Representative output:
-```json
-{"name":"<YOUR_FUNCTION_APP_NAME>","defaultHostName":"<YOUR_FUNCTION_APP_NAME>.azurewebsites.net","provisioningState":"Succeeded","state":"Running"}
+  --runtime-version 3.11
 ```
 
-## Configure app settings
-```bash
-az storage account show-connection-string \
-  --name <YOUR_STORAGE_ACCOUNT> \
-  --resource-group <YOUR_RESOURCE_GROUP> \
-  --query connectionString \
-  --output tsv
-```
-Representative output:
-```text
-<YOUR_STORAGE_CONNECTION_STRING>
-```
-```bash
-az functionapp config appsettings set \
-  --name <YOUR_FUNCTION_APP_NAME> \
-  --resource-group <YOUR_RESOURCE_GROUP> \
-  --settings AzureWebJobsStorage="<YOUR_STORAGE_CONNECTION_STRING>" FUNCTIONS_WORKER_RUNTIME="python"
-```
-Representative output:
-```json
-[{"name":"AzureWebJobsStorage","slotSetting":false,"value":""},{"name":"FUNCTIONS_WORKER_RUNTIME","slotSetting":false,"value":"python"}]
-```
-Values may appear redacted in recent Azure CLI versions.
+### Step 9 - Publish your code
 
-## Publish
 ```bash
-func azure functionapp publish <YOUR_FUNCTION_APP_NAME>
+func azure functionapp publish "$FUNCTIONAPP_NAME"
 ```
-Representative output:
+
+Expected publish output includes your validation endpoints, such as:
+
 ```text
-Getting site publishing info...
-[2026-03-12T09:10:31.021Z] Starting the function app deployment...
-Uploading package...
-Deployment completed successfully.
-Syncing triggers...
-Functions in <YOUR_FUNCTION_APP_NAME>:
+Functions in func-validation-hello:
     hello_validation - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/hello_validation
     get_profile - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/users/{user_id}
     list_tasks - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/tasks
     get_task - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/tasks/{task_id}
     create_task - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/tasks
     update_task - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/tasks/{task_id}
     delete_task - [httpTrigger]
-        Invoke url: https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net/api/tasks/{task_id}
-Deployment successful.
 ```
 
-## Verify examples
+### Step 10 - Set base URL for verification
+
 ```bash
-export BASE_URL="https://<YOUR_FUNCTION_APP_NAME>.azurewebsites.net"
+BASE_URL="https://$FUNCTIONAPP_NAME.azurewebsites.net"
 ```
 
-### Example 1: `hello_validation`
-#### `POST /api/hello_validation` (valid body)
+### Step 11 - Verify `hello_validation` valid request
+
+`POST /api/hello_validation` (valid body)
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/hello_validation" \
   -H "Content-Type: application/json" \
   -d '{"name":"Azure"}'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -134,13 +182,18 @@ Content-Type: application/json
 {"message":"Hello Azure"}
 ```
 
-#### `POST /api/hello_validation` (missing required field)
+### Step 12 - Verify missing required field error
+
+`POST /api/hello_validation` (missing required field)
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/hello_validation" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
@@ -148,13 +201,18 @@ Content-Type: application/json
 {"detail":[{"loc":["name"],"msg":"Field required","type":"missing"}]}
 ```
 
-#### `POST /api/hello_validation` (invalid JSON)
+### Step 13 - Verify malformed JSON error
+
+`POST /api/hello_validation` (invalid JSON)
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/hello_validation" \
   -H "Content-Type: application/json" \
   -d '{"name":"Azure"'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
@@ -162,13 +220,31 @@ Content-Type: application/json
 {"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
 ```
 
-### Example 2: `profile_validation`
-#### `GET /api/users/42?verbose=true` (valid path, query, header)
+✅ **`hello_validation` is now running on Azure with schema validation behavior confirmed.**
+
+---
+
+## Example 2: profile_validation
+
+Assume you already created Azure resources and deployed once (Example 1).
+
+### Step 1 - Publish current code
+
+```bash
+func azure functionapp publish "$FUNCTIONAPP_NAME"
+```
+
+### Step 2 - Verify valid path/query/header request
+
+`GET /api/users/42?verbose=true` (valid path, query, header)
+
 ```bash
 curl -i -s "$BASE_URL/api/users/42?verbose=true" \
   -H "x-request-id: req-001"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -176,12 +252,17 @@ Content-Type: application/json
 {"user_id":42,"view":"detailed","request_id":"req-001"}
 ```
 
-#### `GET /api/users/0` (path constraint violation)
+### Step 3 - Verify path constraint violation
+
+`GET /api/users/0` (path constraint violation)
+
 ```bash
 curl -i -s "$BASE_URL/api/users/0?verbose=true" \
   -H "x-request-id: req-001"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
@@ -189,11 +270,16 @@ Content-Type: application/json
 {"detail":[{"loc":["user_id"],"msg":"Input should be greater than or equal to 1","type":"greater_than_equal"}]}
 ```
 
-#### `GET /api/users/42` (missing required header)
+### Step 4 - Verify missing required header
+
+`GET /api/users/42` (missing required header)
+
 ```bash
 curl -i -s "$BASE_URL/api/users/42?verbose=true"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
@@ -201,9 +287,26 @@ Content-Type: application/json
 {"detail":[{"loc":["x-request-id"],"msg":"Field required","type":"missing"}]}
 ```
 
-### Example 3: `crud_api`
+✅ **`profile_validation` request validation is verified on Azure.**
+
+---
+
+## Example 3: crud_api
+
+Assume resources already exist and `BASE_URL` is set.
+
+### Step 1 - Publish current code
+
+```bash
+func azure functionapp publish "$FUNCTIONAPP_NAME"
+```
+
+### Step 2 - Understand seeded data
+
 This sample starts with three pre-seeded tasks and `_NEXT_ID = 4`:
+
 Representative response:
+
 ```json
 [
   {"id":1,"title":"Write docs","description":"Add examples","priority":2,"done":false},
@@ -212,11 +315,16 @@ Representative response:
 ]
 ```
 
-#### `GET /api/tasks` (list tasks)
+### Step 3 - List tasks
+
+`GET /api/tasks` (list tasks)
+
 ```bash
 curl -i -s "$BASE_URL/api/tasks"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -224,17 +332,23 @@ Content-Type: application/json
 [{"id":1,"title":"Write docs","description":"Add examples","priority":2,"done":false},{"id":2,"title":"Fix bug #42","description":"","priority":5,"done":true},{"id":3,"title":"Add tests","description":"Cover edge cases","priority":3,"done":false}]
 ```
 
-#### `POST /api/tasks` (create task)
+### Step 4 - Create a task
+
+`POST /api/tasks` (create task)
+
 `TaskCreateRequest` constraints:
 - `title`: `min_length=1`, `max_length=200`
 - `description`: default `""`, `max_length=1000`
 - `priority`: `ge=1`, `le=5`, default `3`
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/tasks" \
   -H "Content-Type: application/json" \
   -d '{"title":"Deploy app","priority":2}'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -242,11 +356,16 @@ Content-Type: application/json
 {"id":4,"title":"Deploy app","description":"","priority":2,"done":false}
 ```
 
-#### `GET /api/tasks/4` (get task)
+### Step 5 - Get a task by ID
+
+`GET /api/tasks/4` (get task)
+
 ```bash
 curl -i -s "$BASE_URL/api/tasks/4"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -254,13 +373,18 @@ Content-Type: application/json
 {"id":4,"title":"Deploy app","description":"","priority":2,"done":false}
 ```
 
-#### `PATCH /api/tasks/4` (partial update)
+### Step 6 - Patch a task
+
+`PATCH /api/tasks/4` (partial update)
+
 ```bash
 curl -i -s -X PATCH "$BASE_URL/api/tasks/4" \
   -H "Content-Type: application/json" \
   -d '{"done":true}'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -268,21 +392,32 @@ Content-Type: application/json
 {"id":4,"title":"Deploy app","description":"","priority":2,"done":true}
 ```
 
-#### `DELETE /api/tasks/4` (no content)
+### Step 7 - Delete a task
+
+`DELETE /api/tasks/4` (no content)
+
 ```bash
 curl -i -s -X DELETE "$BASE_URL/api/tasks/4"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 204 No Content
 ```
 
-#### `GET /api/tasks/999` (not found)
+### Step 8 - Verify not-found behavior
+
+`GET /api/tasks/999` (not found)
+
 This endpoint returns a raw `HttpResponse` with status `404` and does not use the validation adapter error formatter.
+
 ```bash
 curl -i -s "$BASE_URL/api/tasks/999"
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 404 Not Found
 Content-Type: application/json
@@ -290,13 +425,18 @@ Content-Type: application/json
 {"detail":[{"msg":"Task not found"}]}
 ```
 
-#### `POST /api/tasks` (multiple validation errors)
+### Step 9 - Verify multiple validation errors
+
+`POST /api/tasks` (multiple validation errors)
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/tasks" \
   -H "Content-Type: application/json" \
   -d '{"title":"","priority":6}'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
@@ -304,13 +444,18 @@ Content-Type: application/json
 {"detail":[{"loc":["title"],"msg":"String should have at least 1 character","type":"string_too_short"},{"loc":["priority"],"msg":"Input should be less than or equal to 5","type":"less_than_equal"}]}
 ```
 
-#### `POST /api/tasks` (invalid JSON)
+### Step 10 - Verify malformed JSON behavior
+
+`POST /api/tasks` (invalid JSON)
+
 ```bash
 curl -i -s -X POST "$BASE_URL/api/tasks" \
   -H "Content-Type: application/json" \
   -d '{"title":"Deploy app","priority":2'
 ```
+
 Representative response:
+
 ```text
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
@@ -318,21 +463,166 @@ Content-Type: application/json
 {"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
 ```
 
-## Cleanup
+✅ **`crud_api` validation and error-path behavior is verified on Azure.**
+
+---
+
+## If you need a different plan
+
+The examples above use **Flex Consumption**. If you need a different plan, only the Function App creation command changes - everything else stays the same.
+
+See [Choose an Azure Functions Hosting Plan](choose-a-plan.md) for complete per-plan commands with copy-paste blocks.
+
+### Premium (EP1) - for faster cold starts
+
+Replace the `az functionapp create` step with:
+
 ```bash
-az group delete --name <YOUR_RESOURCE_GROUP> --yes --no-wait
+# Create the Premium plan
+az functionapp plan create \
+  --name "${FUNCTIONAPP_NAME}-plan" \
+  --resource-group "$RESOURCE_GROUP" \
+  --location "$LOCATION" \
+  --sku EP1 \
+  --is-linux
+
+# Create the Function App on that plan
+az functionapp create \
+  --name "$FUNCTIONAPP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --storage-account "$STORAGE_ACCOUNT" \
+  --plan "${FUNCTIONAPP_NAME}-plan" \
+  --runtime python \
+  --runtime-version 3.11 \
+  --os-type Linux
 ```
-Representative output:
-```text
-{"status":"Accepted"}
+
+### Dedicated (B1) - for fixed-cost hosting
+
+Replace the `az functionapp create` step with:
+
+```bash
+# Create the App Service plan
+az appservice plan create \
+  --name "${FUNCTIONAPP_NAME}-plan" \
+  --resource-group "$RESOURCE_GROUP" \
+  --location "$LOCATION" \
+  --sku B1 \
+  --is-linux
+
+# Create the Function App on that plan
+az functionapp create \
+  --name "$FUNCTIONAPP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --storage-account "$STORAGE_ACCOUNT" \
+  --plan "${FUNCTIONAPP_NAME}-plan" \
+  --runtime python \
+  --runtime-version 3.11 \
+  --os-type Linux
 ```
+
+---
+
+## Troubleshooting
+
+### Provisioning failed
+
+| Symptom | Usually means | How to fix |
+|---|---|---|
+| `StorageAccountAlreadyTaken` | Storage account name is not globally unique | Use a unique suffix, for example: `stvalidation$(date +%s \| tail -c 6)` |
+| `LocationNotAvailableForResourceType` | Flex Consumption is not enabled in this region | Run `az functionapp list-flexconsumption-locations -o table` and pick an available region |
+| `SubscriptionNotFound` | Wrong subscription selected | Run `az account list -o table`, then `az account set --subscription "$AZURE_SUBSCRIPTION_ID"` |
+
+### Deployment failed
+
+| Symptom | Usually means | How to fix |
+|---|---|---|
+| `ModuleNotFoundError` in publish output | Missing dependency or incorrect `requirements.txt` | Ensure `requirements.txt` includes required packages and is in project root |
+| Deployment hangs for several minutes | Remote build is still running | Wait and retry `func azure functionapp publish "$FUNCTIONAPP_NAME"` |
+| `Can't find app with name` | Function App provisioning not complete yet | Wait 30-60 seconds and re-run publish |
+
+### App deployed but not behaving
+
+| Symptom | Usually means | How to fix |
+|---|---|---|
+| `400 Bad Request` on POST | Malformed JSON or wrong/missing `Content-Type` | Send valid JSON and include `-H "Content-Type: application/json"` |
+| `422 Unprocessable Entity` | JSON parsed successfully but schema validation failed | Inspect `detail` and fix request fields/types/constraints |
+| `404 Not Found` on expected route | Function route not loaded or wrong URL | Confirm publish output lists the function and use `/api/...` prefix |
+| `500 Internal Server Error` | Runtime exception in your function code | Stream logs and inspect traceback |
+
+### Logs and monitoring
+
+```bash
+# Live log stream (real-time)
+func azure functionapp logstream "$FUNCTIONAPP_NAME"
+
+# Recent request events via Application Insights
+az monitor app-insights events show \
+  --app "$FUNCTIONAPP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --type requests \
+  --offset 1h
+```
+
+### Before opening an issue
+
+If you're stuck, include these outputs in your issue:
+
+```bash
+# 1. Azure CLI version
+az --version
+
+# 2. Functions Core Tools version
+func --version
+
+# 3. Python version
+python3 --version
+
+# 4. Package version
+python3 -m pip show azure-functions-validation
+
+# 5. Function App status
+az functionapp show --name "$FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "{state:state, runtimeVersion:siteConfig.linuxFxVersion}"
+
+# 6. Recent logs
+func azure functionapp logstream "$FUNCTIONAPP_NAME"
+```
+
+---
+
+## Clean up resources
+
+> ⚠️ **Azure resources cost money until deleted.** Clean up when finished.
+
+Delete resource groups created in this guide:
+
+```bash
+az group delete --name "rg-validation-hello" --yes --no-wait
+az group delete --name "rg-validation-profile" --yes --no-wait
+az group delete --name "rg-validation-crud" --yes --no-wait
+```
+
+To verify deletion:
+
+```bash
+az group list --query "[?starts_with(name, 'rg-validation')]" -o table
+```
+
+---
 
 ## Sources
-- [Azure Functions Python quickstart](https://learn.microsoft.com/en-us/azure/azure-functions/create-first-function-cli-python)
-- [Azure Functions Core Tools publish reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-core-tools-reference#func-azure-functionapp-publish)
-- [Function App settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-how-to-use-azure-function-app-settings)
+
+- [Azure Functions Python quickstart](https://learn.microsoft.com/azure/azure-functions/create-first-function-cli-python) - Official getting-started path
+- [Azure Functions Core Tools reference](https://learn.microsoft.com/azure/azure-functions/functions-core-tools-reference) - `func` command reference
+- [Azure Functions app settings](https://learn.microsoft.com/azure/azure-functions/functions-how-to-use-azure-function-app-settings) - Environment configuration
+- [Azure Functions hosting plans](https://learn.microsoft.com/azure/azure-functions/functions-scale) - Plan behavior and trade-offs
+- [Flex Consumption plan](https://learn.microsoft.com/azure/azure-functions/flex-consumption-plan) - Flex-specific guidance
 
 ## See Also
-- [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi)
+
+- [Choose an Azure Functions Hosting Plan](choose-a-plan.md) - Plan selection guide
 - [`azure-functions-scaffold`](https://github.com/yeongseon/azure-functions-scaffold)
+- [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi)
 - [`azure-functions-doctor`](https://github.com/yeongseon/azure-functions-doctor)
+- [`azure-functions-logging`](https://github.com/yeongseon/azure-functions-logging)
+- [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph)
