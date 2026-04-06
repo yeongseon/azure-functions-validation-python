@@ -46,7 +46,7 @@ After this guide, your validation examples are live on Azure and testable with `
 
 ## Read these warnings before provisioning
 
-1. **Storage account names must be globally unique** across all of Azure. Use a name like `stmyapp` + a random suffix. Only lowercase letters and numbers, 3-24 characters.
+1. **Storage account names must be globally unique** across all of Azure. Use a name like `stmyapp` + a random suffix. Only lowercase letters and numbers, 3–24 characters.
 2. **Use one region for all resources.** Mixing regions adds latency and can cause failures.
 3. **Local `.env` values don't automatically appear on Azure.** You must set app settings separately via `az functionapp config appsettings set`.
 4. **First deploy takes longer than expected.** Azure runs a remote build to install your Python dependencies. Wait for the "Deployment successful" message before testing.
