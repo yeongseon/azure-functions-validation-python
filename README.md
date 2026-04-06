@@ -150,7 +150,7 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 ```json
 {"message": "Hello Alice", "status": "success"}
 ```
-Invalid requests return the same `422` error in both environments:
+Invalid requests return the same `400` error in both environments:
 
 #### Local
 
@@ -164,7 +164,7 @@ curl -s http://localhost:7071/api/users \
 {"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
 ```
 
-> HTTP 422
+> HTTP 400
 
 #### Azure
 
@@ -178,9 +178,9 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 {"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
 ```
 
-> HTTP 422
+> HTTP 400
 
-> Response captured from a deployed Azure Function; URL anonymized.
+> Verified against a temporary Azure Functions deployment in koreacentral (Python 3.12, Consumption plan). Response captured and URL anonymized.
 
 ## When to use
 
