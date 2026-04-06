@@ -57,7 +57,7 @@ This package does **not** target the legacy `function.json`-based v1 programming
 
 This package does not own:
 - OpenAPI spec generation or Swagger UI — use [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi)
-- Runtime execution or graph deployment — use [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph)
+- Runtime exposure or graph deployment — use [`azure-functions-langgraph`](https://github.com/yeongseon/azure-functions-langgraph)
 - Project scaffolding — use [`azure-functions-scaffold`](https://github.com/yeongseon/azure-functions-scaffold)
 
 ## Features
@@ -135,7 +135,7 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 This package is part of the **Azure Functions Python DX Toolkit**.
 
-**Design principle:** `azure-functions-validation` owns request/response validation and serialization. `azure-functions-openapi` owns API documentation. `azure-functions-langgraph` owns LangGraph runtime execution.
+**Design principle:** `azure-functions-validation` owns request/response validation and serialization. `azure-functions-openapi` owns API documentation and spec generation. `azure-functions-langgraph` owns LangGraph runtime exposure.
 
 | Package | Role |
 |---------|------|
