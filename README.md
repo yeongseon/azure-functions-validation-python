@@ -117,6 +117,71 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
+Start the Functions host locally:
+
+```bash
+func start
+```
+
+### Verify locally and on Azure
+
+After deploying (see [docs/deployment.md](docs/deployment.md)), the same request produces the same response in both environments.
+
+#### Local
+
+```bash
+curl -s http://localhost:7071/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "email": "alice@example.com"}'
+```
+
+```json
+{"message": "Hello Alice", "status": "success"}
+```
+
+#### Azure
+
+```bash
+curl -s "https://<your-app>.azurewebsites.net/api/users" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "email": "alice@example.com"}'
+```
+
+```json
+{"message": "Hello Alice", "status": "success"}
+```
+Invalid requests return the same `422` error in both environments:
+
+#### Local
+
+```bash
+curl -s http://localhost:7071/api/users \
+  -H "Content-Type: application/json" \
+  -d 'not json'
+```
+
+```json
+{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+```
+
+> HTTP 422
+
+#### Azure
+
+```bash
+curl -s "https://<your-app>.azurewebsites.net/api/users" \
+  -H "Content-Type: application/json" \
+  -d 'not json'
+```
+
+```json
+{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+```
+
+> HTTP 422
+
+> Response captured from a deployed Azure Function; URL anonymized.
+
 ## When to use
 
 - You have HTTP-triggered Azure Functions that accept JSON request bodies
