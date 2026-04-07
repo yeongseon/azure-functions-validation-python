@@ -231,16 +231,34 @@ def _make_wrapper(
     wrapper.__annotations__ = {}
 
     # Expose validation metadata for external tool integration (e.g., OpenAPI bridge).
-    # Uses a non-dunder attribute to avoid implying protocol semantics.
+    # Uses the toolkit-wide convention attribute so consumers never need to import
+    # this package.  The "validation" namespace is reserved for this package.
+    setattr(
+        wrapper,
+        "_azure_functions_toolkit_metadata",
+        {
+            "validation": {
+                "version": 1,
+                "body": config.body,
+                "query": config.query,
+                "path": config.path,
+                "headers": config.headers,
+                "response_model": config.response_model,
+            }
+        },
+    )
+
+    # Legacy attribute for backward compatibility with consumers that read
+    # ``_af_validation_metadata`` (azure-functions-openapi <0.17).
     setattr(
         wrapper,
         "_af_validation_metadata",
         ValidationMetadata(
-        body=config.body,
-        query=config.query,
-        path=config.path,
-        headers=config.headers,
-        response_model=config.response_model,
+            body=config.body,
+            query=config.query,
+            path=config.path,
+            headers=config.headers,
+            response_model=config.response_model,
         ),
     )
 
@@ -250,7 +268,23 @@ def _make_wrapper(
 def get_validation_metadata(func: Any) -> ValidationMetadata | None:
     """Return validation metadata if the function was decorated with @validate_http.
 
+    Checks the convention-based ``_azure_functions_toolkit_metadata`` attribute
+    first, then falls back to the legacy ``_af_validation_metadata`` attribute.
+
     Returns None if the function has no validation metadata attached.
     """
+    # Try convention attribute first.
+    toolkit_meta = getattr(func, "_azure_functions_toolkit_metadata", None)
+    if isinstance(toolkit_meta, dict):
+        hints = toolkit_meta.get("validation")
+        if isinstance(hints, dict):
+            return ValidationMetadata(
+                body=hints.get("body"),
+                query=hints.get("query"),
+                path=hints.get("path"),
+                headers=hints.get("headers"),
+                response_model=hints.get("response_model"),
+            )
 
+    # Legacy fallback.
     return getattr(func, "_af_validation_metadata", None)
