@@ -2,141 +2,354 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+### ⚙️ Miscellaneous Tasks
 
-## [0.6.0] - 2026-03-29
+- Add automatic GitHub Release creation on tag push (#112) 
+- *(deps)* Bump github/codeql-action from 4.34.1 to 4.35.1 (#113) 
+- *(deps)* Bump mypy from 1.19.1 to 1.20.0 (#114) 
+- *(deps)* Bump ruff from 0.15.8 to 0.15.9 (#115) 
 
-### Added
+### 🐛 Bug Fixes
 
-- Normalize error paths in validation pipeline (#104)
-- Support broader return types in response serialization (#102)
-- Cache TypeAdapter at decoration time to avoid per-request allocation (#101)
-- Docs-runtime sync verification tests for README examples (#110)
-- Golden snapshot tests for error response shapes (400/422/500) (#109)
+- Align terminology with Oracle-reviewed openapi PR #146 
+- Apply Oracle terminology — 'runtime exposure' for cross-repo consistency 
+- Switch Mermaid fence format to fence_div_format for rendering 
+- Add type annotation to caplog parameter for mypy strict mode (#120) 
+- Handle custom error formatter exceptions safely (#119) 
+- Replace internal missing-body validation construction (#118) 
 
-### Internal
+### 💼 Other
 
-- Update README with Azure Functions Python DX Toolkit branding
-- Rename publish environment from production to release
-- Rename release.yml to publish-pypi.yml
+- Bump version to 0.7.0 
 
-## [0.5.7] - 2026-03-21
+### 📚 Documentation
 
-### Added
+- Document ValidationMetadata and get_validation_metadata public API 
+- Add llms.txt for LLM-friendly documentation (#141) (#142) 
+- Normalize storage naming rule to use en-dash (3–24) 
+- Rewrite deployment guide for developer-friendly Azure Functions experience 
+- Fix invalid-JSON status code (422→400) and add Azure verification note (#137) 
+- Add Azure-verified sample output to README (#136) 
+- Add deployment guide with validation examples (#134) 
+- Align ecosystem positioning with toolkit restructuring 
+- Pin Mermaid JS version and add site_url 
+- Standardize architecture.md sections and fix factual accuracy (#127) 
+- Add architecture diagram, MS Learn sources, and cross-repo See Also links (#125) 
+- Add release process to AGENTS.md 
 
-- Real Azure end-to-end test workflow (`e2e-azure.yml`) deploying to Consumption plan (`koreacentral`)
-- `docs/testing.md` — Real Azure E2E Tests section
-- Mermaid diagrams to architecture and README
+### 🚀 Features
 
-### Changed
+- Write convention-based _azure_functions_toolkit_metadata for toolkit interop 
+- Expose ValidationMetadata for OpenAPI bridge integration (#143) 
 
-- GitHub Actions versions upgraded to Node.js 24 compatible versions
-- Repository consistency fixes (AGENTS.md, .gitignore standardization)
+### 🧪 Testing
 
-### Fixed
+- Update version assertion to 0.7.0 for upcoming release 
 
-- `@validate_http` decorator `co_argcount` bug — Azure Functions worker now correctly recognizes decorated handlers
-- Set `__signature__` on wrapper to hide `**_kw` from Azure Functions worker
-- Clear wrapper `__annotations__` to prevent `FunctionLoadError` on Azure
+### ⚙️ Miscellaneous Tasks
 
-## [0.5.2] - 2026-03-15
+- Release v0.6.0 
+- *(deps)* Bump github/codeql-action from 4.33.0 to 4.34.1 (#96) 
+- *(deps)* Bump ruff from 0.15.7 to 0.15.8 (#95) 
+- *(deps)* Bump anchore/sbom-action from 0.23.1 to 0.24.0 (#94) 
+- *(deps)* Bump codecov/codecov-action from 5.5.3 to 6.0.0 (#93) 
+- Use standard pypi environment name for Trusted Publisher 
+- Rename publish environment from production to release 
+- Rename release.yml to publish-pypi.yml 
 
-### Added
+### 📚 Documentation
 
-- `py.typed` marker for PEP 561 inline type checking support
-- `Typing :: Typed` PyPI classifier
+- Update README with Azure Functions Python DX Toolkit branding 
 
+### 🚀 Features
 
-## [0.5.1] - 2026-03-14
+- Normalize error paths in validation pipeline (#104) 
+- Support broader return types in response serialization (#102) 
+- Cache TypeAdapter at decoration time to avoid per-request allocation (#101) 
 
-### Changed
+### 🧪 Testing
 
-- Switched to `TypeAdapter` for response validation; pass through native Pydantic v2 error types
-- Modernized type annotations to PEP 604 (`X | Y` instead of `Optional[X]`)
+- Add docs-runtime sync verification for README examples (#110) 
+- Add golden snapshot tests for error response shapes (400/422/500) (#109) 
 
-### Fixed
+### ⚙️ Miscellaneous Tasks
 
-- Guard against `UnicodeDecodeError` when parsing non-UTF-8 request bodies
-- Harden error handling hierarchy: body → 400/422, query/path/headers → 400/422, unexpected → 500
-- Sanitize 500 error responses to prevent leaking internal details
+- Release v0.5.7 
+- Remove nonexistent docs/agent-playbook.md ref from AGENTS.md, standardize .gitignore (#88) 
+- Fix ruff version, coverage threshold, pre-commit refs, mkdocstrings version, add CodeQL and codecov (#87) 
+- *(deps)* Bump azure/login from 2.3.0 to 3.0.0 (#83) 
+- *(deps)* Bump github/codeql-action from 4.32.6 to 4.33.0 (#84) 
+- *(deps)* Bump codecov/codecov-action from 5.5.2 to 5.5.3 (#85) 
+- *(deps)* Bump ruff from 0.15.6 to 0.15.7 (#86) 
+- *(deps)* Bump anchore/sbom-action from 0.23.0 to 0.23.1 (#78) 
+- *(deps)* Update mkdocstrings[python] requirement from <1.0 to <2.0 (#80) 
+- *(deps)* Bump ruff from 0.15.5 to 0.15.6 (#81) 
 
-### Added
+### 🐛 Bug Fixes
 
-- Test coverage for `UnicodeDecodeError`, query/path/headers error branches, and 500 sanitization
-- CRUD API example (`examples/crud_api`) with 21 smoke tests covering list, get, create, update, delete
-- Unified tooling: Ruff (lint + format), pre-commit hooks, standardized Makefile
-- Comprehensive documentation overhaul (MkDocs site with 15+ pages)
-- Translated README files (Korean, Japanese, Chinese)
-- Runnable examples with smoke tests
+- Clear wrapper __annotations__ to prevent FunctionLoadError on Azure 
+- *(e2e)* Build local wheel and pre-install with --no-build to avoid PyPI stale version 
+- Set __signature__ on wrapper to hide **_kw from Azure Functions worker 
+- *(e2e)* Add [DIAG] module-level logging to diagnose empty _function_builders on Azure 
+- *(e2e)* Switch to remote build deployment to fix azure namespace package conflict 
+- *(e2e)* Switch to local build deployment and add Application Insights diagnostics 
+- *(ci)* Add az webapp log to capture worker errors in e2e workflow 
+- *(e2e)* Remove 'from __future__ import annotations' from function_app.py 
 
-### Docs
+### 📚 Documentation
 
-- Remove stale `register_global_error_handler` and `metadata.py` references from docs
-- Update architecture docs to reflect v0.5.0 module structure
-- Add `request_model` shorthand example to usage guide
-- Add CRUD API example documentation to mkdocs site
-- Standardized nav structure and documentation quality across ecosystem
-## [0.5.0] - 2026-03-11
+- Add mermaid diagrams to architecture and README 
+- Add mermaid support to mkdocs configuration 
 
-### Breaking Changes
+### 🐛 Bug Fixes
 
-- Removed `registry.py` — `register_global_error_handler()` and `GlobalErrorHandlerRegistry` deleted
-- Removed `openapi.py` — `generate_422_error_schema()` deleted
-- Removed `contract.py` — `@contract_test` and `verify_contracts()` deleted
-- Removed `metadata.py`
-- Removed `exceptions.py` — merged into `errors.py`
-- Public API reduced to 3 exports: `validate_http`, `ErrorFormatter`, `ResponseValidationError`
+- Remove __annotations__ copy in _make_wrapper to prevent NameError in Azure Functions worker 
+- *(ci)* Add environment: azure-e2e to e2e workflow for OIDC tag support 
 
-### Changed
+### 🐛 Bug Fixes
 
-- Split `decorator.py` into `decorator.py` (config/wiring), `pipeline.py` (runtime engine), `errors.py` (error types/formatting)
-- Rewrote all documentation: README, PRD, DESIGN.md, api.md aligned with actual implementation
-- Removed demo directory and assets
-- Removed `openapi_aligned_validation` example
+- Replace exec()-based wrapper with closure to fix Azure Functions registration 
+- *(e2e)* Use PydanticAdapter directly in e2e_app to avoid decorator Azure registration issue 
 
-### Improved
+### ⚙️ Miscellaneous Tasks
 
-- 120 tests, 98% coverage (up from 72 tests)
-- 0 lint, 0 type errors, 0 security issues
-- `make check-all` passes cleanly
+- Trigger e2e only on release tag push (v*) 
 
-## [0.3.0] - 2026-03-08
+### 🐛 Bug Fixes
 
-### Added
+- Remove __wrapped__ from validate_http wrapper to fix Azure Functions worker registration 
+- *(e2e)* Pin pydantic<2.12 in e2e_app, improve log capture in workflow 
 
-- Contract testing utilities MVP
-- OpenAPI integration utilities for 422 error schemas
-- Global error handler registration
-- Custom error formatter hook
-- Comprehensive HTTP validation for Azure Functions
-- Technical design documentation
+### 📚 Documentation
 
-### Fixed
+- Add real Azure e2e test section to testing.md and CHANGELOG 
 
-- HTTP validation code quality issues
-- Test failures and related code quality regressions
+### 🚀 Features
 
-### Changed
+- *(e2e)* Use @validate_http decorator directly in e2e app, bump to v0.5.3 
 
-- Project metadata and repository tooling
-- CI and GitHub templates
-- Version management for the 0.3.0 release
-- Documentation updates for PRD, process, and error handling
+### ⚙️ Miscellaneous Tasks
 
-## [0.2.0] - 2025-12-28
+- Upgrade GitHub Actions to Node.js 24 compatible versions 
+- Probe5 — direct adapter API, no @validate_http decorator 
+- Probe4 — full function_app with @validate_http 
+- Probe3 — pydantic models only, no decorator apply 
+- Import probe — report azure_functions_validation import error via health 
+- Minimal probe — health only, no library import 
+- *(e2e)* Add host/status + Kudu logstream diagnostics, enable AppInsights 
+- *(e2e)* Minimal probe build to isolate infra vs library import failure 
+- Enforce coverage fail_under = 97 
+- Add keywords to pyproject.toml 
+- Add AGENTS.md, Typing classifier, test_public_api, Dev Status 4-Beta, .venv-review in .gitignore 
 
-### Added
+### 🐛 Bug Fixes
 
-- Core validation adapter with Pydantic v2
+- Restore correct co_argcount in @validate_http wrapper for Azure Functions worker 
+- *(e2e)* Add import error capture for diagnostics, revert to --build remote 
+- *(e2e)* Disable SCM_DO_BUILD_DURING_DEPLOYMENT before --no-build publish 
+- *(e2e)* Switch to local build to eliminate oryx pydantic resolution 
+- Restore full validation e2e app with pydantic<2.10 pin 
+- Add log capture step and startup log to diagnose worker initialization failure 
+- Pin pydantic<2.10 in e2e_app to avoid typing-inspection incompatibility on Azure Functions host 
+- Add restart step after deploy to force function discovery on Consumption plan 
+- Add post-deploy wait and status probe for Consumption cold-start diagnosis 
+- Extend warmup timeout to 300s for Consumption plan cold starts 
+- Fix e2e warmup to wait for 200 instead of non-5xx 
+- Add --no-cov and pytest-html artifact to e2e workflow 
 
-### Changed
+### 🚀 Features
 
-- Version management for the 0.2.0 release
+- *(e2e)* Full function_app without try/except guard 
+- Add real Azure e2e tests and CI workflow 
 
-## [0.1.0] - 2025-12-20
+### ⚙️ Miscellaneous Tasks
 
-### Added
+- Add production environment to release.yml for trusted publishing 
 
-- Initial package layout and scaffolding
-- Public API export
+### 💼 Other
+
+- Bump version to 0.5.2 
+
+### 📚 Documentation
+
+- Remove openapi pairing references from documentation 
+- Remove openapi integration sections from DESIGN.md and PRD.md 
+
+### 🚀 Features
+
+- Add py.typed marker for PEP 561 compliance (#82) 
+
+### ⚙️ Miscellaneous Tasks
+
+- Update pre-commit hook versions and unify forbid-korean targets 
+
+### 🎨 Styling
+
+- Unify tooling — remove black, standardize pre-commit and Makefile 
+- Modernize type annotations to PEP 604 
+
+### 🐛 Bug Fixes
+
+- Harden error handling and sanitize server error responses 
+- Use absolute GitHub URL for CODE_OF_CONDUCT link in contributing docs 
+
+### 💼 Other
+
+- Bump version to 0.5.1 
+
+### 📚 Documentation
+
+- Overhaul documentation to production quality 
+- Sync translated READMEs (ko, ja, zh-CN) with English 
+- Unify README — Title Case H1, manual Python badge, add Ecosystem, reorder sections 
+- Add example-first design section to PRD 
+- Fix stale tool versions in contributing.md and development.md 
+- Fix stale test counts, tool versions, and missing CRUD entry across docs 
+- Align documentation with v0.5.0 API and add CRUD example page 
+- Add CRUD API example with smoke tests 
+- Expand example pages and installation with working code 
+- Elevate validation documentation to production quality 
+- Add localized README translations 
+- Replace openapi_aligned_validation reference with custom_error_handler in index 
+- *(examples)* Replace stale openapi_aligned_validation with custom_error_handler 
+- *(readme)* Move disclaimer before license section 
+- *(readme)* Add Microsoft trademark disclaimer 
+
+### 🚜 Refactor
+
+- Use TypeAdapter and pass through native Pydantic error types 
+
+### 🧪 Testing
+
+- Cover UnicodeDecodeError, error hierarchy branches, and 500 sanitization 
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove invalid secrets reference from workflow if condition 
+- Do not fail build on codecov upload errors 
+- Restore validation lint and test hygiene 
+- Add pytest-anyio to dev deps and include test app in pythonpath 
+- Use trusted publishing for validation releases 
+- Ci: 
+- Support manual validation releases 
+- Chore: 
+- Remove validation scratch files 
+- Pin validation docs dependencies 
+- Align validation docs dependencies 
+- Align validation maintenance workflows 
+- Apply remaining dependabot updates 
+- *(deps)* Bump ruff from 0.14.14 to 0.15.5 
+- *(deps)* Bump black from 26.1.0 to 26.3.0 
+- Align tooling and repository maintenance 
+- Align workflows and tooling 
+
+### 🐛 Bug Fixes
+
+- Correct _map_error_type inversion for greater_than/less_than mappings 
+- Align tests with updated openapi examples and registry specificity 
+- Remove unused imports in test files 
+- Prevent serialize() infinite recursion and fix TypeError message 
+- Handle generic response models in validate_http 
+- Prevent caller kwargs from overwriting validated inputs 
+- Resolve HttpRequest from keyword arguments 
+- Raise ResponseValidationError and fix adapter type hints and error mapping 
+- Improve error handler registry to prefer most specific exception type 
+- Remove no-op try/except wrapper from parse_inputs 
+- Support async validation handlers without asyncio.run 
+- Guard against request param name conflicting with injected inputs 
+- Relax HttpRequest handler signature constraints 
+- Allow dependabot branch names 
+
+### 📚 Documentation
+
+- *(changelog)* Add v0.5.0 release notes 
+- *(readme)* Align Features and Why-Use-It with public API (validate_http, ErrorFormatter, ResponseValidationError) 
+- *(readme)* Replace OpenAPI-scoped pain point with validation-scoped wording 
+- Update api.md and DESIGN.md for v0.5.0 module structure 
+- *(prd)* Rewrite PRD for v0.4 scope 
+- Update openapi example with bridge helper usage 
+- Document package ownership boundary and expand API reference 
+- Expand focused validation example docs 
+- Docs: 
+- Docs: 
+- Expand validation example coverage 
+- Strengthen validation README problem framing 
+- Capture validation improvement priorities 
+- Docs: 
+- Standardize repository planning documents 
+- Slow down validation demo and add final snapshot 
+- Fix validation demo rendering workflow 
+- Use workspace-based validation demo setup 
+- Refine validation demo output 
+- Simplify validation demo scenario 
+- Add README validation demo 
+- Document validation example policy 
+- Position validation for Azure Functions Python v2 
+- Refresh documentation structure 
+
+### 🚀 Features
+
+- Reduce public API to validation core for v0.4.0 
+- Add OpenAPI bridge helper and multi-source validation support 
+- Define validation contract metadata helpers 
+
+### 🚜 Refactor
+
+- Split decorator into pipeline/errors modules for v0.5.0 
+- Align OpenAPI helpers with validation metadata 
+- Use validated body params and remove sys.path hacks in tests 
+- Remove dead code and expand openapi validation examples 
+- Reuse parsed request inputs in validation decorator 
+
+### 🧪 Testing
+
+- Achieve 97% coverage with comprehensive test additions 
+- Add complex validation example coverage 
+- Raise validation coverage for adapter paths 
+- Cover validation example app 
+- Improve contract coverage and logging behavior 
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump version to 0.3.0 and complete v0.3 features 
+- Bump version to 0.2.0 and establish version management 
+- Update package version to 0.1.0 and export public API (#27) 
+- Update condition for codecov upload 
+- *(deps)* Bump ruff from 0.14.13 to 0.14.14 
+- Add GitHub templates (#12) 
+- Add CI workflow (#9) 
+- Add repo tooling (#8) 
+- Scaffold package layout (#7) 
+
+### 🐛 Bug Fixes
+
+- Resolve code quality issues in HTTP validation implementation 
+
+### 📚 Documentation
+
+- Add process improvement documentation 
+- Update PRD and TDD based on feedback 
+- Add project metadata (#10) 
+- Clarify PRD injection rules 
+- Update PRD error handling 
+- Add initial PRD 
+
+### 🚀 Features
+
+- Add contract testing utilities MVP 
+- Add OpenAPI integration utilities for 422 error schemas 
+- Add global error handler registration 
+- Add custom error formatter hook 
+- Implement comprehensive HTTP validation for Azure Functions 
+- Implement core validation adapter with Pydantic v2 
+- *(docs)* Create Technical Design Document 
+
+### 🚜 Refactor
+
+- Move json import to top level per code review 
+
+### 🧪 Testing
+
+- Fix failing tests and improve code quality 
+- Add scaffolding (#11) 
 <!-- generated by git-cliff -->
