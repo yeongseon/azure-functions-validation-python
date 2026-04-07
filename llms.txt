@@ -1,0 +1,73 @@
+# azure-functions-validation
+
+> Pydantic-based request/response validation for Azure Functions Python v2.
+
+## Package Info
+
+- PyPI: `pip install azure-functions-validation`
+- Version: 0.6.0
+- Python: >=3.10, <3.15
+- License: MIT
+- Docs: https://yeongseon.github.io/azure-functions-validation/
+- Repository: https://github.com/yeongseon/azure-functions-validation
+
+## What It Does
+
+Decorator-first validation for HTTP-triggered Azure Functions. Validates typed request data
+(body, query, path, headers) via Pydantic v2, returns consistent error responses, and enforces
+response schemas. FastAPI-like developer experience without the web framework.
+
+## Core API
+
+- `validate_http` — Main decorator for request/response validation
+- `ErrorFormatter` — Custom error formatting callback
+- `ResponseValidationError` — Error raised when response validation fails
+- `SerializationError` — Error raised when serialization fails
+
+## Key Concepts
+
+- Decorator-first: `@validate_http(body=Model, response_model=Model)`
+- Request validation: body, query, path, headers all via Pydantic models
+- Automatic responses: 400/422 with `{"detail": [...]}` envelope on validation errors
+- Response enforcement: mismatches raise `ResponseValidationError` (HTTP 500)
+- Per-handler error formatting via `ErrorFormatter` callback
+
+## Quick Start
+
+```python
+import azure.functions as func
+from pydantic import BaseModel
+from azure_functions_validation import validate_http
+
+class CreateUserRequest(BaseModel):
+    name: str
+    email: str
+
+class CreateUserResponse(BaseModel):
+    message: str
+    status: str = "success"
+
+app = func.FunctionApp()
+
+@app.route(route="users", methods=["POST"])
+@validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
+def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserResponse:
+    return CreateUserResponse(message=f"Hello {body.name}")
+```
+
+## Documentation
+
+- [Getting Started](https://yeongseon.github.io/azure-functions-validation/getting-started/)
+- [API Reference](https://yeongseon.github.io/azure-functions-validation/api/)
+- [Error Handling](https://yeongseon.github.io/azure-functions-validation/error-handling/)
+- [Deployment Guide](https://yeongseon.github.io/azure-functions-validation/deployment/)
+
+## Ecosystem
+
+Part of the Azure Functions Python DX Toolkit:
+- azure-functions-langgraph — LangGraph deployment adapter
+- **azure-functions-validation** — Request/response validation (this package)
+- azure-functions-openapi — OpenAPI spec and Swagger UI
+- azure-functions-logging — Structured logging
+- azure-functions-doctor — Pre-deploy diagnostics CLI
+- azure-functions-scaffold — Project scaffolding
