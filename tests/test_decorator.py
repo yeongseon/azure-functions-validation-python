@@ -130,3 +130,119 @@ class TestConfigurationErrors:
             @validate_http(body=UserModel)
             def handler(req: HttpRequest, body: UserModel) -> HttpResponse:  # noqa: F811
                 return HttpResponse("ok")
+
+
+class TestValidationMetadata:
+    """Tests for ValidationMetadata exposure on decorated functions."""
+
+    def test_metadata_attached_with_body(self) -> None:
+        """Decorated function exposes body model in metadata."""
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        from azure_functions_validation import ValidationMetadata, get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        assert isinstance(meta, ValidationMetadata)
+        assert meta.body is UserModel
+        assert meta.query is None
+        assert meta.path is None
+        assert meta.headers is None
+        assert meta.response_model is None
+
+    def test_metadata_attached_with_all_params(self) -> None:
+        """Decorated function exposes all configured models."""
+
+        @validate_http(
+            body=UserModel,
+            query=QueryModel,
+            path=PathModel,
+            headers=HeaderModel,
+            response_model=UserModel,
+        )
+        def handler(
+            req: HttpRequest,
+            body: UserModel,
+            query: QueryModel,
+            path: PathModel,
+            headers: HeaderModel,
+        ) -> HttpResponse:
+            return HttpResponse("ok")
+
+        from azure_functions_validation import get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        assert meta.body is UserModel
+        assert meta.query is QueryModel
+        assert meta.path is PathModel
+        assert meta.headers is HeaderModel
+        assert meta.response_model is UserModel
+
+    def test_metadata_with_request_model_shorthand(self) -> None:
+        """request_model shorthand maps to body in metadata."""
+
+        @validate_http(request_model=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        from azure_functions_validation import get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        assert meta.body is UserModel
+
+    def test_metadata_none_on_undecorated_function(self) -> None:
+        """Non-decorated function returns None."""
+
+        def handler(req: HttpRequest) -> HttpResponse:
+            return HttpResponse("ok")
+
+        from azure_functions_validation import get_validation_metadata
+
+        assert get_validation_metadata(handler) is None
+
+    def test_metadata_frozen(self) -> None:
+        """ValidationMetadata is immutable."""
+
+        @validate_http(body=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        from azure_functions_validation import get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        with pytest.raises(AttributeError):
+            setattr(meta, "body", None)
+
+    def test_metadata_with_response_model_only(self) -> None:
+        """Metadata correctly captures response_model without request models."""
+
+        @validate_http(response_model=UserModel)
+        def handler(req: HttpRequest) -> dict[str, object]:
+            return {"name": "Alice", "age": 30}
+
+        from azure_functions_validation import get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        assert meta.body is None
+        assert meta.response_model is UserModel
+
+    def test_metadata_on_async_handler(self) -> None:
+        """Async handlers also expose metadata."""
+
+        @validate_http(body=UserModel, response_model=UserModel)
+        async def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
+            return {"name": body.name, "age": body.age}
+
+        from azure_functions_validation import get_validation_metadata
+
+        meta = get_validation_metadata(handler)
+        assert meta is not None
+        assert meta.body is UserModel
+        assert meta.response_model is UserModel

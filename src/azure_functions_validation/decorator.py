@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import inspect
 from typing import Any, Callable, Mapping
 
@@ -10,6 +11,21 @@ from pydantic import TypeAdapter
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
+
+
+@dataclass(frozen=True)
+class ValidationMetadata:
+    """Metadata exposed by @validate_http for external tool integration.
+
+    External packages (e.g., azure-functions-openapi) can use this to
+    discover Pydantic models attached to validated handlers.
+    """
+
+    body: Any = None
+    query: Any = None
+    path: Any = None
+    headers: Any = None
+    response_model: Any = None
 
 
 def validate_http(
@@ -203,7 +219,7 @@ def _make_wrapper(
     # This prevents FunctionLoadError: 'the following parameters are declared in
     # Python but not in the function definition: {\'_kw\'}' at function load time.
     _req_param = inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)
-    wrapper.__signature__ = inspect.Signature([_req_param])  # type: ignore[attr-defined]
+    setattr(wrapper, "__signature__", inspect.Signature([_req_param]))
 
     # Clear __annotations__ so typing.get_type_hints(wrapper) returns {} instead of
     # {'req': Any, '_kw': Any, 'return': Any}.  The Azure Functions worker calls
@@ -214,4 +230,27 @@ def _make_wrapper(
     # entirely and falls back to its default HttpRequest type inference.
     wrapper.__annotations__ = {}
 
+    # Expose validation metadata for external tool integration (e.g., OpenAPI bridge).
+    # Uses a non-dunder attribute to avoid implying protocol semantics.
+    setattr(
+        wrapper,
+        "_af_validation_metadata",
+        ValidationMetadata(
+        body=config.body,
+        query=config.query,
+        path=config.path,
+        headers=config.headers,
+        response_model=config.response_model,
+        ),
+    )
+
     return wrapper
+
+
+def get_validation_metadata(func: Any) -> ValidationMetadata | None:
+    """Return validation metadata if the function was decorated with @validate_http.
+
+    Returns None if the function has no validation metadata attached.
+    """
+
+    return getattr(func, "_af_validation_metadata", None)
