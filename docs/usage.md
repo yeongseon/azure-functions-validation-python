@@ -342,6 +342,33 @@ def test_create_user_validation_error() -> None:
     Use unit tests for validation behavior and integration tests for full
     route wiring inside an Azure Functions host.
 
+## External tool integration
+
+`@validate_http` attaches a `ValidationMetadata` frozen dataclass to the wrapper
+function. External packages can use `get_validation_metadata()` to discover the
+Pydantic models associated with a validated handler.
+
+```python
+from azure_functions_validation import get_validation_metadata
+
+
+meta = get_validation_metadata(handler)
+if meta is not None:
+    print(meta.body)           # Pydantic model class or None
+    print(meta.query)          # Pydantic model class or None
+    print(meta.path)           # Pydantic model class or None
+    print(meta.headers)        # Pydantic model class or None
+    print(meta.response_model) # Pydantic model class or None
+```
+
+!!! tip "Bridge integration"
+    This is the integration point used by `azure-functions-openapi`'s
+    `scan_validation_metadata()` bridge to auto-generate OpenAPI specs from
+    validation decorators. See the
+    [azure-functions-openapi docs](https://yeongseon.github.io/azure-functions-openapi/)
+    for details.
+
+
 ## Common gotchas
 
 - Empty request body with `body=` configured returns `422`.

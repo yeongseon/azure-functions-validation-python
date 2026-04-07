@@ -6,14 +6,17 @@ This page documents the public API exported from `azure_functions_validation`.
 from azure_functions_validation import (
     ErrorFormatter,
     ResponseValidationError,
+    SerializationError,
+    ValidationMetadata,
+    get_validation_metadata,
     validate_http,
 )
 ```
 
 !!! note "Public surface"
-    The package intentionally keeps a small public API:
-    `validate_http`, `ResponseValidationError`, and `ErrorFormatter`.
-    Pipeline and adapter internals are not public contracts.
+    The package exports: `validate_http`, `ResponseValidationError`,
+    `ErrorFormatter`, `SerializationError`, `ValidationMetadata`, and
+    `get_validation_metadata`. Pipeline and adapter internals are not public contracts.
 
 ## `validate_http`
 
@@ -232,6 +235,41 @@ Common status codes:
     - path errors: `loc` starts with `"path"`
     - header errors: `loc` starts with `"headers"`
     - response errors: `loc` equals `["response"]`
+
+## `ValidationMetadata`
+
+::: azure_functions_validation.ValidationMetadata
+
+### Usage example: accessing validation metadata
+
+```python
+from azure_functions_validation import validate_http, get_validation_metadata
+from pydantic import BaseModel
+
+
+class Body(BaseModel):
+    name: str
+
+
+@validate_http(body=Body)
+def handler(req, body: Body) -> dict:
+    return {"name": body.name}
+
+
+meta = get_validation_metadata(handler)
+assert meta is not None
+assert meta.body is Body
+```
+
+## `get_validation_metadata`
+
+::: azure_functions_validation.get_validation_metadata
+
+!!! note "Return value"
+    Returns `None` if the function was not decorated with `@validate_http`.
+    This allows external tools to safely check for metadata presence without
+    catching exceptions.
+
 
 ## Internal references
 
