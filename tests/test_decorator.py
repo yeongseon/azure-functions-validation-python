@@ -132,8 +132,8 @@ class TestConfigurationErrors:
                 return HttpResponse("ok")
 
 
-class TestValidationMetadata:
-    """Tests for ValidationMetadata exposure on decorated functions."""
+class TestValidationNamespace:
+    """Tests for metadata exposure on decorated functions."""
 
     def test_metadata_attached_with_body(self) -> None:
         """Decorated function exposes body model in metadata."""
@@ -142,16 +142,15 @@ class TestValidationMetadata:
         def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
             return HttpResponse("ok")
 
-        from azure_functions_validation import ValidationMetadata, get_validation_metadata
-
-        meta = get_validation_metadata(handler)
+        meta = getattr(handler, "_azure_functions_metadata", None)
         assert meta is not None
-        assert isinstance(meta, ValidationMetadata)
-        assert meta.body is UserModel
-        assert meta.query is None
-        assert meta.path is None
-        assert meta.headers is None
-        assert meta.response_model is None
+        assert "validation" in meta
+        validation = meta["validation"]
+        assert validation["body"] is UserModel
+        assert validation["query"] is None
+        assert validation["path"] is None
+        assert validation["headers"] is None
+        assert validation["response_model"] is None
 
     def test_metadata_attached_with_all_params(self) -> None:
         """Decorated function exposes all configured models."""
@@ -172,15 +171,14 @@ class TestValidationMetadata:
         ) -> HttpResponse:
             return HttpResponse("ok")
 
-        from azure_functions_validation import get_validation_metadata
-
-        meta = get_validation_metadata(handler)
+        meta = getattr(handler, "_azure_functions_metadata", None)
         assert meta is not None
-        assert meta.body is UserModel
-        assert meta.query is QueryModel
-        assert meta.path is PathModel
-        assert meta.headers is HeaderModel
-        assert meta.response_model is UserModel
+        validation = meta["validation"]
+        assert validation["body"] is UserModel
+        assert validation["query"] is QueryModel
+        assert validation["path"] is PathModel
+        assert validation["headers"] is HeaderModel
+        assert validation["response_model"] is UserModel
 
     def test_metadata_with_request_model_shorthand(self) -> None:
         """request_model shorthand maps to body in metadata."""
@@ -189,35 +187,17 @@ class TestValidationMetadata:
         def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
             return HttpResponse("ok")
 
-        from azure_functions_validation import get_validation_metadata
-
-        meta = get_validation_metadata(handler)
+        meta = getattr(handler, "_azure_functions_metadata", None)
         assert meta is not None
-        assert meta.body is UserModel
+        assert meta["validation"]["body"] is UserModel
 
     def test_metadata_none_on_undecorated_function(self) -> None:
-        """Non-decorated function returns None."""
+        """Non-decorated function has no metadata."""
 
         def handler(req: HttpRequest) -> HttpResponse:
             return HttpResponse("ok")
 
-        from azure_functions_validation import get_validation_metadata
-
-        assert get_validation_metadata(handler) is None
-
-    def test_metadata_frozen(self) -> None:
-        """ValidationMetadata is immutable."""
-
-        @validate_http(body=UserModel)
-        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
-            return HttpResponse("ok")
-
-        from azure_functions_validation import get_validation_metadata
-
-        meta = get_validation_metadata(handler)
-        assert meta is not None
-        with pytest.raises(AttributeError):
-            setattr(meta, "body", None)
+        assert getattr(handler, "_azure_functions_metadata", None) is None
 
     def test_metadata_with_response_model_only(self) -> None:
         """Metadata correctly captures response_model without request models."""
@@ -226,12 +206,11 @@ class TestValidationMetadata:
         def handler(req: HttpRequest) -> dict[str, object]:
             return {"name": "Alice", "age": 30}
 
-        from azure_functions_validation import get_validation_metadata
-
-        meta = get_validation_metadata(handler)
+        meta = getattr(handler, "_azure_functions_metadata", None)
         assert meta is not None
-        assert meta.body is None
-        assert meta.response_model is UserModel
+        validation = meta["validation"]
+        assert validation["body"] is None
+        assert validation["response_model"] is UserModel
 
     def test_metadata_on_async_handler(self) -> None:
         """Async handlers also expose metadata."""
@@ -240,9 +219,8 @@ class TestValidationMetadata:
         async def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"name": body.name, "age": body.age}
 
-        from azure_functions_validation import get_validation_metadata
-
-        meta = get_validation_metadata(handler)
+        meta = getattr(handler, "_azure_functions_metadata", None)
         assert meta is not None
-        assert meta.body is UserModel
-        assert meta.response_model is UserModel
+        validation = meta["validation"]
+        assert validation["body"] is UserModel
+        assert validation["response_model"] is UserModel

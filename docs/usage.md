@@ -344,21 +344,17 @@ def test_create_user_validation_error() -> None:
 
 ## External tool integration
 
-`@validate_http` attaches a `ValidationMetadata` frozen dataclass to the wrapper
-function. External packages can use `get_validation_metadata()` to discover the
-Pydantic models associated with a validated handler.
+`@validate_http` attaches metadata to the wrapper function via the ecosystem-wide
+`_azure_functions_metadata` convention attribute. External packages can discover
+Pydantic models without importing this package:
 
 ```python
-from azure_functions_validation import get_validation_metadata
-
-
-meta = get_validation_metadata(handler)
-if meta is not None:
-    print(meta.body)           # Pydantic model class or None
-    print(meta.query)          # Pydantic model class or None
-    print(meta.path)           # Pydantic model class or None
-    print(meta.headers)        # Pydantic model class or None
-    print(meta.response_model) # Pydantic model class or None
+meta = getattr(handler, "_azure_functions_metadata", None)
+if meta and "validation" in meta:
+    validation = meta["validation"]
+    print(validation["body"])           # Pydantic model class or None
+    print(validation["query"])          # Pydantic model class or None
+    print(validation["response_model"]) # Pydantic model class or None
 ```
 
 !!! tip "Bridge integration"

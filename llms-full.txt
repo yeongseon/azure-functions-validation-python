@@ -100,28 +100,6 @@ Type alias for custom error formatters. Called with:
 
 Must return a dict representing the error response body (will be JSON-serialized).
 
-### Validation Metadata
-
-```python
-from azure_functions_validation import ValidationMetadata, get_validation_metadata
-
-@dataclass(frozen=True)
-class ValidationMetadata:
-    """Metadata exposed by @validate_http for external tool integration."""
-    body: Any = None
-    query: Any = None
-    path: Any = None
-    headers: Any = None
-    response_model: Any = None
-
-def get_validation_metadata(func: Any) -> ValidationMetadata | None:
-    """Return validation metadata if the function was decorated with @validate_http.
-    Returns None if the function has no validation metadata attached."""
-```
-
-External packages (e.g., `azure-functions-openapi`) use these to discover
-Pydantic models attached to validated handlers without importing decorator internals.
-
 ## Common Patterns
 
 ### Basic Request Body Validation

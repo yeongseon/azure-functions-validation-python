@@ -23,8 +23,6 @@ response schemas. FastAPI-like developer experience without the web framework.
 - `ErrorFormatter` — Custom error formatting callback
 - `ResponseValidationError` — Error raised when response validation fails
 - `SerializationError` — Error raised when serialization fails
-- `ValidationMetadata` — Frozen dataclass exposing validation configuration for external tools
-- `get_validation_metadata(func)` — Retrieve validation metadata from a decorated handler (returns None if absent)
 
 ## Key Concepts
 
