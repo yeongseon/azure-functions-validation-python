@@ -2,23 +2,35 @@
 
 We welcome contributions to the `azure-functions-validation` project.
 
-## How to Contribute
+## Branch Strategy
 
-1. Fork the repository.
-2. Create a new branch.
+Use GitHub Flow and branch from `main`.
+
+Recommended branch prefixes:
+
+- `feat/` for new features
+- `fix/` for bug fixes
+- `docs/` for documentation-only changes
+- `chore/` for tooling and maintenance
+- `ci/` for workflow updates
+
+## Development Workflow
+
+1. Create a branch from `main`.
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout main
+   git pull origin main
+   git checkout -b feat/your-feature-name
    ```
-3. Write code and tests.
-4. Run the local quality gate.
+2. Write code and tests.
+3. Run the local quality gate.
    ```bash
    make check-all
    ```
-5. Commit your changes with an English Conventional Commit message.
+4. Push and create a pull request.
    ```bash
-   git commit -m "feat: describe your feature"
+   git push origin feat/your-feature-name
    ```
-6. Push and create a pull request.
 
 ## Project Commands
 
@@ -33,10 +45,10 @@ make check-all   # Run the full local gate
 
 ## Example Coverage Policy
 
-Examples are part of the supported developer experience and should stay runnable.
+Examples are part of the supported API experience and should stay verified.
 
-- Keep one representative example for the minimal supported workflow.
-- Keep one complex example for combined validation scenarios.
+- Keep one representative example for the minimal validation workflow.
+- Keep one complex example for custom error handling and multi-field validation.
 - Add or update smoke tests whenever an example changes.
 - Prefer lightweight smoke coverage over infrastructure-heavy end-to-end tests.
 
@@ -44,50 +56,22 @@ Examples are part of the supported developer experience and should stay runnable
 
 We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
 
-### Prefix Types
-
-| Type | Description |
-| --- | --- |
-| `feat:` | New feature |
-| `fix:` | Bug fix |
-| `docs:` | Documentation changes only |
-| `style:` | Code formatting, no logic changes |
-| `refactor:` | Code refactoring without behavior changes |
-| `test:` | Adding or modifying tests |
-| `chore:` | Tooling, dependencies, CI/CD, versioning |
-
 ### Examples
 
 ```bash
-git commit -m "feat: add request body validation"
-git commit -m "fix: handle empty JSON payload"
-git commit -m "docs: improve quickstart"
-git commit -m "refactor: extract response serializer"
+git commit -m "feat: add OpenAPI 3.1 support"
+git commit -m "fix: handle empty request body gracefully"
+git commit -m "docs: improve quickstart documentation"
+git commit -m "refactor: extract schema builder logic"
 git commit -m "chore: update dev dependencies"
 ```
 
-## Version Management
+Use imperative present tense and keep the message concise.
 
-Update the version number in `src/azure_functions_validation/__init__.py` when:
+## Deployment
 
-1. New features are added -> increment the minor version.
-2. Bug fixes are added -> increment the patch version.
-3. Breaking changes are added -> increment the major version.
-
-When updating the version, also:
-
-- Update `PRD.md` if scope or goals changed.
-- Update `CHANGELOG.md`.
-- Run `make check-all`.
-- Ensure CI passes.
-
-## Pre-commit Hook
-
-Install pre-commit hooks with:
-
-```bash
-pre-commit install
-```
+- A merge to `main` triggers the production deployment workflow.
+- Deployment status can be tracked from the related GitHub Actions run.
 
 ## Code of Conduct
 
