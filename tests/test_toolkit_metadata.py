@@ -6,7 +6,6 @@ to ensure consistent convention compliance across the ecosystem.
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest
@@ -102,39 +101,50 @@ class TestToolkitMetadataConvention:
         assert payload["headers"] is None
         assert payload["response_model"] is UserModel
 
-    def test_merge_preserves_existing_metadata(self) -> None:
-        """Validation decorator must merge, not overwrite existing metadata."""
+    def test_merge_preserves_preexisting_metadata(self) -> None:
+        """Metadata set on func BEFORE @validate_http must survive decoration."""
 
-        @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"ok": True}
 
-        meta = getattr(handler, _TOOLKIT_META_ATTR)
-        meta["other_package"] = {"version": 1, "data": "test"}
-        setattr(handler, "_azure_functions_metadata", meta)
+        # Another decorator already wrote metadata before validation runs.
+        setattr(
+            handler,
+            "_azure_functions_metadata",
+            {"other_package": {"version": 1, "data": "test"}},
+        )
 
-        current = getattr(handler, _TOOLKIT_META_ATTR)
+        wrapped = validate_http(body=UserModel)(handler)
+
+        current = getattr(wrapped, _TOOLKIT_META_ATTR)
+        assert current["other_package"] == {"version": 1, "data": "test"}
         assert "validation" in current
-        assert "other_package" in current
+        assert current["validation"]["body"] is UserModel
 
     def test_namespace_preservation_with_foreign_metadata(self) -> None:
-        """Other namespaces set before decoration must survive."""
+        """Multiple foreign namespaces set before decoration must all survive."""
 
-        @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"ok": True}
 
-        # Simulate another package adding its own namespace
-        meta: dict[str, Any] = getattr(handler, _TOOLKIT_META_ATTR)
-        meta["other_package"] = {"version": 1, "foo": "bar"}
-        setattr(handler, _TOOLKIT_META_ATTR, meta)
+        # Two other packages already wrote metadata before validation.
+        setattr(
+            handler,
+            "_azure_functions_metadata",
+            {
+                "package_a": {"version": 1, "foo": "bar"},
+                "package_b": {"enabled": True},
+            },
+        )
 
-        # Verify both namespaces coexist
-        updated = getattr(handler, _TOOLKIT_META_ATTR)
+        wrapped = validate_http(body=UserModel)(handler)
+
+        updated = getattr(wrapped, _TOOLKIT_META_ATTR)
         assert "validation" in updated
-        assert "other_package" in updated
+        assert updated["package_a"] == {"version": 1, "foo": "bar"}
+        assert updated["package_b"] == {"enabled": True}
         assert updated["validation"]["version"] == 1
-        assert updated["other_package"]["foo"] == "bar"
+        assert updated["validation"]["body"] is UserModel
 
     def test_async_handler_has_metadata(self) -> None:
         @validate_http(body=UserModel)
