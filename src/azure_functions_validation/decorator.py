@@ -281,8 +281,20 @@ def get_validation_metadata(func: Any) -> ValidationMetadata | None:
     """Return validation metadata if the function was decorated with @validate_http.
 
     Checks the convention-based ``_azure_functions_toolkit_metadata`` attribute
-    first, then falls back to the legacy ``_af_validation_metadata`` attribute.
+    first and converts it to a :class:`ValidationMetadata` instance.  Falls back
+    to the legacy ``_af_validation_metadata`` attribute for backward compatibility.
 
     Returns None if the function has no validation metadata attached.
     """
+    toolkit_meta = getattr(func, "_azure_functions_toolkit_metadata", None)
+    if toolkit_meta is not None:
+        validation_ns = toolkit_meta.get("validation")
+        if validation_ns is not None:
+            return ValidationMetadata(
+                body=validation_ns.get("body"),
+                query=validation_ns.get("query"),
+                path=validation_ns.get("path"),
+                headers=validation_ns.get("headers"),
+                response_model=validation_ns.get("response_model"),
+            )
     return getattr(func, "_af_validation_metadata", None)
