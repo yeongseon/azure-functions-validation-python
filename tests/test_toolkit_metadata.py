@@ -1,4 +1,4 @@
-"""Tests for the _azure_functions_toolkit_metadata convention.
+"""Tests for the _azure_functions_metadata convention.
 
 Mirrors test_toolkit_metadata.py in sibling packages (db, logging, langgraph)
 to ensure consistent convention compliance across the ecosystem.
@@ -12,13 +12,13 @@ from unittest.mock import Mock
 from azure.functions import HttpRequest
 from pydantic import BaseModel
 
-from azure_functions_validation import ValidationMetadata, get_validation_metadata, validate_http
+from azure_functions_validation import validate_http
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-_TOOLKIT_META_ATTR = "_azure_functions_toolkit_metadata"
+_TOOLKIT_META_ATTR = "_azure_functions_metadata"
 
 
 class UserModel(BaseModel):
@@ -47,7 +47,7 @@ def _make_request(body: bytes = b'{"name": "Alice", "age": 30}') -> Mock:
 
 
 class TestToolkitMetadataConvention:
-    """Verify _azure_functions_toolkit_metadata convention compliance."""
+    """Verify _azure_functions_metadata convention compliance."""
 
     def test_metadata_attribute_exists_on_decorated_function(self) -> None:
         @validate_http(body=UserModel)
@@ -102,21 +102,20 @@ class TestToolkitMetadataConvention:
         assert payload["headers"] is None
         assert payload["response_model"] is UserModel
 
-    def test_get_validation_metadata_returns_dataclass(self) -> None:
+    def test_merge_preserves_existing_metadata(self) -> None:
+        """Validation decorator must merge, not overwrite existing metadata."""
+
         @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
             return {"ok": True}
 
-        result = get_validation_metadata(handler)
-        assert result is not None
-        assert isinstance(result, ValidationMetadata)
-        assert result.body is UserModel
+        meta = getattr(handler, _TOOLKIT_META_ATTR)
+        meta["other_package"] = {"version": 1, "data": "test"}
+        setattr(handler, "_azure_functions_metadata", meta)
 
-    def test_get_validation_metadata_returns_none_for_plain_function(self) -> None:
-        def handler(req: HttpRequest) -> dict[str, object]:
-            return {"ok": True}
-
-        assert get_validation_metadata(handler) is None
+        current = getattr(handler, _TOOLKIT_META_ATTR)
+        assert "validation" in current
+        assert "other_package" in current
 
     def test_namespace_preservation_with_foreign_metadata(self) -> None:
         """Other namespaces set before decoration must survive."""
@@ -146,9 +145,3 @@ class TestToolkitMetadataConvention:
         meta = getattr(handler, _TOOLKIT_META_ATTR)
         assert "validation" in meta
         assert meta["validation"]["body"] is UserModel
-
-    def test_get_validation_metadata_importable(self) -> None:
-        """get_validation_metadata must be importable from the package."""
-        from azure_functions_validation import get_validation_metadata as getter
-
-        assert callable(getter)
