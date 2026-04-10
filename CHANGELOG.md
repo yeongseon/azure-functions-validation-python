@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- *(deps)* Bump actions/github-script from 8.0.0 to 9.0.0 (#147) 
+- *(deps)* Bump softprops/action-gh-release from 2.2.2 to 2.6.1 (#146) 
+- Bump ruff from 0.15.9 to 0.15.10 (#150) 
+
+### 🐛 Bug Fixes
+
+- Strengthen merge regression tests to seed metadata before decoration (#158) 
+
+### 💼 Other
+
+- Bump version to 0.7.1 
+
+### 📚 Documentation
+
+- Apply Oracle review fixes to Before/After section (#152) 
+- Standardize ecosystem table in README 
+
+### 🚀 Features
+
+- Expose ValidationMetadata for OpenAPI bridge integration (#153) 
+
+### 🚜 Refactor
+
+- Rename metadata attr to _azure_functions_metadata (#157) 
+
+### 🧪 Testing
+
+- Add dedicated toolkit metadata convention tests 
+
+### ⚙️ Miscellaneous Tasks
+
 - Add automatic GitHub Release creation on tag push (#112) 
 - *(deps)* Bump github/codeql-action from 4.34.1 to 4.35.1 (#113) 
 - *(deps)* Bump mypy from 1.19.1 to 1.20.0 (#114) 
@@ -24,6 +55,7 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
+- Update changelog 
 - Document ValidationMetadata and get_validation_metadata public API 
 - Add llms.txt for LLM-friendly documentation (#141) (#142) 
 - Normalize storage naming rule to use en-dash (3–24) 
