@@ -35,6 +35,130 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 - **Response model enforcement** — mismatches raise `ResponseValidationError` (HTTP 500)
 - **Decorator-first API** — `@validate_http` wraps your handler, no boilerplate needed
 
+## Before / After
+
+**Without** this package — manual parsing, manual errors, no contracts:
+
+```python
+import json
+import azure.functions as func
+
+app = func.FunctionApp()
+
+
+@app.route(route="users", methods=["POST"])
+def create_user(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        body = req.get_json()
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"error": "Invalid JSON"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    name = body.get("name")
+    email = body.get("email")
+    if not name or not isinstance(name, str):
+        return func.HttpResponse(
+            json.dumps({"error": "name is required"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+    if not email or not isinstance(email, str):
+        return func.HttpResponse(
+            json.dumps({"error": "email is required"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    return func.HttpResponse(
+        json.dumps({"message": f"Hello {name}", "status": "success"}),
+        mimetype="application/json",
+    )
+```
+
+**With** `@validate_http` — typed, consistent, contract-enforced:
+
+```python
+import azure.functions as func
+from pydantic import BaseModel
+
+from azure_functions_validation import validate_http
+
+app = func.FunctionApp()
+
+
+class CreateUserRequest(BaseModel):
+    name: str
+    email: str
+
+
+class CreateUserResponse(BaseModel):
+    message: str
+    status: str = "success"
+
+
+@app.route(route="users", methods=["POST"])
+@validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
+def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserResponse:
+    return CreateUserResponse(message=f"Hello {body.name}")
+```
+
+> Manual parsing and validation disappear from the handler. Error formatting and response contracts — handled.
+
+### What you get
+
+**Valid request** → typed response:
+
+```bash
+$ curl -s -X POST http://localhost:7071/api/users \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Alice", "email": "alice@example.com"}'
+```
+
+```json
+{"message": "Hello Alice", "status": "success"}
+```
+
+> HTTP 200
+
+**Missing required field** → automatic error response:
+
+```bash
+$ curl -s -X POST http://localhost:7071/api/users \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Alice"}'
+```
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["email"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
+
+> HTTP 422 — standardized error response, automatic
+
+**Invalid JSON** → clear error:
+
+```bash
+$ curl -s -X POST http://localhost:7071/api/users \
+    -H "Content-Type: application/json" \
+    -d 'not json'
+```
+
+```json
+{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+```
+
+> HTTP 400
+
 ## FastAPI comparison
 
 | Feature | FastAPI | azure-functions-validation |

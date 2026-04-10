@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from azure_functions_validation import ValidationMetadata, get_validation_metadata, validate_http
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
