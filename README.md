@@ -105,7 +105,7 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
-> **30 lines → 10 lines.** Validation, error formatting, and response contracts — handled.
+> Manual parsing and validation disappear from the handler. Error formatting and response contracts — handled.
 
 ### What you get
 
@@ -123,7 +123,7 @@ $ curl -s -X POST http://localhost:7071/api/users \
 
 > HTTP 200
 
-**Missing required field** → automatic Pydantic v2 error:
+**Missing required field** → automatic error response:
 
 ```bash
 $ curl -s -X POST http://localhost:7071/api/users \
@@ -135,16 +135,15 @@ $ curl -s -X POST http://localhost:7071/api/users \
 {
   "detail": [
     {
-      "type": "missing",
-      "loc": ["body", "email"],
+      "loc": ["email"],
       "msg": "Field required",
-      "input": {"name": "Alice"}
+      "type": "missing"
     }
   ]
 }
 ```
 
-> HTTP 422 — Pydantic v2 error format, automatic
+> HTTP 422 — standardized error response, automatic
 
 **Invalid JSON** → clear error:
 
