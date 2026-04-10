@@ -11,8 +11,6 @@ import azure_functions_validation
 from azure_functions_validation import (
     ErrorFormatter,
     ResponseValidationError,
-    ValidationMetadata,
-    get_validation_metadata,
     validate_http,
 )
 
@@ -28,8 +26,6 @@ class TestAPISurface:
         assert set(azure_functions_validation.__all__) == {
             "__version__",
             "validate_http",
-            "ValidationMetadata",
-            "get_validation_metadata",
             "ResponseValidationError",
             "SerializationError",
             "ErrorFormatter",
@@ -40,12 +36,6 @@ class TestAPISurface:
 
     def test_validate_http_is_callable(self) -> None:
         assert callable(validate_http)
-
-    def test_validation_metadata_exported(self) -> None:
-        assert ValidationMetadata is not None
-
-    def test_get_validation_metadata_is_callable(self) -> None:
-        assert callable(get_validation_metadata)
 
     def test_response_validation_error_is_exception(self) -> None:
         assert issubclass(ResponseValidationError, Exception)

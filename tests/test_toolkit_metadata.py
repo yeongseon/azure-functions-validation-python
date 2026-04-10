@@ -12,7 +12,7 @@ from unittest.mock import Mock
 from azure.functions import HttpRequest
 from pydantic import BaseModel
 
-from azure_functions_validation import ValidationMetadata, get_validation_metadata, validate_http
+from azure_functions_validation import validate_http
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -102,21 +102,11 @@ class TestToolkitMetadataConvention:
         assert payload["headers"] is None
         assert payload["response_model"] is UserModel
 
-    def test_get_validation_metadata_returns_dataclass(self) -> None:
-        @validate_http(body=UserModel)
-        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
-            return {"ok": True}
-
-        result = get_validation_metadata(handler)
-        assert result is not None
-        assert isinstance(result, ValidationMetadata)
-        assert result.body is UserModel
-
-    def test_get_validation_metadata_returns_none_for_plain_function(self) -> None:
+    def test_toolkit_attr_absent_on_plain_function(self) -> None:
         def handler(req: HttpRequest) -> dict[str, object]:
             return {"ok": True}
 
-        assert get_validation_metadata(handler) is None
+        assert not hasattr(handler, _TOOLKIT_META_ATTR)
 
     def test_namespace_preservation_with_foreign_metadata(self) -> None:
         """Other namespaces set before decoration must survive."""
@@ -147,8 +137,3 @@ class TestToolkitMetadataConvention:
         assert "validation" in meta
         assert meta["validation"]["body"] is UserModel
 
-    def test_get_validation_metadata_importable(self) -> None:
-        """get_validation_metadata must be importable from the package."""
-        from azure_functions_validation import get_validation_metadata as getter
-
-        assert callable(getter)

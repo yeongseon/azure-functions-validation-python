@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import inspect
 from typing import Any, Callable, Mapping
 
@@ -11,21 +10,6 @@ from pydantic import TypeAdapter
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
-
-
-@dataclass(frozen=True)
-class ValidationMetadata:
-    """Metadata exposed by @validate_http for external tool integration.
-
-    External packages (e.g., azure-functions-openapi) can use this to
-    discover Pydantic models attached to validated handlers.
-    """
-
-    body: Any | None = None
-    query: Any | None = None
-    path: Any | None = None
-    headers: Any | None = None
-    response_model: Any | None = None
 
 
 def validate_http(
@@ -91,17 +75,6 @@ def validate_http(
         )
 
         wrapper = _make_wrapper(func, config, is_async=is_async)
-        setattr(
-            wrapper,
-            "_af_validation_metadata",
-            ValidationMetadata(
-                body=body,
-                query=query,
-                path=path,
-                headers=headers,
-                response_model=response_model,
-            ),
-        )
         return wrapper
 
     return decorator
@@ -260,41 +233,4 @@ def _make_wrapper(
         },
     )
 
-    # Legacy attribute for backward compatibility with consumers that read
-    # ``_af_validation_metadata`` (azure-functions-openapi <0.17).
-    setattr(
-        wrapper,
-        "_af_validation_metadata",
-        ValidationMetadata(
-            body=config.body,
-            query=config.query,
-            path=config.path,
-            headers=config.headers,
-            response_model=config.response_model,
-        ),
-    )
-
     return wrapper
-
-
-def get_validation_metadata(func: Any) -> ValidationMetadata | None:
-    """Return validation metadata if the function was decorated with @validate_http.
-
-    Checks the convention-based ``_azure_functions_toolkit_metadata`` attribute
-    first and converts it to a :class:`ValidationMetadata` instance.  Falls back
-    to the legacy ``_af_validation_metadata`` attribute for backward compatibility.
-
-    Returns None if the function has no validation metadata attached.
-    """
-    toolkit_meta = getattr(func, "_azure_functions_toolkit_metadata", None)
-    if toolkit_meta is not None:
-        validation_ns = toolkit_meta.get("validation")
-        if validation_ns is not None:
-            return ValidationMetadata(
-                body=validation_ns.get("body"),
-                query=validation_ns.get("query"),
-                path=validation_ns.get("path"),
-                headers=validation_ns.get("headers"),
-                response_model=validation_ns.get("response_model"),
-            )
-    return getattr(func, "_af_validation_metadata", None)
