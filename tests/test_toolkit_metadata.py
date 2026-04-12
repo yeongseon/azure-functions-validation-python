@@ -29,6 +29,13 @@ class QueryModel(BaseModel):
     page: int = 1
 
 
+class PathModel(BaseModel):
+    item_id: str
+
+
+class HeaderModel(BaseModel):
+    x_request_id: str
+
 def _make_request(body: bytes = b'{"name": "Alice", "age": 30}') -> Mock:
     mock_req = Mock(spec=HttpRequest)
     mock_req.method = "POST"
@@ -155,3 +162,48 @@ class TestToolkitMetadataConvention:
         meta = getattr(handler, _TOOLKIT_META_ATTR)
         assert "validation" in meta
         assert meta["validation"]["body"] is UserModel
+
+    def test_metadata_absent_on_undecorated_function(self) -> None:
+        """Non-decorated function has no metadata attribute."""
+
+        def handler(req: HttpRequest) -> dict[str, object]:
+            return {"ok": True}
+
+        assert not hasattr(handler, _TOOLKIT_META_ATTR)
+
+    def test_request_model_shorthand_maps_to_body(self) -> None:
+        """request_model= shorthand is stored as body in metadata."""
+
+        @validate_http(request_model=UserModel)
+        def handler(req: HttpRequest, body: UserModel) -> dict[str, object]:
+            return {"ok": True}
+
+        meta = getattr(handler, _TOOLKIT_META_ATTR)
+        assert meta["validation"]["body"] is UserModel
+
+    def test_metadata_all_param_types(self) -> None:
+        """All five parameter types are captured in metadata."""
+
+        @validate_http(
+            body=UserModel,
+            query=QueryModel,
+            path=PathModel,
+            headers=HeaderModel,
+            response_model=UserModel,
+        )
+        def handler(
+            req: HttpRequest,
+            body: UserModel,
+            query: QueryModel,
+            path: PathModel,
+            headers: HeaderModel,
+        ) -> dict[str, object]:
+            return {"ok": True}
+
+        meta = getattr(handler, _TOOLKIT_META_ATTR)
+        payload = meta["validation"]
+        assert payload["body"] is UserModel
+        assert payload["query"] is QueryModel
+        assert payload["path"] is PathModel
+        assert payload["headers"] is HeaderModel
+        assert payload["response_model"] is UserModel
