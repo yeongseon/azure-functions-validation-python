@@ -1,7 +1,7 @@
 # CRUD API Example
 
 A realistic task management REST API that demonstrates the full range of
-`azure-functions-validation` features in a single function app.
+`azure-functions-validation-python` features in a single function app.
 
 ## Endpoints
 

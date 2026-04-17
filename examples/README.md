@@ -1,6 +1,6 @@
 # Examples
 
-`azure-functions-validation` keeps a growing set of smoke-tested examples:
+`azure-functions-validation-python` keeps a growing set of smoke-tested examples:
 
 | Role | Path | Description |
 | --- | --- | --- |

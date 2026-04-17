@@ -3,7 +3,7 @@
 ## Overview
 
 This example is the smallest useful production baseline for
-`azure-functions-validation`.
+`azure-functions-validation-python`.
 
 It demonstrates request body validation and response model validation in one
 HTTP endpoint using the Azure Functions Python v2 decorator model.
@@ -18,7 +18,7 @@ Before running this example, make sure you have:
 
 1. Python 3.10+
 2. Azure Functions Python v2 app structure
-3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic` v2)
+3. Installed dependencies (`azure-functions`, `azure-functions-validation-python`, `pydantic` v2)
 
 !!! note "First-time setup"
     If you have not completed setup yet, follow [Quickstart](../getting-started.md)

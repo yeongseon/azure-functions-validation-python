@@ -1,6 +1,6 @@
 # Changelog
 
-This page documents the version history and migration paths for the `azure-functions-validation` package.
+This page documents the version history and migration paths for the `azure-functions-validation-python` package.
 
 ## Versioning Scheme
 
@@ -19,7 +19,7 @@ The changelog is generated from Conventional Commits using git-cliff. Breaking c
 The v0.5.0 release significantly reduced the public API surface to focus on the core validation decorator.
 
 - **Global error handler removed**: `register_global_error_handler` and `GlobalErrorHandlerRegistry` are deleted. Use the `error_formatter` parameter on the `@validate_http` decorator instead for per-handler or shared formatting.
-- **OpenAPI utilities removed**: `openapi.py` and `generate_422_error_schema` are removed. Use the `azure-functions-openapi` package for OpenAPI generation.
+- **OpenAPI utilities removed**: `openapi.py` and `generate_422_error_schema` are removed. Use the `azure-functions-openapi-python` package for OpenAPI generation.
 - **Contract testing removed**: `contract.py`, `@contract_test`, and `verify_contracts` were experimental and have been removed.
 - **Metadata helpers removed**: `metadata.py` helpers are no longer part of the public API.
 - **Exceptions merged**: `exceptions.py` is merged into `errors.py`. You should now import `ResponseValidationError` directly from the package root.

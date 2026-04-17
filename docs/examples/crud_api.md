@@ -3,7 +3,7 @@
 ## Overview
 
 This example implements a realistic task-management API and demonstrates how
-`azure-functions-validation` scales from simple handlers to multi-route apps.
+`azure-functions-validation-python` scales from simple handlers to multi-route apps.
 
 Source code path:
 
@@ -16,7 +16,7 @@ request and response contracts.
 
 1. Python 3.10+
 2. Azure Functions Python v2 project
-3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic`)
+3. Installed dependencies (`azure-functions`, `azure-functions-validation-python`, `pydantic`)
 
 !!! note "Recommended order"
     Read [Basic Validation](basic_validation.md) first,

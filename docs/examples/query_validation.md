@@ -19,7 +19,7 @@ from URL and headers rather than JSON body.
 
 1. Python 3.10+
 2. Azure Functions Python v2 project
-3. Installed `azure-functions-validation` and dependencies
+3. Installed `azure-functions-validation-python` and dependencies
 
 !!! note "Related baseline"
     If you are new to body validation first, read

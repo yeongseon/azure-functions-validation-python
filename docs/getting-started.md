@@ -21,7 +21,7 @@ Before starting, make sure you have:
 2. An Azure Functions Python v2 app structure.
 3. Dependencies installed:
    - `azure-functions`
-   - `azure-functions-validation`
+   - `azure-functions-validation-python`
    - `pydantic` v2.
 
 See [Installation](installation.md) for version details.

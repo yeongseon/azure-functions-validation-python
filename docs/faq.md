@@ -4,7 +4,7 @@
 
 Short answer: not directly.
 
-`azure-functions-validation` is designed around Pydantic model validation and the
+`azure-functions-validation-python` is designed around Pydantic model validation and the
 default `PydanticAdapter`. Your request and response schemas should be Pydantic
 v2 models (or compatible typing forms for response validation).
 

@@ -1,4 +1,4 @@
-"""Tests for the public API surface of azure-functions-validation v0.5."""
+"""Tests for the public API surface of azure-functions-validation-python v0.5."""
 
 import json
 from unittest.mock import Mock

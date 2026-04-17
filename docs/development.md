@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers how to set up a local development environment, run tests, and manage code quality for **azure-functions-validation**, using Hatch and a Makefile for workflow automation.
+This guide covers how to set up a local development environment, run tests, and manage code quality for **azure-functions-validation-python**, using Hatch and a Makefile for workflow automation.
 
 ---
 
@@ -17,7 +17,7 @@ This guide covers how to set up a local development environment, run tests, and 
 ## Project Structure
 
 ```text
-azure-functions-validation/
+azure-functions-validation-python/
 ├── src/
 │   └── azure_functions_validation/
 ├── tests/
@@ -45,8 +45,8 @@ azure-functions-validation/
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/yeongseon/azure-functions-validation.git
-    cd azure-functions-validation
+    git clone https://github.com/yeongseon/azure-functions-validation-python.git
+    cd azure-functions-validation-python
     ```
 
 2. **Create environment and install dependencies**:

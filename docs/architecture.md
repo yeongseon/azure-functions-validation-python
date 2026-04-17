@@ -1,6 +1,6 @@
 # Architecture
 
-`azure-functions-validation` is intentionally small, explicit, and composable.
+`azure-functions-validation-python` is intentionally small, explicit, and composable.
 The package centers on one public abstraction: a decorator that enforces request
 and response contracts around Azure Functions HTTP handlers.
 

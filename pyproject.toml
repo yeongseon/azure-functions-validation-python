@@ -1,5 +1,5 @@
 [project]
-name = "azure-functions-validation"
+name = "azure-functions-validation-python"
 description = "Validation and serialization layer for Azure Functions Python v2 programming model"
 keywords = ["azure-functions", "azure", "python", "v2", "validation", "pydantic", "serialization", "serverless"]
 authors = [{ name = "Yeongseon Choe", email = "yeongseon.choe@gmail.com" }]
@@ -28,10 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://yeongseon.github.io/azure-functions-validation/"
-Documentation = "https://yeongseon.github.io/azure-functions-validation/"
-Repository = "https://github.com/yeongseon/azure-functions-validation"
-Issues = "https://github.com/yeongseon/azure-functions-validation/issues"
+Homepage = "https://yeongseon.github.io/azure-functions-validation-python/"
+Documentation = "https://yeongseon.github.io/azure-functions-validation-python/"
+Repository = "https://github.com/yeongseon/azure-functions-validation-python"
+Issues = "https://github.com/yeongseon/azure-functions-validation-python/issues"
 
 [project.optional-dependencies]
 dev = [

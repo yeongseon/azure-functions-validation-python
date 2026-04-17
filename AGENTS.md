@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-`azure-functions-validation` provides request and response validation for Azure Functions Python v2 applications using Pydantic.
+`azure-functions-validation-python` provides request and response validation for Azure Functions Python v2 applications using Pydantic.
 
 ## Read First
 - `README.md`

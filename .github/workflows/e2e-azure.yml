@@ -49,7 +49,7 @@ jobs:
           az group create \
             --name "${{ steps.names.outputs.rg }}" \
             --location "$AZURE_LOCATION" \
-            --tags purpose=e2e repo=azure-functions-validation run="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --tags purpose=e2e repo=azure-functions-validation-python run="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
       - name: Deploy infra (Bicep)
         run: |
@@ -90,7 +90,7 @@ jobs:
 
           # Pre-install all function app dependencies into .python_packages
           # (Linux Consumption picks up .python_packages/lib/site-packages at runtime)
-          # Use the local wheel instead of PyPI azure-functions-validation
+          # Use the local wheel instead of PyPI azure-functions-validation-python
           mkdir -p examples/e2e_app/.python_packages/lib/site-packages
           pip install \
             --target examples/e2e_app/.python_packages/lib/site-packages \

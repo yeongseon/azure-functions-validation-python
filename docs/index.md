@@ -2,7 +2,7 @@
 
 Typed request and response validation for Azure Functions Python v2 HTTP handlers.
 
-`azure-functions-validation` helps you remove repetitive `req.get_json()` parsing,
+`azure-functions-validation-python` helps you remove repetitive `req.get_json()` parsing,
 enforce consistent validation behavior, and keep your handler contracts explicit.
 It is designed for the decorator-based `func.FunctionApp()` model.
 

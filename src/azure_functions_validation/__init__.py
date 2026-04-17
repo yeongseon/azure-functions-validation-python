@@ -1,4 +1,4 @@
-"""azure-functions-validation package."""
+"""azure-functions-validation-python package."""
 
 from .decorator import validate_http
 from .errors import ErrorFormatter, ResponseValidationError, SerializationError

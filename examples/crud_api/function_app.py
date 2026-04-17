@@ -1,4 +1,4 @@
-"""Task management CRUD API — a realistic example of azure-functions-validation.
+"""Task management CRUD API — a realistic example of azure-functions-validation-python.
 
 Demonstrates:
   - Body validation (create / update)

@@ -1,13 +1,13 @@
 # Azure Functions Validation
 
-[![PyPI](https://img.shields.io/pypi/v/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation/)
-[![CI](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml)
-[![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/publish-pypi.yml)
-[![Security Scans](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml)
-[![codecov](https://codecov.io/gh/yeongseon/azure-functions-validation/branch/main/graph/badge.svg)](https://codecov.io/gh/yeongseon/azure-functions-validation)
+[![PyPI](https://img.shields.io/pypi/v/azure-functions-validation-python.svg)](https://pypi.org/project/azure-functions-validation-python/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation-python/)
+[![CI](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/ci-test.yml)
+[![Release](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/publish-pypi.yml)
+[![Security Scans](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/yeongseon/azure-functions-validation-python/branch/main/graph/badge.svg)](https://codecov.io/gh/yeongseon/azure-functions-validation-python)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
-[![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation/)
+[![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation-python/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Read this in: [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
@@ -37,7 +37,7 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 
 ## FastAPI comparison
 
-| Feature | FastAPI | azure-functions-validation |
+| Feature | FastAPI | azure-functions-validation-python |
 |---------|---------|---------------------------|
 | Request body parsing | Built-in via type hints | `@validate_http(body=Model)` |
 | Query/path/header validation | `Query()`, `Path()`, `Header()` | `@validate_http(query=Model, path=Model, headers=Model)` |
@@ -63,21 +63,21 @@ This package does **not** target the legacy `function.json`-based v1 programming
 ## Installation
 
 ```bash
-pip install azure-functions-validation
+pip install azure-functions-validation-python
 ```
 
 Your Azure Functions app should also include:
 
 ```text
 azure-functions
-azure-functions-validation
+azure-functions-validation-python
 ```
 
 For local development:
 
 ```bash
-git clone https://github.com/yeongseon/azure-functions-validation.git
-cd azure-functions-validation
+git clone https://github.com/yeongseon/azure-functions-validation-python.git
+cd azure-functions-validation-python
 pip install -e .[dev]
 ```
 
@@ -130,12 +130,12 @@ Part of the **Azure Functions Python DX Toolkit**:
 
 | Package | Role |
 |---------|------|
-| **azure-functions-validation** | Request and response validation |
-| [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) | OpenAPI spec and Swagger UI |
-| [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) | Structured logging and observability |
-| [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) | Pre-deploy diagnostic CLI |
-| [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) | Project scaffolding |
-| [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) | Recipes and examples |
+| **azure-functions-validation-python** | Request and response validation |
+| [azure-functions-openapi-python](https://github.com/yeongseon/azure-functions-openapi-python) | OpenAPI spec and Swagger UI |
+| [azure-functions-logging-python](https://github.com/yeongseon/azure-functions-logging-python) | Structured logging and observability |
+| [azure-functions-doctor-python](https://github.com/yeongseon/azure-functions-doctor-python) | Pre-deploy diagnostic CLI |
+| [azure-functions-scaffold-python](https://github.com/yeongseon/azure-functions-scaffold-python) | Project scaffolding |
+| [azure-functions-cookbook-python](https://github.com/yeongseon/azure-functions-cookbook-python) | Recipes and examples |
 
 ## Disclaimer
 

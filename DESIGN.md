@@ -1,6 +1,6 @@
 # DESIGN.md
 
-Design Principles for `azure-functions-validation`
+Design Principles for `azure-functions-validation-python`
 
 ## Purpose
 

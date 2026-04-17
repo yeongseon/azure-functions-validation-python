@@ -1,6 +1,6 @@
 # Installation
 
-`azure-functions-validation` targets the **Azure Functions Python v2 programming model**.
+`azure-functions-validation-python` targets the **Azure Functions Python v2 programming model**.
 
 ## Requirements
 
@@ -27,14 +27,14 @@ Compatibility expectations:
 ## From PyPI
 
 ```bash
-pip install azure-functions-validation
+pip install azure-functions-validation-python
 ```
 
 Ensure your Function App dependencies include:
 
 ```text
 azure-functions
-azure-functions-validation
+azure-functions-validation-python
 ```
 
 If you pin dependencies, keep `pydantic` in the v2 major version.
@@ -55,7 +55,7 @@ Expected outcome:
 You can also verify package metadata from your environment:
 
 ```bash
-pip show azure-functions-validation
+pip show azure-functions-validation-python
 ```
 
 Check that your active environment is the same one used by your Function App.
@@ -63,8 +63,8 @@ Check that your active environment is the same one used by your Function App.
 ## Local Development
 
 ```bash
-git clone https://github.com/yeongseon/azure-functions-validation.git
-cd azure-functions-validation
+git clone https://github.com/yeongseon/azure-functions-validation-python.git
+cd azure-functions-validation-python
 make install
 ```
 
@@ -75,7 +75,7 @@ All project maintenance commands should go through the Makefile.
 Upgrade to the latest published version:
 
 ```bash
-pip install --upgrade azure-functions-validation
+pip install --upgrade azure-functions-validation-python
 ```
 
 Recommended upgrade workflow:
@@ -92,7 +92,7 @@ For deterministic deployments, pin an explicit version in your dependency file.
 ### ImportError: No module named `azure_functions_validation`
 
 - Confirm installation ran in the correct environment.
-- Run `python -m pip install azure-functions-validation`.
+- Run `python -m pip install azure-functions-validation-python`.
 - Verify with `python -c "import azure_functions_validation"`.
 
 ### Pydantic version mismatch
@@ -109,5 +109,5 @@ For deterministic deployments, pin an explicit version in your dependency file.
 
 - Rebuild deployment artifacts from a clean environment.
 - Confirm `requirements.txt` includes both `azure-functions` and
-  `azure-functions-validation`.
+  `azure-functions-validation-python`.
 - Verify the deployed Python runtime version is compatible with your lockfile.

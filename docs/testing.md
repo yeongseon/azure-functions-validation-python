@@ -1,10 +1,10 @@
 # Testing
 
-This guide describes the test suite for `azure-functions-validation`, including how to run tests, the structure of the test suite, and guidelines for contributing new tests.
+This guide describes the test suite for `azure-functions-validation-python`, including how to run tests, the structure of the test suite, and guidelines for contributing new tests.
 
 ## Overview
 
-The `azure-functions-validation` project maintains a high standard of quality through a comprehensive test suite. The suite ensures that request validation, response serialization, and decorator behavior work correctly across different Python versions and Azure Functions scenarios.
+The `azure-functions-validation-python` project maintains a high standard of quality through a comprehensive test suite. The suite ensures that request validation, response serialization, and decorator behavior work correctly across different Python versions and Azure Functions scenarios.
 
 - **Total Tests**: 145+
 - **Code Coverage**: 99%

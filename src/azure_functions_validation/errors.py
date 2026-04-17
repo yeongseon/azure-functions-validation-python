@@ -1,4 +1,4 @@
-"""Error types and formatting for azure-functions-validation."""
+"""Error types and formatting for azure-functions-validation-python."""
 
 from __future__ import annotations
 

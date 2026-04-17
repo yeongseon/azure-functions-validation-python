@@ -1,7 +1,7 @@
 # Troubleshooting
 
 This guide covers the most common issues when using
-`azure-functions-validation` in Azure Functions Python v2 apps.
+`azure-functions-validation-python` in Azure Functions Python v2 apps.
 
 If you are still setting up, read [Installation](installation.md) and
 [Quickstart](getting-started.md) first.

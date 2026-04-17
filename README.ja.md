@@ -1,13 +1,13 @@
 # Azure Functions Validation
 
-[![PyPI](https://img.shields.io/pypi/v/azure-functions-validation.svg)](https://pypi.org/project/azure-functions-validation/)
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation/)
-[![CI](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/ci-test.yml)
-[![Release](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/release.yml)
-[![Security Scans](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation/actions/workflows/security.yml)
-[![codecov](https://codecov.io/gh/yeongseon/azure-functions-validation/branch/main/graph/badge.svg)](https://codecov.io/gh/yeongseon/azure-functions-validation)
+[![PyPI](https://img.shields.io/pypi/v/azure-functions-validation-python.svg)](https://pypi.org/project/azure-functions-validation-python/)
+[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/azure-functions-validation-python/)
+[![CI](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/ci-test.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/ci-test.yml)
+[![Release](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/release.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/release.yml)
+[![Security Scans](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/security.yml/badge.svg)](https://github.com/yeongseon/azure-functions-validation-python/actions/workflows/security.yml)
+[![codecov](https://codecov.io/gh/yeongseon/azure-functions-validation-python/branch/main/graph/badge.svg)](https://codecov.io/gh/yeongseon/azure-functions-validation-python)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://pre-commit.com/)
-[![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation/)
+[![Docs](https://img.shields.io/badge/docs-gh--pages-blue)](https://yeongseon.github.io/azure-functions-validation-python/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 他の言語: [English](README.md) | [한국어](README.ko.md) | [简体中文](README.zh-CN.md)
@@ -23,7 +23,7 @@ Azure Functions Python v2 のハンドラーは、次のような問題を繰り
 - 一貫しない `400` / `422` validation レスポンス
 - 意図したスキーマから静かにずれていく response payload
 
-`azure-functions-validation` は、Azure Functions のプログラミング モデルに近い decorator-first の validation レイヤーによって、これらの問題に対応します。
+`azure-functions-validation-python` は、Azure Functions のプログラミング モデルに近い decorator-first の validation レイヤーによって、これらの問題に対応します。
 
 ## Scope
 
@@ -43,21 +43,21 @@ Azure Functions Python v2 のハンドラーは、次のような問題を繰り
 ## Installation
 
 ```bash
-pip install azure-functions-validation
+pip install azure-functions-validation-python
 ```
 
 Azure Functions アプリの依存関係には次も含めてください。
 
 ```text
 azure-functions
-azure-functions-validation
+azure-functions-validation-python
 ```
 
 ローカル開発用:
 
 ```bash
-git clone https://github.com/yeongseon/azure-functions-validation.git
-cd azure-functions-validation
+git clone https://github.com/yeongseon/azure-functions-validation-python.git
+cd azure-functions-validation-python
 pip install -e .[dev]
 ```
 
@@ -99,11 +99,11 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Ecosystem
 
-- [azure-functions-openapi](https://github.com/yeongseon/azure-functions-openapi) — OpenAPI と Swagger UI
-- [azure-functions-logging](https://github.com/yeongseon/azure-functions-logging) — 構造化ロギング
-- [azure-functions-doctor](https://github.com/yeongseon/azure-functions-doctor) — 診断 CLI
-- [azure-functions-scaffold](https://github.com/yeongseon/azure-functions-scaffold) — プロジェクトスキャフォールディング
-- [azure-functions-python-cookbook](https://github.com/yeongseon/azure-functions-python-cookbook) — レシピとサンプル
+- [azure-functions-openapi-python](https://github.com/yeongseon/azure-functions-openapi-python) — OpenAPI と Swagger UI
+- [azure-functions-logging-python](https://github.com/yeongseon/azure-functions-logging-python) — 構造化ロギング
+- [azure-functions-doctor-python](https://github.com/yeongseon/azure-functions-doctor-python) — 診断 CLI
+- [azure-functions-scaffold-python](https://github.com/yeongseon/azure-functions-scaffold-python) — プロジェクトスキャフォールディング
+- [azure-functions-cookbook-python](https://github.com/yeongseon/azure-functions-cookbook-python) — レシピとサンプル
 
 ## Disclaimer
 

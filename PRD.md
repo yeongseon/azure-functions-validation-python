@@ -1,8 +1,8 @@
-# PRD - azure-functions-validation
+# PRD - azure-functions-validation-python
 
 ## Overview
 
-`azure-functions-validation` is a **decorator-first request-and-response validation layer**
+`azure-functions-validation-python` is a **decorator-first request-and-response validation layer**
 for the Azure Functions Python v2 programming model.
 
 It targets HTTP-triggered `func.FunctionApp()` handlers that want typed parsing, structured
@@ -110,7 +110,7 @@ This format follows FastAPI / Pydantic conventions for broad tooling compatibili
 
 Small-ecosystem libraries live or die by the quality of their examples.
 If a developer cannot go from `pip install` to a working handler in under five minutes,
-the library has already lost. `azure-functions-validation` treats runnable examples as a
+the library has already lost. `azure-functions-validation-python` treats runnable examples as a
 first-class deliverable, not an afterthought.
 
 ### Quick Start (Hello World)
@@ -158,7 +158,7 @@ Invalid input returns a structured `422` response automatically:
    evaluate the library before reading any reference documentation.
 2. **AI agent discoverability.** Tools like GitHub Copilot, Cursor, and Claude Code recommend
    libraries based on README, PRD, and example content. Rich examples increase the chance
-   that AI agents surface `azure-functions-validation` for relevant prompts.
+   that AI agents surface `azure-functions-validation-python` for relevant prompts.
 3. **Cookbook role.** For niche ecosystems, `examples/` and `docs/` often serve as the primary
    learning material. Every new pattern should ship with a runnable example project.
 4. **Proven approach.** FastAPI, LangChain, SQLAlchemy, and Pandas all achieved early adoption

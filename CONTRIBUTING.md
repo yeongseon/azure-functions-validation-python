@@ -1,6 +1,6 @@
 # Contributing Guide
 
-We welcome contributions to the `azure-functions-validation` project.
+We welcome contributions to the `azure-functions-validation-python` project.
 
 ## How to Contribute
 

@@ -1,4 +1,4 @@
-"""E2E tests for azure-functions-validation on a real Azure Functions host.
+"""E2E tests for azure-functions-validation-python on a real Azure Functions host.
 
 Usage:
     E2E_BASE_URL=https://<app>.azurewebsites.net pytest tests/e2e -v
