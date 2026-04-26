@@ -40,6 +40,18 @@ Azure Functions Python v2 处理函数经常会逐渐出现同样的问题：
 - response model validation，若不匹配则抛出 `ResponseValidationError`（HTTP 500）
 - 通过 `ErrorFormatter` 支持每个处理函数的自定义错误格式化
 
+## Package names
+
+三个上下文使用三种命名：
+
+| Context        | Name                                |
+|----------------|-------------------------------------|
+| GitHub repo    | `azure-functions-validation-python` |
+| PyPI package   | `azure-functions-validation`        |
+| Python import  | `azure_functions_validation`        |
+
+仓库名带有 `-python` 后缀，用于标识其为 Python 实现。PyPI 包名遵循 Python 生态约定，不带后缀，因此安装命令仍然是自然的 `pip install azure-functions-validation`。详细说明请参阅 [FAQ](https://yeongseon.github.io/azure-functions-validation-python/faq/#why-does-the-repo-use--python-but-the-pypi-package-does-not)。
+
 ## Installation
 
 ```bash
