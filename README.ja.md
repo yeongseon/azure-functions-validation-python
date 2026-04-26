@@ -40,6 +40,18 @@ Azure Functions Python v2 のハンドラーは、次のような問題を繰り
 - response model validation。不一致時は `ResponseValidationError` を送出（HTTP 500）
 - `ErrorFormatter` によるハンドラー単位の custom error formatting
 
+## Package names
+
+3 つのコンテキストで 3 つの名前を使い分けています。
+
+| Context        | Name                                |
+|----------------|-------------------------------------|
+| GitHub repo    | `azure-functions-validation-python` |
+| PyPI package   | `azure-functions-validation`        |
+| Python import  | `azure_functions_validation`        |
+
+リポジトリ名は Python 実装であることを示すために `-python` サフィックスを付けています。PyPI パッケージ名は Python エコシステムの慣例に従いサフィックスを付けずに公開されているため、インストールは自然に `pip install azure-functions-validation` のままです。詳細は [FAQ](https://yeongseon.github.io/azure-functions-validation-python/faq/#why-does-the-repo-use--python-but-the-pypi-package-does-not) を参照してください。
+
 ## Installation
 
 ```bash

@@ -1,5 +1,34 @@
 # FAQ
 
+## Why does the repo use `-python` but the PyPI package does not?
+
+The names map to three different contexts:
+
+| Context        | Name                                |
+|----------------|-------------------------------------|
+| GitHub repo    | `azure-functions-validation-python` |
+| PyPI package   | `azure-functions-validation`        |
+| Python import  | `azure_functions_validation`        |
+
+The GitHub repository carries the `-python` suffix to mark it as the
+Python implementation of the project. The PyPI package follows the
+Python ecosystem convention and is published without the suffix, so
+the install command stays idiomatic:
+
+```bash
+pip install azure-functions-validation
+```
+
+The Python import name uses underscores, as required by the language:
+
+```python
+from azure_functions_validation import validate_http
+```
+
+This is intentional naming, not an inconsistency. The repo describes
+*what kind of implementation this is*, while the PyPI and import names
+describe *how Python users actually install and use it*.
+
 ## Can I use this without Pydantic?
 
 Short answer: not directly.

@@ -191,6 +191,18 @@ This package does not own:
 - Response model validation — mismatches raise `ResponseValidationError` (HTTP 500)
 - Custom per-handler error formatting via `ErrorFormatter`
 
+## Package names
+
+Three names cover three different contexts:
+
+| Context        | Name                                |
+|----------------|-------------------------------------|
+| GitHub repo    | `azure-functions-validation-python` |
+| PyPI package   | `azure-functions-validation`        |
+| Python import  | `azure_functions_validation`        |
+
+The repository carries the `-python` suffix to mark it as the Python implementation. The PyPI package follows Python ecosystem conventions and is published without the suffix, so installation stays idiomatic: `pip install azure-functions-validation`. See the [FAQ entry](https://yeongseon.github.io/azure-functions-validation-python/faq/#why-does-the-repo-use--python-but-the-pypi-package-does-not) for the long version.
+
 ## Installation
 
 ```bash
