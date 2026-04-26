@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
+- *(deps)* Bump mypy from 1.20.1 to 1.20.2 (#166) 
+- Replace stale repo-slug links and broken badge references (#171) 
+- *(deps)* Bump github/codeql-action from 4.35.1 to 4.35.2 
+- *(deps)* Bump mypy from 1.20.0 to 1.20.1 
+- *(deps)* Bump softprops/action-gh-release from 2.6.1 to 3.0.0 
+- *(deps)* Bump actions/upload-artifact from 7.0.0 to 7.0.1 
+- *(deps)* Bump ruff from 0.15.10 to 0.15.11 
+
+### 💼 Other
+
+- Bump version to 0.7.3 and align test assertion 
+
+### 📚 Documentation
+
+- Explain repo (-python) vs PyPI (no suffix) vs import naming (#172) 
+- Fix GitHub Pages base URL after repo rename (#170) 
+
+### 🚜 Refactor
+
+- Remove redundant metadata tests, consolidate into test_toolkit_metadata 
+
+### ⚙️ Miscellaneous Tasks
+
 - *(deps)* Bump actions/github-script from 8.0.0 to 9.0.0 (#147) 
 - *(deps)* Bump softprops/action-gh-release from 2.2.2 to 2.6.1 (#146) 
 - Bump ruff from 0.15.9 to 0.15.10 (#150) 
@@ -18,6 +41,7 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
+- Update changelog 
 - Apply Oracle review fixes to Before/After section (#152) 
 - Standardize ecosystem table in README 
 
