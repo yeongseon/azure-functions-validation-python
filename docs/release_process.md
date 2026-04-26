@@ -115,7 +115,7 @@ pip install --index-url https://test.pypi.org/simple/ azure-functions-validation
 
 ## Related
 
-- [CHANGELOG.md](https://github.com/yeongseon/azure-functions-validation/blob/main/CHANGELOG.md)
+- [CHANGELOG.md](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CHANGELOG.md)
 - [Development Guide](development.md)
 - [Contributing](contributing.md)
 - [PyPI Publishing with Hatch](https://hatch.pypa.io/latest/publishing/)

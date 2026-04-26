@@ -63,8 +63,8 @@ Check that your active environment is the same one used by your Function App.
 ## Local Development
 
 ```bash
-git clone https://github.com/yeongseon/azure-functions-validation.git
-cd azure-functions-validation
+git clone https://github.com/yeongseon/azure-functions-validation-python.git
+cd azure-functions-validation-python
 make install
 ```
 

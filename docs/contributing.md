@@ -9,8 +9,8 @@ To begin contributing, follow these steps to set up your local development envir
 1. Fork the repository on GitHub.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/your-username/azure-functions-validation.git
-   cd azure-functions-validation
+   git clone https://github.com/your-username/azure-functions-validation-python.git
+   cd azure-functions-validation-python
    ```
 3. Set up the development environment using Hatch:
    ```bash
@@ -120,4 +120,4 @@ The `CHANGELOG.md` is updated automatically via `git-cliff` during the release p
 
 ## Code of Conduct
 
-All contributors are expected to adhere to our [Code of Conduct](https://github.com/yeongseon/azure-functions-validation/blob/main/CODE_OF_CONDUCT.md). We strive to maintain a respectful and inclusive environment for everyone.
+All contributors are expected to adhere to our [Code of Conduct](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CODE_OF_CONDUCT.md). We strive to maintain a respectful and inclusive environment for everyone.

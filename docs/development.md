@@ -45,8 +45,8 @@ azure-functions-validation/
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/yeongseon/azure-functions-validation.git
-    cd azure-functions-validation
+    git clone https://github.com/yeongseon/azure-functions-validation-python.git
+    cd azure-functions-validation-python
     ```
 
 2. **Create environment and install dependencies**:
