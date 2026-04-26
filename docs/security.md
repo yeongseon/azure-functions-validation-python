@@ -10,7 +10,7 @@ If you discover a security vulnerability in this project, please report it priva
 
 The most secure way to report a vulnerability is through a GitHub Security Advisory. This allows for private collaboration between the reporter and maintainers.
 
-1. Navigate to the [Security Advisories page](https://github.com/yeongseon/azure-functions-validation/security/advisories/new).
+1. Navigate to the [Security Advisories page](https://github.com/yeongseon/azure-functions-validation-python/security/advisories/new).
 2. Click "Report a vulnerability" or "New advisory".
 3. Provide the details of the issue in the private advisory form.
 
