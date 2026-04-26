@@ -32,7 +32,7 @@ class TestAPISurface:
         }
 
     def test_version_is_0_7_1(self) -> None:
-        assert azure_functions_validation.__version__ == "0.7.1"
+        assert azure_functions_validation.__version__ == "0.7.3"
 
     def test_validate_http_is_callable(self) -> None:
         assert callable(validate_http)
@@ -145,6 +145,7 @@ class TestGoldenErrorShapes:
 
     def test_golden_422_validation_error_keys(self) -> None:
         """422 validation errors must have exactly loc, msg, type keys."""
+
         @validate_http(body=BodyModel)
         def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
             return {"ok": True}
@@ -161,6 +162,7 @@ class TestGoldenErrorShapes:
 
     def test_golden_400_json_parse_error_keys(self) -> None:
         """400 JSON parse errors must have exactly loc, msg, type keys."""
+
         @validate_http(body=BodyModel)
         def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
             return {"ok": True}
@@ -192,6 +194,7 @@ class TestGoldenErrorShapes:
 
     def test_golden_500_server_error_shape(self) -> None:
         """500 response validation errors must have sanitized shape."""
+
         @validate_http(body=BodyModel, response_model=RespModel)
         def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
             return {"wrong": True}
@@ -212,6 +215,7 @@ class TestGoldenErrorShapes:
 
     def test_golden_500_no_internal_leak(self) -> None:
         """500 errors must not leak internal validation details."""
+
         @validate_http(body=BodyModel, response_model=RespModel)
         def handler(req: HttpRequest, body: BodyModel) -> dict[str, object]:
             return {"no_message": True}
@@ -228,6 +232,7 @@ class TestGoldenErrorShapes:
 
     def test_golden_custom_formatter_replaces_shape(self) -> None:
         """Custom formatter must replace default detail shape entirely."""
+
         def fmt(exc: Exception, status: int) -> dict[str, object]:
             return {"custom_error": True, "status": status}
 
@@ -243,6 +248,7 @@ class TestGoldenErrorShapes:
         assert "custom_error" in data
         assert data["custom_error"] is True
         assert data["status"] == 422
+
 
 # ---------------------------------------------------------------------------
 # 3. Error Path — custom formatter takes precedence
