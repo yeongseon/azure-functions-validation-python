@@ -49,6 +49,9 @@ def validate_http(
         adapter = PydanticAdapter()
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if not callable(func) or type(func).__name__ == "FunctionBuilder":
+            return func  # type: ignore[return-value]
+
         is_async = inspect.iscoroutinefunction(func)
 
         func_sig = inspect.signature(func)
@@ -108,8 +111,9 @@ def _find_request_param(
     )
 
     if request_param_name is None:
+        func_name = getattr(func, "__name__", repr(func))
         raise ValueError(
-            f"Function {func.__name__} must accept an HttpRequest parameter "
+            f"Function {func_name} must accept an HttpRequest parameter "
             f"as its first positional argument"
         )
 
@@ -136,8 +140,9 @@ def _validate_no_conflicts(
         "req_model": request_model,
     }
     if request_param_name in _injected and _injected[request_param_name] is not None:
+        func_name = getattr(func, "__name__", repr(func))
         raise ValueError(
-            f"Function {func.__name__}: first positional parameter '{request_param_name}' "
+            f"Function {func_name}: first positional parameter '{request_param_name}' "
             f"conflicts with a @validate_http injected parameter of the same name. "
             f"Rename it (e.g. to 'req' or 'http_request')."
         )
@@ -173,6 +178,7 @@ def _make_wrapper(
     orig_name: str = config.request_param_name or "req"
 
     if is_async:
+
         async def _async_wrapper(  # noqa: ANN202
             req: Any = _MISSING, **_kw: Any
         ) -> Any:  # noqa: ANN401
@@ -181,6 +187,7 @@ def _make_wrapper(
 
         wrapper: Callable[..., Any] = _async_wrapper
     else:
+
         def _sync_wrapper(  # noqa: ANN202
             req: Any = _MISSING, **_kw: Any
         ) -> Any:  # noqa: ANN401
@@ -191,7 +198,11 @@ def _make_wrapper(
 
     # Copy safe metadata attributes without setting __wrapped__.
     _COPY_ATTRS = (
-        "__name__", "__qualname__", "__doc__", "__dict__", "__module__",
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__dict__",
+        "__module__",
     )
     for attr in _COPY_ATTRS:
         try:
@@ -230,4 +241,3 @@ def _make_wrapper(
     setattr(wrapper, "_azure_functions_metadata", _meta)
 
     return wrapper
-
