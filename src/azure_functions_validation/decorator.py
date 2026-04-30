@@ -49,8 +49,8 @@ def validate_http(
         adapter = PydanticAdapter()
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        if not callable(func) or type(func).__name__ == "FunctionBuilder":
-            return func  # type: ignore[return-value]
+        if type(func).__name__ == "FunctionBuilder":
+            return func
 
         is_async = inspect.iscoroutinefunction(func)
 
