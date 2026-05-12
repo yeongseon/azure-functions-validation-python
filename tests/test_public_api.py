@@ -31,8 +31,10 @@ class TestAPISurface:
             "ErrorFormatter",
         }
 
-    def test_version_is_0_7_4(self) -> None:
-        assert azure_functions_validation.__version__ == "0.7.4"
+    def test_version_matches_distribution_metadata(self) -> None:
+        from importlib.metadata import version
+
+        assert azure_functions_validation.__version__ == version("azure-functions-validation")
 
     def test_validate_http_is_callable(self) -> None:
         assert callable(validate_http)

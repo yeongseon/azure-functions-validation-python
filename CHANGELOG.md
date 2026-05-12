@@ -1,6 +1,27 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [Unreleased]
+
+### 📚 Documentation
+
+- Fix ecosystem table names, badges, and Part of intro line 
+- Mark cookbook as dogfood, fix ecosystem table description 
+- Fix ecosystem table — add knowledge row, fix labels and links 
+
+### 🧪 Testing
+
+- Raise coverage to 95%+ and enforce via AGENTS.md and pyproject.toml 
+## [0.7.4] - 2026-04-30
+
+### 🐛 Bug Fixes
+
+- Handle FunctionBuilder from azure-functions SDK in validate_http decorator (#173) 
+
+### 📚 Documentation
+
+- *(agents)* Add Issue Conventions section to AGENTS.md 
+## [0.7.3] - 2026-04-26
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -18,12 +39,14 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
+- Update changelog 
 - Explain repo (-python) vs PyPI (no suffix) vs import naming (#172) 
 - Fix GitHub Pages base URL after repo rename (#170) 
 
 ### 🚜 Refactor
 
 - Remove redundant metadata tests, consolidate into test_toolkit_metadata 
+## [0.7.1] - 2026-04-10
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -56,6 +79,7 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - Add dedicated toolkit metadata convention tests 
+## [0.7.0] - 2026-04-07
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -101,6 +125,7 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - Update version assertion to 0.7.0 for upcoming release 
+## [0.6.0] - 2026-03-29
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -127,6 +152,7 @@ All notable changes to this project will be documented in this file.
 
 - Add docs-runtime sync verification for README examples (#110) 
 - Add golden snapshot tests for error response shapes (400/422/500) (#109) 
+## [0.5.7] - 2026-03-21
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -156,16 +182,19 @@ All notable changes to this project will be documented in this file.
 
 - Add mermaid diagrams to architecture and README 
 - Add mermaid support to mkdocs configuration 
+## [0.5.6] - 2026-03-17
 
 ### 🐛 Bug Fixes
 
 - Remove __annotations__ copy in _make_wrapper to prevent NameError in Azure Functions worker 
 - *(ci)* Add environment: azure-e2e to e2e workflow for OIDC tag support 
+## [0.5.5] - 2026-03-17
 
 ### 🐛 Bug Fixes
 
 - Replace exec()-based wrapper with closure to fix Azure Functions registration 
 - *(e2e)* Use PydanticAdapter directly in e2e_app to avoid decorator Azure registration issue 
+## [0.5.4] - 2026-03-16
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -183,6 +212,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - *(e2e)* Use @validate_http decorator directly in e2e app, bump to v0.5.3 
+## [0.5.3] - 2026-03-16
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -217,6 +247,7 @@ All notable changes to this project will be documented in this file.
 
 - *(e2e)* Full function_app without try/except guard 
 - Add real Azure e2e tests and CI workflow 
+## [0.5.2] - 2026-03-15
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -234,6 +265,7 @@ All notable changes to this project will be documented in this file.
 ### 🚀 Features
 
 - Add py.typed marker for PEP 561 compliance (#82) 
+## [0.5.1] - 2026-03-14
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -278,6 +310,7 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - Cover UnicodeDecodeError, error hierarchy branches, and 500 sanitization 
+## [0.5.0] - 2026-03-11
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -364,6 +397,7 @@ All notable changes to this project will be documented in this file.
 - Raise validation coverage for adapter paths 
 - Cover validation example app 
 - Improve contract coverage and logging behavior 
+## [0.3.0] - 2026-01-31
 
 ### ⚙️ Miscellaneous Tasks
 
