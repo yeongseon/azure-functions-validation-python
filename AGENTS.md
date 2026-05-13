@@ -17,7 +17,7 @@
 - Public APIs must be fully typed.
 - No runtime dependency on `azure-functions` beyond what is required for type hints — keep imports optional where possible.
 - Keep documentation examples, decorator behaviour, and tests synchronized.
-- When bumping version, update `tests/test_public_api.py` to match the new version string.
+- The version test in `tests/test_public_api.py` reads from `importlib.metadata` and needs no manual edits across releases.
 
 ## Issue Conventions
 
