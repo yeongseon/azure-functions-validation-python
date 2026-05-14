@@ -1,10 +1,22 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-## [Unreleased]
+## [0.7.5] - 2026-05-14
+
+### ⚙️ Miscellaneous Tasks
+
+- *(deps)* Bump mypy from 1.20.2 to 2.0.0 
+- *(deps)* Bump ruff from 0.15.11 to 0.15.12 
+- *(deps)* Bump github/codeql-action from 4.35.2 to 4.35.4 
+- *(release)* Fix changelog template and decouple version test from literals 
+
+### 💼 Other
+
+- Bump version to 0.7.5 
 
 ### 📚 Documentation
 
+- *(agents)* Remove stale manual version-test instruction 
 - Fix ecosystem table names, badges, and Part of intro line 
 - Mark cookbook as dogfood, fix ecosystem table description 
 - Fix ecosystem table — add knowledge row, fix labels and links 
