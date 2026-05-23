@@ -1,6 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.7.6] - 2026-05-23
+
+### 🐛 Bug Fixes
+
+- *(decorator)* Isolate wrapper __dict__ from func to prevent metadata leak 
+
+### 💼 Other
+
+- Bump version to 0.7.6 
 ## [0.7.5] - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks
@@ -16,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
+- Update changelog 
 - *(agents)* Remove stale manual version-test instruction 
 - Fix ecosystem table names, badges, and Part of intro line 
 - Mark cookbook as dogfood, fix ecosystem table description 
