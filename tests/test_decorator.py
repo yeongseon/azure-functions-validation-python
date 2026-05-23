@@ -131,3 +131,40 @@ class TestConfigurationErrors:
             def handler(req: HttpRequest, body: UserModel) -> HttpResponse:  # noqa: F811
                 return HttpResponse("ok")
 
+
+
+# ---------------------------------------------------------------------------
+# Metadata isolation regression tests (issue #185)
+# ---------------------------------------------------------------------------
+
+
+class TestMetadataIsolation:
+    """Regression tests: decorator must not leak state onto the original func."""
+
+    def test_wrapper_dict_is_not_aliased_to_func_dict(self) -> None:
+        """`wrapper.__dict__` must be a distinct dict from `func.__dict__`."""
+
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        wrapped = validate_http(body=UserModel)(handler)
+        assert wrapped.__dict__ is not handler.__dict__
+
+    def test_metadata_is_not_leaked_onto_original_func(self) -> None:
+        """`_azure_functions_metadata` must live on wrapper only, not original."""
+
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        wrapped = validate_http(body=UserModel)(handler)
+        assert hasattr(wrapped, "_azure_functions_metadata")
+        assert not hasattr(handler, "_azure_functions_metadata")
+
+    def test_wrapper_has_no_dunder_wrapped(self) -> None:
+        """`__wrapped__` must not be set (Azure worker would follow it)."""
+
+        def handler(req: HttpRequest, body: UserModel) -> HttpResponse:
+            return HttpResponse("ok")
+
+        wrapped = validate_http(body=UserModel)(handler)
+        assert not hasattr(wrapped, "__wrapped__")

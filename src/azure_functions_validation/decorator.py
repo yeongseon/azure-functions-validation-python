@@ -197,11 +197,14 @@ def _make_wrapper(
         wrapper = _sync_wrapper
 
     # Copy safe metadata attributes without setting __wrapped__.
+    # NOTE: __dict__ is intentionally OMITTED. Copying it via getattr/setattr
+    # would alias wrapper.__dict__ to func.__dict__ (same dict object), causing
+    # subsequent setattr(wrapper, "_azure_functions_metadata", ...) to mutate
+    # the original function's namespace and leak metadata across decorations.
     _COPY_ATTRS = (
         "__name__",
         "__qualname__",
         "__doc__",
-        "__dict__",
         "__module__",
     )
     for attr in _COPY_ATTRS:
@@ -229,7 +232,7 @@ def _make_wrapper(
     # Expose validation metadata for external tool integration (e.g., OpenAPI bridge).
     # Uses the ecosystem-wide convention attribute so consumers never need to import
     # this package.  The "validation" namespace is reserved for this package.
-    _meta = dict(getattr(wrapper, "_azure_functions_metadata", None) or {})
+    _meta = dict(getattr(func, "_azure_functions_metadata", None) or {})
     _meta["validation"] = {
         "version": 1,
         "body": config.body,
