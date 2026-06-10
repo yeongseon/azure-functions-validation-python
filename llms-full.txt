@@ -5,7 +5,7 @@
 ## Package Info
 
 - PyPI: `pip install azure-functions-validation`
-- Version: 0.6.0
+- Version: see package metadata
 - Python: >=3.10, <3.15
 - License: MIT
 - Docs: https://yeongseon.github.io/azure-functions-validation-python/
@@ -21,7 +21,7 @@ pip install azure-functions-validation
 For local development:
 ```bash
 git clone https://github.com/yeongseon/azure-functions-validation-python.git
-cd azure-functions-validation
+cd azure-functions-validation-python
 pip install -e .[dev]
 ```
 
@@ -40,7 +40,7 @@ def validate_http(
     path: type[BaseModel] | None = None,
     headers: type[BaseModel] | None = None,
     request_model: type[BaseModel] | None = None,
-    response_model: type[BaseModel] | None = None,
+    response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
 ) -> Callable[[Callable], Callable]:
@@ -52,7 +52,7 @@ def validate_http(
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
         request_model: Shorthand alias for body parameter.
-        response_model: Pydantic model for response validation.
+        response_model: Pydantic model or TypeAdapter-compatible type for response validation.
         adapter: Custom validation adapter (defaults to PydanticAdapter).
         error_formatter: Per-handler custom error formatter.
     
@@ -188,11 +188,13 @@ def create_user_custom_errors(
 ### Header Validation
 
 ```python
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class HeaderParams(BaseModel):
-    authorization: str = Field(alias="Authorization")
-    x_user_id: str | None = Field(None, alias="X-User-ID")
+    model_config = ConfigDict(populate_by_name=True)
+
+    authorization: str = Field(alias="authorization")
+    x_user_id: str | None = Field(default=None, alias="x-user-id")
 
 @app.route(route="protected")
 @validate_http(headers=HeaderParams)
@@ -233,7 +235,7 @@ Example validation error:
 {
   "detail": [
     {
-      "loc": ["body", "email"],
+      "loc": ["email"],
       "msg": "value is not a valid email address",
       "type": "value_error.email"
     }
@@ -254,6 +256,6 @@ ErrorFormatter: type = Callable[[Exception, int], dict[str, Any]]
 
 Supported parameter types in decorator:
 - `body`, `query`, `path`, `headers`: Any Pydantic `BaseModel` subclass
-- `response_model`: Any Pydantic `BaseModel` subclass (or Union types for multiple response shapes)
+- `response_model`: Pydantic `BaseModel` subclass, or any TypeAdapter-compatible type (e.g. `list[Model]`)
 - `error_formatter`: Callable matching `ErrorFormatter` signature
 - `adapter`: Custom validation adapter implementing `ValidationAdapter` protocol
