@@ -159,7 +159,7 @@ The project includes a real Azure end-to-end test workflow that deploys an actua
 ### Workflow
 
 - **File**: `.github/workflows/e2e-azure.yml`
-- **Trigger**: Manual (`workflow_dispatch`) or weekly schedule (Mondays 02:00 UTC)
+- **Trigger**: Tag push (`v*`) or manual (`workflow_dispatch`)
 - **Infrastructure**: Azure Consumption plan, `koreacentral` region
 - **Cleanup**: Resource group deleted immediately after tests (`if: always()`)
 
@@ -171,12 +171,52 @@ gh workflow run e2e-azure.yml --ref main
 
 ### Required Secrets & Variables
 
+The `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` secrets are expected in the `azure-e2e` GitHub Environment used by `deploy_and_test` and `cleanup`. `AZURE_LOCATION` is read from the `vars` context with a fallback to `koreacentral`.
+
 | Name | Type | Description |
 | --- | --- | --- |
 | `AZURE_CLIENT_ID` | Secret | App Registration Client ID (OIDC) |
 | `AZURE_TENANT_ID` | Secret | Azure Tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Secret | Azure Subscription ID |
 | `AZURE_LOCATION` | Variable | Azure region (default: `koreacentral`) |
+
+### Federated Credential (OIDC) Setup
+
+Azure login uses [GitHub OIDC](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect) to exchange a short-lived token with the Azure AD app registration referenced by `AZURE_CLIENT_ID`. The app registration must have a federated credential whose **subject claim matches exactly** the value GitHub presents.
+
+For this workflow, the expected subject is:
+
+```text
+repo:yeongseon/azure-functions-validation-python:environment:azure-e2e
+```
+
+The subject is composed of `repo:<owner>/<repo>:environment:<environment_name>`, where:
+
+- `<owner>/<repo>` is the GitHub repository slug (`github.repository`). Not the PyPI package name (`azure-functions-validation`) or the Python import name (`azure_functions_validation`).
+- `<environment_name>` is the GitHub Environment declared on the workflow jobs (`environment: azure-e2e` in `e2e-azure.yml`).
+
+The match is **case-sensitive** and exact. Renaming the GitHub owner, repository, or environment requires updating the federated credential in Azure to match the new subject; otherwise Azure login fails with `AADSTS700213`.
+
+Reference:
+
+- Workflow declares `environment: azure-e2e` on both `deploy_and_test` and `cleanup` jobs in `.github/workflows/e2e-azure.yml`.
+- Azure docs: [Configure a federated identity credential on an app](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust?pivots=identity-wif-apps-methods-azp).
+
+### Troubleshooting
+
+#### `AADSTS700213: No matching federated identity record found`
+
+This means the OIDC subject GitHub presented does not match any federated credential on the Azure AD app registration behind `AZURE_CLIENT_ID`. Typical causes:
+
+1. The repository was renamed (for example, the toolkit-wide `-python` suffix migration) and the federated credential still references the old subject.
+2. The `environment:` value on the workflow job changed and the federated credential references the old environment name.
+3. A different app registration is configured in the `azure-e2e` environment secrets than the one carrying the federated credential.
+
+To recover:
+
+1. Confirm which Azure AD app registration is referenced by the `AZURE_CLIENT_ID` value stored in the `azure-e2e` GitHub Environment.
+2. On that app registration, add or update a federated credential with subject `repo:yeongseon/azure-functions-validation-python:environment:azure-e2e`, issuer `https://token.actions.githubusercontent.com`, and audience `api://AzureADTokenExchange`.
+3. Re-run `e2e-azure` (tag push or `workflow_dispatch`) and confirm the `Azure login (OIDC)` step succeeds.
 
 ### Test Report
 

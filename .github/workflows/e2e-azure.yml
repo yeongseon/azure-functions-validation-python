@@ -18,6 +18,11 @@ jobs:
   deploy_and_test:
     name: Deploy & Test
     runs-on: ubuntu-latest
+    # OIDC subject is `repo:<owner>/<repo>:environment:<environment>`. The Azure AD
+    # federated credential behind AZURE_CLIENT_ID must match exactly:
+    #   repo:yeongseon/azure-functions-validation-python:environment:azure-e2e
+    # See docs/testing.md ("Federated Credential (OIDC) Setup") for setup and
+    # troubleshooting AADSTS700213.
     environment: azure-e2e
     outputs:
       resource_group: ${{ steps.names.outputs.rg }}
@@ -179,6 +184,7 @@ jobs:
   cleanup:
     name: Cleanup Azure Resources
     runs-on: ubuntu-latest
+    # Same OIDC subject as deploy_and_test; see docs/testing.md.
     environment: azure-e2e
     needs: [deploy_and_test]
     if: always()
