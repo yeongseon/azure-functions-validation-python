@@ -49,6 +49,28 @@ class PipelineConfig:
 # ---------------------------------------------------------------------------
 
 
+def _prepare_invocation(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    config: PipelineConfig,
+) -> tuple[HttpResponse | None, dict[str, Any]]:
+    """Resolve the request and parse inputs shared by both pipelines.
+
+    Returns a ``(early_response, merged_kwargs)`` pair.  When *early_response*
+    is not ``None`` the caller must return it immediately without invoking the
+    handler (request resolution or input validation failed).
+    """
+    try:
+        http_request = _resolve_http_request(args, kwargs, config)
+    except ValueError as e:
+        return format_error_response(e, 400, config.adapter, config.error_formatter), {}
+    parsed = _parse_inputs(http_request, config)
+    if isinstance(parsed, HttpResponse):
+        return parsed, {}
+    merged = _merge_kwargs(args, kwargs, parsed)
+    return None, merged
+
+
 def run_pipeline(
     func: Callable[..., Any],
     args: tuple[Any, ...],
@@ -56,18 +78,10 @@ def run_pipeline(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the sync validation pipeline."""
-    try:
-        http_request = _resolve_http_request(args, kwargs, config)
-    except ValueError as e:
-        return format_error_response(e, 400, config.adapter, config.error_formatter)
-    parsed = _parse_inputs(http_request, config)
-    if isinstance(parsed, HttpResponse):
-        return parsed
-    merged = _merge_kwargs(args, kwargs, parsed)
-    if args:
-        result = func(*args, **merged)
-    else:
-        result = func(**merged)
+    early, merged = _prepare_invocation(args, kwargs, config)
+    if early is not None:
+        return early
+    result = func(*args, **merged) if args else func(**merged)
     return _build_response(result, config)
 
 
@@ -78,18 +92,10 @@ async def run_pipeline_async(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the async validation pipeline."""
-    try:
-        http_request = _resolve_http_request(args, kwargs, config)
-    except ValueError as e:
-        return format_error_response(e, 400, config.adapter, config.error_formatter)
-    parsed = _parse_inputs(http_request, config)
-    if isinstance(parsed, HttpResponse):
-        return parsed
-    merged = _merge_kwargs(args, kwargs, parsed)
-    if args:
-        result = await func(*args, **merged)
-    else:
-        result = await func(**merged)
+    early, merged = _prepare_invocation(args, kwargs, config)
+    if early is not None:
+        return early
+    result = await (func(*args, **merged) if args else func(**merged))
     return _build_response(result, config)
 
 
