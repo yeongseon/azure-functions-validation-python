@@ -37,6 +37,22 @@ Azure Functions Python v2 handlers often drift into the same repeated problems:
 - **Response model enforcement** — mismatches raise `ResponseValidationError` (HTTP 500)
 - **Decorator-first API** — `@validate_http` wraps your handler, no boilerplate needed
 
+## How it works
+
+`@validate_http` builds a validation pipeline once at import time, then runs it for every request:
+
+```mermaid
+flowchart LR
+    Client([HTTP Client]) --> AZ[Azure Functions wrapper]
+    AZ --> DEC["@validate_http"]
+    DEC --> PL[pipeline]
+    PL -->|parse / validate| AD[adapter]
+    AD --> H[your handler]
+    H --> PL2[pipeline]
+    PL2 -->|validate / serialize| AD2[adapter]
+    AD2 --> RESP([HttpResponse])
+```
+
 ## Before / After
 
 **Without** this package — manual parsing, manual errors, no contracts:

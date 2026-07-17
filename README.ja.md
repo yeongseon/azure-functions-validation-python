@@ -40,6 +40,22 @@ Azure Functions Python v2 のハンドラーは、次のような問題を繰り
 - response model validation。不一致時は `ResponseValidationError` を送出（HTTP 500）
 - `ErrorFormatter` によるハンドラー単位の custom error formatting
 
+## How it works
+
+`@validate_http` はインポート時に検証パイプラインを一度構築し、リクエストごとに実行します:
+
+```mermaid
+flowchart LR
+    Client([HTTP Client]) --> AZ[Azure Functions wrapper]
+    AZ --> DEC["@validate_http"]
+    DEC --> PL[pipeline]
+    PL -->|parse / validate| AD[adapter]
+    AD --> H[your handler]
+    H --> PL2[pipeline]
+    PL2 -->|validate / serialize| AD2[adapter]
+    AD2 --> RESP([HttpResponse])
+```
+
 ## Package names
 
 3 つのコンテキストで 3 つの名前を使い分けています。

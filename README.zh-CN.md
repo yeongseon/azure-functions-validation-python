@@ -40,6 +40,22 @@ Azure Functions Python v2 处理函数经常会逐渐出现同样的问题：
 - response model validation，若不匹配则抛出 `ResponseValidationError`（HTTP 500）
 - 通过 `ErrorFormatter` 支持每个处理函数的自定义错误格式化
 
+## How it works
+
+`@validate_http` 在导入时构建一次验证管道，然后为每个请求运行它：
+
+```mermaid
+flowchart LR
+    Client([HTTP Client]) --> AZ[Azure Functions wrapper]
+    AZ --> DEC["@validate_http"]
+    DEC --> PL[pipeline]
+    PL -->|parse / validate| AD[adapter]
+    AD --> H[your handler]
+    H --> PL2[pipeline]
+    PL2 -->|validate / serialize| AD2[adapter]
+    AD2 --> RESP([HttpResponse])
+```
+
 ## Package names
 
 三个上下文使用三种命名：
