@@ -2,14 +2,43 @@
 
 import dataclasses
 import json
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
-from .errors import AdapterValidationError
+from .errors import AdapterValidationError, SerializationError
 
+
+def _json_default(value: Any) -> Any:
+    """Fallback JSON encoder for nested models/dataclasses inside dict/list."""
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    raise SerializationError(type(value).__name__)
+
+
+def _is_dataclass_instance(obj: Any) -> bool:
+    return dataclasses.is_dataclass(obj) and not isinstance(obj, type)
+
+
+# Ordered serialization dispatch table: (type predicate, serializer).
+# The first matching predicate wins, mirroring the previous isinstance ladder.
+_SERIALIZERS: tuple[
+    tuple[Callable[[Any], bool], Callable[[Any], tuple[str | bytes, str]]], ...
+] = (
+    (lambda o: isinstance(o, BaseModel), lambda o: (o.model_dump_json(), "application/json")),
+    (
+        lambda o: isinstance(o, (dict, list)),
+        lambda o: (json.dumps(o, default=_json_default), "application/json"),
+    ),
+    (lambda o: isinstance(o, str), lambda o: (o, "text/plain; charset=utf-8")),
+    (lambda o: isinstance(o, bytes), lambda o: (o, "application/octet-stream")),
+    (lambda o: isinstance(o, (int, float, bool)), lambda o: (json.dumps(o), "application/json")),
+    (_is_dataclass_instance, lambda o: (json.dumps(dataclasses.asdict(o)), "application/json")),
+)
 
 class ValidationAdapter(Protocol):
     """Protocol defining the interface for validation adapters."""
@@ -313,46 +342,10 @@ class PydanticAdapter:
         Raises:
             SerializationError: If object type is not supported
         """
-        from .errors import SerializationError
-
-        content: str | bytes
-        content_type: str
-
-        if isinstance(obj, BaseModel):
-            # Serialize Pydantic model to JSON
-            content = obj.model_dump_json()
-            content_type = "application/json"
-        elif isinstance(obj, (dict, list)):
-            # Serialize dict/list to JSON, handling nested BaseModel instances
-            def _default_serializer(value: Any) -> Any:
-                if isinstance(value, BaseModel):
-                    return value.model_dump(mode="json")
-                if dataclasses.is_dataclass(value) and not isinstance(value, type):
-                    return dataclasses.asdict(value)
-                raise SerializationError(type(value).__name__)
-
-            content = json.dumps(obj, default=_default_serializer)
-            content_type = "application/json"
-        elif isinstance(obj, str):
-            # Plain text
-            content = obj
-            content_type = "text/plain; charset=utf-8"
-        elif isinstance(obj, bytes):
-            # Binary data
-            content = obj
-            content_type = "application/octet-stream"
-        elif isinstance(obj, (int, float, bool)):
-            # Scalar types — JSON-serialize
-            content = json.dumps(obj)
-            content_type = "application/json"
-        elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-            # Dataclass — serialize via dataclasses.asdict
-            content = json.dumps(dataclasses.asdict(obj))
-            content_type = "application/json"
-        else:
-            raise SerializationError(type(obj).__name__)
-
-        return content, content_type
+        for predicate, serializer in _SERIALIZERS:
+            if predicate(obj):
+                return serializer(obj)
+        raise SerializationError(type(obj).__name__)
 
     def format_error(self, exc: Exception) -> dict[str, Any]:
         """Format exception into standardized error response.
