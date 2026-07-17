@@ -12,10 +12,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from azure.functions import HttpResponse
-from pydantic import ValidationError as PydanticValidationError
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
+    AdapterValidationError,
     ErrorFormatter,
     ResponseValidationError,
     SerializationError,
@@ -156,7 +156,7 @@ def _parse_inputs(
                 parsed_inputs["body"] = parsed_body
             elif "req_model" in config.func_params and config.request_model is not None:
                 parsed_inputs["req_model"] = parsed_body
-        except PydanticValidationError as e:
+        except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
@@ -170,7 +170,7 @@ def _parse_inputs(
             # If function expects query parameter, pass it
             if "query" in config.func_params:
                 parsed_inputs["query"] = parsed_query
-        except PydanticValidationError as e:
+        except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
@@ -184,7 +184,7 @@ def _parse_inputs(
             # If function expects path parameter, pass it
             if "path" in config.func_params:
                 parsed_inputs["path"] = parsed_path
-        except PydanticValidationError as e:
+        except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
@@ -198,7 +198,7 @@ def _parse_inputs(
             # If function expects headers parameter, pass it
             if "headers" in config.func_params:
                 parsed_inputs["headers"] = parsed_headers
-        except PydanticValidationError as e:
+        except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
@@ -241,7 +241,7 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             validated_result = config.adapter.validate_response(
                 result, config.response_model, type_adapter=config.response_type_adapter
             )
-        except PydanticValidationError:
+        except AdapterValidationError:
             response_error = ResponseValidationError("Response validation failed")
             return format_error_response(
                 response_error, 500, config.adapter, config.error_formatter,

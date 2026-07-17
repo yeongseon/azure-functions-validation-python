@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Any, List, cast
 
 import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic import ValidationError as PydanticValidationError
 import pytest
 
 from azure_functions_validation.adapter import PydanticAdapter
+from azure_functions_validation.errors import AdapterValidationError
 
 if TYPE_CHECKING:
     import pytest
@@ -79,13 +79,13 @@ class TestParseBody:
         """Test parsing empty body raises ValidationError with type='missing'."""
         req = mock_request(b"")
 
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.parse_body(req, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert len(errors) == 1
         assert errors[0]["type"] == "missing"
-        assert errors[0]["loc"] == ("body",)
+        assert errors[0]["loc"] == ["body"]
 
     def test_invalid_json(self, adapter: PydanticAdapter, mock_request: type) -> None:
         """Test parsing invalid JSON raises ValueError."""
@@ -102,10 +102,10 @@ class TestParseBody:
         """Test validation errors for field constraints."""
         # Name too short
         req = mock_request(b'{"name": "Al", "age": 30}')
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.parse_body(req, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert any(e["type"] == "string_too_short" for e in errors)
 
     def test_validation_error_missing_field(
@@ -113,10 +113,10 @@ class TestParseBody:
     ) -> None:
         """Test validation errors for missing required field."""
         req = mock_request(b'{"name": "Alice"}')
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.parse_body(req, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert any(e["type"] == "missing" for e in errors)
 
     def test_validation_error_wrong_type(
@@ -124,10 +124,10 @@ class TestParseBody:
     ) -> None:
         """Test validation errors for wrong field type."""
         req = mock_request(b'{"name": "Alice", "age": "not a number"}')
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.parse_body(req, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert any("int_parsing" in e["type"] for e in errors)
 
     def test_whitespace_body_is_treated_as_missing(
@@ -135,10 +135,10 @@ class TestParseBody:
     ) -> None:
         req = mock_request(b"   ")
 
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.parse_body(req, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert errors[0]["type"] == "missing"
 
     def test_invalid_utf8_body_raises_value_error(
@@ -175,15 +175,15 @@ class TestValidateResponse:
         """Test validating invalid dict raises ValidationError."""
         data = {"name": "Al", "age": 25}  # Name too short
 
-        with pytest.raises(PydanticValidationError) as exc_info:
+        with pytest.raises(AdapterValidationError) as exc_info:
             adapter.validate_response(data, UserModel)
 
-        errors = exc_info.value.errors()
+        errors = exc_info.value.errors
         assert any(e["type"] == "string_too_short" for e in errors)
 
     def test_validate_invalid_type(self, adapter: PydanticAdapter) -> None:
         """Test validating invalid response type raises PydanticValidationError."""
-        with pytest.raises(PydanticValidationError):
+        with pytest.raises(AdapterValidationError):
             adapter.validate_response("invalid", UserModel)
 
     def test_validate_list_of_dicts_against_list_type(self, adapter: PydanticAdapter) -> None:
@@ -211,7 +211,7 @@ class TestValidateResponse:
 
     def test_validate_list_type_rejects_non_list_payload(self, adapter: PydanticAdapter) -> None:
         """Test that list[UserModel] rejects a dict payload."""
-        with pytest.raises(PydanticValidationError):
+        with pytest.raises(AdapterValidationError):
             adapter.validate_response({"name": "Alice", "age": 30}, list[UserModel])
 
 
@@ -335,13 +335,30 @@ class TestFormatError:
         req = mock_request(b'{"name": "Al", "age": 30}')
         try:
             adapter.parse_body(req, UserModel)
-        except PydanticValidationError as e:
+        except AdapterValidationError as e:
             result = adapter.format_error(e)
 
             assert "detail" in result
             assert isinstance(result["detail"], list)
             assert len(result["detail"]) > 0
 
+            error = result["detail"][0]
+            assert "loc" in error
+            assert "msg" in error
+            assert "type" in error
+
+    def test_format_raw_pydantic_error_backward_compat(self, adapter: PydanticAdapter) -> None:
+        """format_error still handles a raw Pydantic ValidationError directly."""
+        from pydantic import ValidationError as PydanticValidationError
+
+        try:
+            UserModel.model_validate({"name": "Al", "age": 30})
+        except PydanticValidationError as e:
+            result = adapter.format_error(e)
+
+            assert "detail" in result
+            assert isinstance(result["detail"], list)
+            assert len(result["detail"]) > 0
             error = result["detail"][0]
             assert "loc" in error
             assert "msg" in error
