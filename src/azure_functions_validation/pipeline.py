@@ -145,6 +145,24 @@ def _resolve_http_request(
     raise ValueError("Function must receive an HttpRequest-like object as argument")
 
 
+def _inject_named(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    """Inject a parsed value under its own name when the handler declares it."""
+    if name in config.func_params:
+        parsed_inputs[name] = parsed
+
+
+def _inject_body(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    """Inject the parsed body under ``body`` or the ``req_model`` alias."""
+    if "body" in config.func_params:
+        parsed_inputs["body"] = parsed
+    elif "req_model" in config.func_params and config.request_model is not None:
+        parsed_inputs["req_model"] = parsed
+
+
 def _parse_inputs(
     http_request: Any,
     config: PipelineConfig,
@@ -152,64 +170,28 @@ def _parse_inputs(
     """Parse and validate all configured request inputs."""
     parsed_inputs: dict[str, Any] = {}
 
-    # Parse body
-    if config.body is not None:
-        try:
-            parsed_body = config.adapter.parse_body(http_request, config.body)
+    # (name, configured model, adapter parse method, injection strategy)
+    parse_specs: tuple[tuple[str, Any, Callable[..., Any], Callable[..., None]], ...] = (
+        ("body", config.body, config.adapter.parse_body, _inject_body),
+        ("query", config.query, config.adapter.parse_query, _inject_named),
+        ("path", config.path, config.adapter.parse_path, _inject_named),
+        ("headers", config.headers, config.adapter.parse_headers, _inject_named),
+    )
 
-            # Inject body into the appropriate parameter
-            if "body" in config.func_params:
-                parsed_inputs["body"] = parsed_body
-            elif "req_model" in config.func_params and config.request_model is not None:
-                parsed_inputs["req_model"] = parsed_body
-        except AdapterValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse query parameters
-    if config.query is not None:
+    for name, model, parse, inject in parse_specs:
+        if model is None:
+            continue
+        # Always validate the configured input, even if the handler ignores it.
         try:
-            # Always validate query parameters, even if function doesn't use them
-            parsed_query = config.adapter.parse_query(http_request, config.query)
-            # If function expects query parameter, pass it
-            if "query" in config.func_params:
-                parsed_inputs["query"] = parsed_query
+            parsed = parse(http_request, model)
         except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
         except Exception as e:
             return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse path parameters
-    if config.path is not None:
-        try:
-            # Always validate path parameters, even if function doesn't use them
-            parsed_path = config.adapter.parse_path(http_request, config.path)
-            # If function expects path parameter, pass it
-            if "path" in config.func_params:
-                parsed_inputs["path"] = parsed_path
-        except AdapterValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse headers
-    if config.headers is not None:
-        try:
-            # Always validate headers, even if function doesn't use them
-            parsed_headers = config.adapter.parse_headers(http_request, config.headers)
-            # If function expects headers parameter, pass it
-            if "headers" in config.func_params:
-                parsed_inputs["headers"] = parsed_headers
-        except AdapterValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
+        inject(name, parsed, config, parsed_inputs)
+
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":
         parsed_inputs["http_request"] = http_request
