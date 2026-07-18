@@ -44,6 +44,19 @@ After this guide, your validation examples are live on Azure and testable with `
 
 > ⚠️ **Verify locally first.** If it fails locally, Azure deployment will not fix it.
 
+## Verification status
+
+The request/response behavior documented in this guide and in the project README was
+**manually verified by the maintainers** against a temporary Azure Functions deployment
+(region `koreacentral`, Python 3.12, Consumption plan). Responses were captured and their
+URLs anonymized. This was a one-time manual verification, not a continuously running
+environment — the temporary resources were deleted afterward (see
+[Clean up resources](#clean-up-resources)). For ongoing automated verification, the
+[`e2e-azure` workflow](https://github.com/yeongseon/azure-functions-validation-python/blob/main/.github/workflows/e2e-azure.yml) deploys
+[`examples/e2e_app`](https://github.com/yeongseon/azure-functions-validation-python/tree/main/examples/e2e_app) to a fresh Azure instance on demand.
+
+---
+
 ## Read these warnings before provisioning
 
 1. **Storage account names must be globally unique** across all of Azure. Use a name like `stmyapp` + a random suffix. Only lowercase letters and numbers, 3–24 characters.
