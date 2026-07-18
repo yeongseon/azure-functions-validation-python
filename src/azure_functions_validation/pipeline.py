@@ -171,7 +171,15 @@ def _parse_inputs(
     parsed_inputs: dict[str, Any] = {}
 
     # (name, configured model, adapter parse method, injection strategy)
-    parse_specs: tuple[tuple[str, Any, Callable[..., Any], Callable[..., None]], ...] = (
+    parse_specs: tuple[
+        tuple[
+            str,
+            Any,
+            Callable[[Any, Any], Any],
+            Callable[[str, Any, PipelineConfig, dict[str, Any]], None],
+        ],
+        ...,
+    ] = (
         ("body", config.body, config.adapter.parse_body, _inject_body),
         ("query", config.query, config.adapter.parse_query, _inject_named),
         ("path", config.path, config.adapter.parse_path, _inject_named),

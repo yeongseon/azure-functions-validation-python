@@ -54,7 +54,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If body is missing or validation fails
+            AdapterValidationError: If body is missing or validation fails
             ValueError: If JSON parsing fails
         """
         ...
@@ -70,7 +70,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -85,7 +85,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -100,7 +100,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -119,7 +119,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -193,7 +193,7 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If body is missing (with type="missing")
+            AdapterValidationError: If body is missing (with type="missing")
             ValueError: If JSON is invalid (with "Invalid JSON" message)
         """
         body = req.get_body()

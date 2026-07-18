@@ -64,7 +64,7 @@ class AdapterValidationError(Exception):
     ``loc`` (list), ``msg`` (str), and ``type`` (str) keys.
     """
 
-    def __init__(self, message: str, errors: list[dict[str, Any]]):
+    def __init__(self, message: str, errors: list[dict[str, Any]]) -> None:
         """Initialize AdapterValidationError.
 
         Args:
@@ -72,7 +72,7 @@ class AdapterValidationError(Exception):
             errors: Normalized list of error detail mappings.
         """
         super().__init__(message)
-        self.errors = errors
+        self.errors: list[dict[str, Any]] = errors
 
 
 def format_error_response(

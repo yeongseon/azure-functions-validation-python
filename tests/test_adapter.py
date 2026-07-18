@@ -76,7 +76,7 @@ class TestParseBody:
         assert result.age == 30
 
     def test_empty_body(self, adapter: PydanticAdapter, mock_request: type) -> None:
-        """Test parsing empty body raises ValidationError with type='missing'."""
+        """Test parsing empty body raises AdapterValidationError with type='missing'."""
         req = mock_request(b"")
 
         with pytest.raises(AdapterValidationError) as exc_info:
@@ -172,7 +172,7 @@ class TestValidateResponse:
         assert result.age == 25
 
     def test_validate_dict_invalid(self, adapter: PydanticAdapter) -> None:
-        """Test validating invalid dict raises ValidationError."""
+        """Test validating invalid dict raises AdapterValidationError."""
         data = {"name": "Al", "age": 25}  # Name too short
 
         with pytest.raises(AdapterValidationError) as exc_info:
@@ -182,7 +182,7 @@ class TestValidateResponse:
         assert any(e["type"] == "string_too_short" for e in errors)
 
     def test_validate_invalid_type(self, adapter: PydanticAdapter) -> None:
-        """Test validating invalid response type raises PydanticValidationError."""
+        """Test validating invalid response type raises AdapterValidationError."""
         with pytest.raises(AdapterValidationError):
             adapter.validate_response("invalid", UserModel)
 
