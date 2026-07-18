@@ -25,6 +25,7 @@ sequenceDiagram
     participant DEC as @validate_http
     participant PL as pipeline.py
     participant AD as adapter.py
+    participant ERR as errors.py
     participant H as Handler
 
     Client->>AZ: HTTP Request
@@ -37,15 +38,16 @@ sequenceDiagram
         PL->>H: handler(req, body, query, ...)
         H-->>PL: return value
         PL->>AD: validate response_model (optional)
-        AD-->>PL: serialized HttpResponse
-        PL-->>Client: 200 OK
+        AD-->>PL: (content, content_type)
+        PL-->>Client: HttpResponse (200 OK)
     else validation fails
         AD-->>PL: ValidationError
-        PL-->>Client: 422 Unprocessable Entity {"detail": [...]}
+        PL->>ERR: format_error_response
+        ERR-->>Client: 422 Unprocessable Entity {"detail": [...]}
     else handler error
         H-->>PL: exception
-        PL->>AD: format_error_response
-        AD-->>Client: 500 Internal Server Error
+        PL->>ERR: format_error_response
+        ERR-->>Client: 500 Internal Server Error
     end
 ```
 
