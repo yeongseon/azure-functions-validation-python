@@ -9,7 +9,7 @@ async handlers, and response model validation — all of which now live in
 
 import asyncio
 import json
-from typing import Callable, Dict, Optional, TypeAlias
+from typing import Callable, TypeAlias
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest
@@ -72,31 +72,7 @@ class HeaderModel(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def mock_request_factory() -> Callable[..., HttpRequest]:
-    """Create a mock HttpRequest factory."""
-
-    def _create_request(
-        method: str = "GET",
-        url: str = "http://example.com",
-        body: bytes = b"",
-        params: Optional[Dict[str, str]] = None,
-        route_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> HttpRequest:
-        """Create mock HttpRequest."""
-        mock_req = Mock(spec=HttpRequest)
-        mock_req.method = method
-        mock_req.url = url
-        mock_req.get_body.return_value = body
-        mock_req.params = params or {}
-        mock_req.route_params = route_params or {}
-        mock_req.headers = headers or {}
-
-        return mock_req
-
-    return _create_request
-
+# ``mock_request_factory`` is provided by ``tests/conftest.py``.
 
 # ---------------------------------------------------------------------------
 # Successful validation
@@ -483,9 +459,8 @@ class TestValidationErrors:
 
         assert response.status_code == 200
 
-    @pytest.mark.skip("Error location format varies by Pydantic version")
     def test_validation_error_location(self, mock_request_factory: RequestFactory) -> None:
-        """Test that error location is correctly reported."""
+        """Error location is reported in the ``loc`` field (format-tolerant across Pydantic v2)."""
 
         @validate_http(body=UserModel)
         def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
