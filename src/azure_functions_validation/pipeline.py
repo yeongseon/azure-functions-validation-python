@@ -12,10 +12,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from azure.functions import HttpResponse
-from pydantic import ValidationError as PydanticValidationError
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
+    AdapterValidationError,
     ErrorFormatter,
     ResponseValidationError,
     SerializationError,
@@ -49,6 +49,28 @@ class PipelineConfig:
 # ---------------------------------------------------------------------------
 
 
+def _prepare_invocation(
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    config: PipelineConfig,
+) -> tuple[HttpResponse | None, dict[str, Any]]:
+    """Resolve the request and parse inputs shared by both pipelines.
+
+    Returns a ``(early_response, merged_kwargs)`` pair.  When *early_response*
+    is not ``None`` the caller must return it immediately without invoking the
+    handler (request resolution or input validation failed).
+    """
+    try:
+        http_request = _resolve_http_request(args, kwargs, config)
+    except ValueError as e:
+        return format_error_response(e, 400, config.adapter, config.error_formatter), {}
+    parsed = _parse_inputs(http_request, config)
+    if isinstance(parsed, HttpResponse):
+        return parsed, {}
+    merged = _merge_kwargs(args, kwargs, parsed)
+    return None, merged
+
+
 def run_pipeline(
     func: Callable[..., Any],
     args: tuple[Any, ...],
@@ -56,18 +78,10 @@ def run_pipeline(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the sync validation pipeline."""
-    try:
-        http_request = _resolve_http_request(args, kwargs, config)
-    except ValueError as e:
-        return format_error_response(e, 400, config.adapter, config.error_formatter)
-    parsed = _parse_inputs(http_request, config)
-    if isinstance(parsed, HttpResponse):
-        return parsed
-    merged = _merge_kwargs(args, kwargs, parsed)
-    if args:
-        result = func(*args, **merged)
-    else:
-        result = func(**merged)
+    early, merged = _prepare_invocation(args, kwargs, config)
+    if early is not None:
+        return early
+    result = func(*args, **merged) if args else func(**merged)
     return _build_response(result, config)
 
 
@@ -78,18 +92,10 @@ async def run_pipeline_async(
     config: PipelineConfig,
 ) -> HttpResponse:
     """Execute the async validation pipeline."""
-    try:
-        http_request = _resolve_http_request(args, kwargs, config)
-    except ValueError as e:
-        return format_error_response(e, 400, config.adapter, config.error_formatter)
-    parsed = _parse_inputs(http_request, config)
-    if isinstance(parsed, HttpResponse):
-        return parsed
-    merged = _merge_kwargs(args, kwargs, parsed)
-    if args:
-        result = await func(*args, **merged)
-    else:
-        result = await func(**merged)
+    early, merged = _prepare_invocation(args, kwargs, config)
+    if early is not None:
+        return early
+    result = await (func(*args, **merged) if args else func(**merged))
     return _build_response(result, config)
 
 
@@ -139,6 +145,24 @@ def _resolve_http_request(
     raise ValueError("Function must receive an HttpRequest-like object as argument")
 
 
+def _inject_named(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    """Inject a parsed value under its own name when the handler declares it."""
+    if name in config.func_params:
+        parsed_inputs[name] = parsed
+
+
+def _inject_body(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    """Inject the parsed body under ``body`` or the ``req_model`` alias."""
+    if "body" in config.func_params:
+        parsed_inputs["body"] = parsed
+    elif "req_model" in config.func_params and config.request_model is not None:
+        parsed_inputs["req_model"] = parsed
+
+
 def _parse_inputs(
     http_request: Any,
     config: PipelineConfig,
@@ -146,64 +170,36 @@ def _parse_inputs(
     """Parse and validate all configured request inputs."""
     parsed_inputs: dict[str, Any] = {}
 
-    # Parse body
-    if config.body is not None:
-        try:
-            parsed_body = config.adapter.parse_body(http_request, config.body)
+    # (name, configured model, adapter parse method, injection strategy)
+    parse_specs: tuple[
+        tuple[
+            str,
+            Any,
+            Callable[[Any, Any], Any],
+            Callable[[str, Any, PipelineConfig, dict[str, Any]], None],
+        ],
+        ...,
+    ] = (
+        ("body", config.body, config.adapter.parse_body, _inject_body),
+        ("query", config.query, config.adapter.parse_query, _inject_named),
+        ("path", config.path, config.adapter.parse_path, _inject_named),
+        ("headers", config.headers, config.adapter.parse_headers, _inject_named),
+    )
 
-            # Inject body into the appropriate parameter
-            if "body" in config.func_params:
-                parsed_inputs["body"] = parsed_body
-            elif "req_model" in config.func_params and config.request_model is not None:
-                parsed_inputs["req_model"] = parsed_body
-        except PydanticValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse query parameters
-    if config.query is not None:
+    for name, model, parse, inject in parse_specs:
+        if model is None:
+            continue
+        # Always validate the configured input, even if the handler ignores it.
         try:
-            # Always validate query parameters, even if function doesn't use them
-            parsed_query = config.adapter.parse_query(http_request, config.query)
-            # If function expects query parameter, pass it
-            if "query" in config.func_params:
-                parsed_inputs["query"] = parsed_query
-        except PydanticValidationError as e:
+            parsed = parse(http_request, model)
+        except AdapterValidationError as e:
             return format_error_response(e, 422, config.adapter, config.error_formatter)
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
         except Exception as e:
             return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse path parameters
-    if config.path is not None:
-        try:
-            # Always validate path parameters, even if function doesn't use them
-            parsed_path = config.adapter.parse_path(http_request, config.path)
-            # If function expects path parameter, pass it
-            if "path" in config.func_params:
-                parsed_inputs["path"] = parsed_path
-        except PydanticValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
-    # Parse headers
-    if config.headers is not None:
-        try:
-            # Always validate headers, even if function doesn't use them
-            parsed_headers = config.adapter.parse_headers(http_request, config.headers)
-            # If function expects headers parameter, pass it
-            if "headers" in config.func_params:
-                parsed_inputs["headers"] = parsed_headers
-        except PydanticValidationError as e:
-            return format_error_response(e, 422, config.adapter, config.error_formatter)
-        except ValueError as e:
-            return format_error_response(e, 400, config.adapter, config.error_formatter)
-        except Exception as e:
-            return format_error_response(e, 500, config.adapter, config.error_formatter)
+        inject(name, parsed, config, parsed_inputs)
+
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":
         parsed_inputs["http_request"] = http_request
@@ -241,7 +237,7 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             validated_result = config.adapter.validate_response(
                 result, config.response_model, type_adapter=config.response_type_adapter
             )
-        except PydanticValidationError:
+        except AdapterValidationError:
             response_error = ResponseValidationError("Response validation failed")
             return format_error_response(
                 response_error, 500, config.adapter, config.error_formatter,

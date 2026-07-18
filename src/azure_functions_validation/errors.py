@@ -55,6 +55,26 @@ class SerializationError(TypeError):
         self.type_name = type_name
 
 
+class AdapterValidationError(Exception):
+    """Raised by validation adapters when request/response validation fails.
+
+    Decouples the pipeline and downstream callers from the underlying
+    validation library (e.g. Pydantic).  The normalized ``errors`` list mirrors
+    the public error-response ``detail`` schema: each entry is a mapping with
+    ``loc`` (list), ``msg`` (str), and ``type`` (str) keys.
+    """
+
+    def __init__(self, message: str, errors: list[dict[str, Any]]) -> None:
+        """Initialize AdapterValidationError.
+
+        Args:
+            message: Human-readable error message.
+            errors: Normalized list of error detail mappings.
+        """
+        super().__init__(message)
+        self.errors: list[dict[str, Any]] = errors
+
+
 def format_error_response(
     exception: Exception,
     status_code: int,

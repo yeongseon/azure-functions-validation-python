@@ -151,6 +151,71 @@ def _validate_no_conflicts(
 _MISSING: Any = object()  # sentinel for absent req argument
 
 
+class WorkerCompat:
+    """Make a validation wrapper look like the original handler to the worker.
+
+    The Azure Functions worker (``index_function_app`` / ``loader.py``) inspects
+    the registered callable to locate the HTTP trigger parameter and to build
+    its annotation map.  Our wrapper uses a ``req`` positional plus a ``**_kw``
+    catch-all, which — if exposed verbatim — makes the worker either skip the
+    handler or raise ``FunctionLoadError``.  This strategy object applies the
+    three compatibility shims that hide those internals.
+    """
+
+    # Copied without setting __wrapped__.  __dict__ is intentionally OMITTED:
+    # copying it would alias wrapper.__dict__ to func.__dict__ (same object),
+    # causing later setattr(wrapper, "_azure_functions_metadata", ...) to mutate
+    # the original function's namespace and leak metadata across decorations.
+    _COPY_ATTRS = (
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__module__",
+    )
+
+    def apply(self, wrapper: Callable[..., Any], func: Callable[..., Any]) -> None:
+        """Apply all worker-compatibility shims to *wrapper* in place."""
+        self._copy_safe_metadata(wrapper, func)
+        self._override_signature(wrapper)
+        self._clear_annotations(wrapper)
+
+    def _copy_safe_metadata(
+        self, wrapper: Callable[..., Any], func: Callable[..., Any]
+    ) -> None:
+        """Copy safe identity attributes without setting ``__wrapped__``.
+
+        ``functools.update_wrapper`` is intentionally not used because it sets
+        ``__wrapped__ = func``; some worker builds follow it back to the
+        original function, see ``co_argcount > 1``, and fail to register.
+        """
+        for attr in self._COPY_ATTRS:
+            try:
+                object.__setattr__(wrapper, attr, getattr(func, attr))
+            except (AttributeError, TypeError):  # pragma: no cover
+                pass
+
+    def _override_signature(self, wrapper: Callable[..., Any]) -> None:
+        """Expose only the single ``req`` parameter, hiding ``**_kw``.
+
+        Prevents ``FunctionLoadError: 'the following parameters are declared in
+        Python but not in the function definition: {'_kw'}'`` at load time.
+        """
+        _req_param = inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        setattr(wrapper, "__signature__", inspect.Signature([_req_param]))
+
+    def _clear_annotations(self, wrapper: Callable[..., Any]) -> None:
+        """Clear ``__annotations__`` so ``get_type_hints`` returns ``{}``.
+
+        Otherwise the worker sees ``req: typing.Any`` and raises
+        ``FunctionLoadError: binding req has invalid non-type annotation``.
+        With no annotations it falls back to HttpRequest type inference.
+        """
+        wrapper.__annotations__ = {}
+
+
+_WORKER_COMPAT = WorkerCompat()
+
+
 def _make_wrapper(
     func: Callable[..., Any],
     config: Any,
@@ -196,38 +261,7 @@ def _make_wrapper(
 
         wrapper = _sync_wrapper
 
-    # Copy safe metadata attributes without setting __wrapped__.
-    # NOTE: __dict__ is intentionally OMITTED. Copying it via getattr/setattr
-    # would alias wrapper.__dict__ to func.__dict__ (same dict object), causing
-    # subsequent setattr(wrapper, "_azure_functions_metadata", ...) to mutate
-    # the original function's namespace and leak metadata across decorations.
-    _COPY_ATTRS = (
-        "__name__",
-        "__qualname__",
-        "__doc__",
-        "__module__",
-    )
-    for attr in _COPY_ATTRS:
-        try:
-            object.__setattr__(wrapper, attr, getattr(func, attr))
-        except (AttributeError, TypeError):  # pragma: no cover
-            pass
-
-    # Override __signature__ so inspect.signature() and the Azure Functions worker
-    # see only the single ``req`` parameter — not the internal ``**_kw`` catch-all.
-    # This prevents FunctionLoadError: 'the following parameters are declared in
-    # Python but not in the function definition: {\'_kw\'}' at function load time.
-    _req_param = inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)
-    setattr(wrapper, "__signature__", inspect.Signature([_req_param]))
-
-    # Clear __annotations__ so typing.get_type_hints(wrapper) returns {} instead of
-    # {'req': Any, '_kw': Any, 'return': Any}.  The Azure Functions worker calls
-    # typing.get_type_hints(func) to build its annotation map; if it sees
-    # ``req: typing.Any``, it raises:
-    #   FunctionLoadError: binding req has invalid non-type annotation typing.Any
-    # With no annotations, the worker skips annotation validation for ``req``
-    # entirely and falls back to its default HttpRequest type inference.
-    wrapper.__annotations__ = {}
+    _WORKER_COMPAT.apply(wrapper, func)
 
     # Expose validation metadata for external tool integration (e.g., OpenAPI bridge).
     # Uses the ecosystem-wide convention attribute so consumers never need to import

@@ -2,12 +2,43 @@
 
 import dataclasses
 import json
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
+from .errors import AdapterValidationError, SerializationError
+
+
+def _json_default(value: Any) -> Any:
+    """Fallback JSON encoder for nested models/dataclasses inside dict/list."""
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    raise SerializationError(type(value).__name__)
+
+
+def _is_dataclass_instance(obj: Any) -> bool:
+    return dataclasses.is_dataclass(obj) and not isinstance(obj, type)
+
+
+# Ordered serialization dispatch table: (type predicate, serializer).
+# The first matching predicate wins, mirroring the previous isinstance ladder.
+_SERIALIZERS: tuple[
+    tuple[Callable[[Any], bool], Callable[[Any], tuple[str | bytes, str]]], ...
+] = (
+    (lambda o: isinstance(o, BaseModel), lambda o: (o.model_dump_json(), "application/json")),
+    (
+        lambda o: isinstance(o, (dict, list)),
+        lambda o: (json.dumps(o, default=_json_default), "application/json"),
+    ),
+    (lambda o: isinstance(o, str), lambda o: (o, "text/plain; charset=utf-8")),
+    (lambda o: isinstance(o, bytes), lambda o: (o, "application/octet-stream")),
+    (lambda o: isinstance(o, (int, float, bool)), lambda o: (json.dumps(o), "application/json")),
+    (_is_dataclass_instance, lambda o: (json.dumps(dataclasses.asdict(o)), "application/json")),
+)
 
 class ValidationAdapter(Protocol):
     """Protocol defining the interface for validation adapters."""
@@ -23,7 +54,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If body is missing or validation fails
+            AdapterValidationError: If body is missing or validation fails
             ValueError: If JSON parsing fails
         """
         ...
@@ -39,7 +70,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -54,7 +85,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -69,7 +100,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            ValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -88,7 +119,7 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ...
 
@@ -122,14 +153,32 @@ class PydanticAdapter:
     """Concrete validation adapter implementation using Pydantic v2."""
 
     @staticmethod
-    def _missing_body_validation_error() -> PydanticValidationError:
+    def _to_adapter_error(exc: PydanticValidationError) -> AdapterValidationError:
+        """Convert a Pydantic ``ValidationError`` into an ``AdapterValidationError``.
+
+        The library-specific exception is preserved as ``__cause__`` while the
+        normalized ``errors`` list keeps the pipeline and downstream callers
+        decoupled from Pydantic.
+        """
+        detail = [
+            {
+                "loc": list(error["loc"]),
+                "msg": error["msg"],
+                "type": error["type"],
+            }
+            for error in exc.errors()
+        ]
+        return AdapterValidationError(str(exc), detail)
+
+    @staticmethod
+    def _missing_body_validation_error() -> AdapterValidationError:
         class _MissingBodyPayload(BaseModel):
             body: Any
 
         try:
             _MissingBodyPayload.model_validate({})
         except PydanticValidationError as exc:
-            return exc
+            return PydanticAdapter._to_adapter_error(exc)
 
         raise RuntimeError("Unreachable: expected missing body validation error")
 
@@ -144,7 +193,7 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If body is missing (with type="missing")
+            AdapterValidationError: If body is missing (with type="missing")
             ValueError: If JSON is invalid (with "Invalid JSON" message)
         """
         body = req.get_body()
@@ -169,7 +218,10 @@ class PydanticAdapter:
             raise ValueError("Invalid JSON") from e
 
         # Validate with Pydantic
-        return model.model_validate(data)
+        try:
+            return model.model_validate(data)
+        except PydanticValidationError as exc:
+            raise self._to_adapter_error(exc) from exc
 
     def parse_query(self, req: HttpRequest, model: type[BaseModel]) -> Any:
         """Parse and validate query parameters.
@@ -182,7 +234,7 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         # Parse query parameters
         query_params = req.params or {}
@@ -193,7 +245,10 @@ class PydanticAdapter:
             query_data[key] = value
 
         # Validate with Pydantic
-        return model.model_validate(query_data)
+        try:
+            return model.model_validate(query_data)
+        except PydanticValidationError as exc:
+            raise self._to_adapter_error(exc) from exc
 
     def parse_path(self, req: HttpRequest, model: type[BaseModel]) -> Any:
         """Parse and validate path parameters.
@@ -206,13 +261,16 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         # Parse route parameters
         route_params = req.route_params or {}
 
         # Validate with Pydantic
-        return model.model_validate(route_params)
+        try:
+            return model.model_validate(route_params)
+        except PydanticValidationError as exc:
+            raise self._to_adapter_error(exc) from exc
 
     def parse_headers(self, req: HttpRequest, model: type[BaseModel]) -> Any:
         """Parse and validate headers.
@@ -225,7 +283,7 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         # Parse headers
         headers = req.headers or {}
@@ -236,7 +294,10 @@ class PydanticAdapter:
             header_data[key] = value
 
         # Validate with Pydantic
-        return model.model_validate(header_data)
+        try:
+            return model.model_validate(header_data)
+        except PydanticValidationError as exc:
+            raise self._to_adapter_error(exc) from exc
 
     def validate_response(
         self, obj: Any, model: Any,
@@ -259,10 +320,13 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            PydanticValidationError: If validation fails
+            AdapterValidationError: If validation fails
         """
         ta = type_adapter if type_adapter is not None else TypeAdapter(model)
-        return ta.validate_python(obj)
+        try:
+            return ta.validate_python(obj)
+        except PydanticValidationError as exc:
+            raise self._to_adapter_error(exc) from exc
 
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:
         """Serialize response object to content and content-type.
@@ -278,56 +342,22 @@ class PydanticAdapter:
         Raises:
             SerializationError: If object type is not supported
         """
-        from .errors import SerializationError
-
-        content: str | bytes
-        content_type: str
-
-        if isinstance(obj, BaseModel):
-            # Serialize Pydantic model to JSON
-            content = obj.model_dump_json()
-            content_type = "application/json"
-        elif isinstance(obj, (dict, list)):
-            # Serialize dict/list to JSON, handling nested BaseModel instances
-            def _default_serializer(value: Any) -> Any:
-                if isinstance(value, BaseModel):
-                    return value.model_dump(mode="json")
-                if dataclasses.is_dataclass(value) and not isinstance(value, type):
-                    return dataclasses.asdict(value)
-                raise SerializationError(type(value).__name__)
-
-            content = json.dumps(obj, default=_default_serializer)
-            content_type = "application/json"
-        elif isinstance(obj, str):
-            # Plain text
-            content = obj
-            content_type = "text/plain; charset=utf-8"
-        elif isinstance(obj, bytes):
-            # Binary data
-            content = obj
-            content_type = "application/octet-stream"
-        elif isinstance(obj, (int, float, bool)):
-            # Scalar types — JSON-serialize
-            content = json.dumps(obj)
-            content_type = "application/json"
-        elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-            # Dataclass — serialize via dataclasses.asdict
-            content = json.dumps(dataclasses.asdict(obj))
-            content_type = "application/json"
-        else:
-            raise SerializationError(type(obj).__name__)
-
-        return content, content_type
+        for predicate, serializer in _SERIALIZERS:
+            if predicate(obj):
+                return serializer(obj)
+        raise SerializationError(type(obj).__name__)
 
     def format_error(self, exc: Exception) -> dict[str, Any]:
         """Format exception into standardized error response.
 
         Args:
-            exc: Exception to format (typically PydanticValidationError)
+            exc: Exception to format (typically AdapterValidationError)
 
         Returns:
             Error response dict with 'detail' key containing list of errors
         """
+        if isinstance(exc, AdapterValidationError):
+            return {"detail": exc.errors}
         if isinstance(exc, PydanticValidationError):
             detail = []
             for error in exc.errors():
