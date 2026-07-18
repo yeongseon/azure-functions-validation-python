@@ -318,7 +318,7 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 
 > HTTP 400
 
-> Manually verified by maintainers against a temporary Azure Functions deployment (koreacentral, Python 3.12, Consumption plan); response captured and URL anonymized. See [docs/deployment.md](docs/deployment.md#verification-status) for the full verification procedure.
+> Manually verified by maintainers against a temporary Azure Functions deployment (koreacentral, Python 3.12, Consumption plan); response captured and URL anonymized. See [docs/deployment.md](docs/deployment.md#verification-status) for the verification status and context.
 
 ## When to use
 

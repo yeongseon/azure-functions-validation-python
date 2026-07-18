@@ -53,7 +53,7 @@ URLs anonymized. This was a one-time manual verification, not a continuously run
 environment — the temporary resources were deleted afterward (see
 [Clean up resources](#clean-up-resources)). For ongoing automated verification, the
 [`e2e-azure` workflow](https://github.com/yeongseon/azure-functions-validation-python/blob/main/.github/workflows/e2e-azure.yml) deploys
-[`examples/e2e_app`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/examples/e2e_app/README.md) to a fresh Azure instance on demand.
+[`examples/e2e_app`](https://github.com/yeongseon/azure-functions-validation-python/tree/main/examples/e2e_app) to a fresh Azure instance on demand.
 
 ---
 
