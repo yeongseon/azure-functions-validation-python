@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 from typing import Any, Callable, Mapping
+import warnings
 
 from pydantic import TypeAdapter
 
@@ -30,7 +31,8 @@ def validate_http(
         query: Pydantic model for query parameter validation.
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
-        request_model: Shorthand alias for *body*.
+        request_model: Deprecated shorthand alias for *body*. Use ``body`` instead;
+            passing ``request_model`` emits a ``DeprecationWarning``.
         response_model: Pydantic model for response validation.
         adapter: Custom validation adapter (defaults to ``PydanticAdapter``).
         error_formatter: Per-handler custom error formatter.
@@ -40,6 +42,13 @@ def validate_http(
     """
     # Handle request_model shorthand
     if request_model is not None:
+        warnings.warn(
+            "The 'request_model' parameter of validate_http() is deprecated in favor "
+            "of 'body' and will be removed in a future release. See "
+            "https://github.com/yeongseon/azure-functions-validation-python/issues/223.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if any([body, query, path, headers]):
             raise ValueError("Cannot use request_model together with body/query/path/headers")
         body = request_model

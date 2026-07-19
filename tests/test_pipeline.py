@@ -154,6 +154,27 @@ class TestSuccessfulValidation:
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Nova"
 
+    def test_request_model_emits_deprecation_warning(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        with pytest.warns(DeprecationWarning, match="request_model"):
+
+            @validate_http(request_model=UserModel)
+            def handler(req: HttpRequest, req_model: UserModel) -> ResponseModel:
+                return ResponseModel(message=f"Hello, {req_model.name}")
+
+    def test_body_param_does_not_warn(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+
+            @validate_http(body=UserModel)
+            def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
+                return ResponseModel(message=f"Hello, {body.name}")
+
     def test_basic_body_validation(self, mock_request_factory: RequestFactory) -> None:
         """Test basic body validation."""
 
