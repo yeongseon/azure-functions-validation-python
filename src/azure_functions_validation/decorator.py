@@ -9,6 +9,7 @@ import warnings
 from pydantic import TypeAdapter
 
 from ._metadata import ValidationMetadata, set_validation_metadata
+from ._metadata_helpers import SAFE_IDENTITY_ATTRS, copy_identity_attrs
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
@@ -172,16 +173,9 @@ class WorkerCompat:
     three compatibility shims that hide those internals.
     """
 
-    # Copied without setting __wrapped__.  __dict__ is intentionally OMITTED:
-    # copying it would alias wrapper.__dict__ to func.__dict__ (same object),
-    # causing later setattr(wrapper, "_azure_functions_metadata", ...) to mutate
-    # the original function's namespace and leak metadata across decorations.
-    _COPY_ATTRS = (
-        "__name__",
-        "__qualname__",
-        "__doc__",
-        "__module__",
-    )
+    # See ._metadata_helpers.copy_identity_attrs for the rationale (no
+    # __wrapped__, no __dict__ aliasing).  The attribute set is the canonical
+    # SAFE_IDENTITY_ATTRS shared across the DX toolkit.
 
     def apply(self, wrapper: Callable[..., Any], func: Callable[..., Any]) -> None:
         """Apply all worker-compatibility shims to *wrapper* in place."""
@@ -194,15 +188,12 @@ class WorkerCompat:
     ) -> None:
         """Copy safe identity attributes without setting ``__wrapped__``.
 
+        Delegates to the canonical :func:`copy_identity_attrs` helper.
         ``functools.update_wrapper`` is intentionally not used because it sets
         ``__wrapped__ = func``; some worker builds follow it back to the
         original function, see ``co_argcount > 1``, and fail to register.
         """
-        for attr in self._COPY_ATTRS:
-            try:
-                object.__setattr__(wrapper, attr, getattr(func, attr))
-            except (AttributeError, TypeError):  # pragma: no cover
-                pass
+        copy_identity_attrs(wrapper, func, SAFE_IDENTITY_ATTRS)
 
     def _override_signature(self, wrapper: Callable[..., Any]) -> None:
         """Expose only the single ``req`` parameter, hiding ``**_kw``.
