@@ -8,6 +8,7 @@ import warnings
 
 from pydantic import TypeAdapter
 
+from ._metadata import ValidationMetadata, set_validation_metadata
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
@@ -275,8 +276,7 @@ def _make_wrapper(
     # Expose validation metadata for external tool integration (e.g., OpenAPI bridge).
     # Uses the ecosystem-wide convention attribute so consumers never need to import
     # this package.  The "validation" namespace is reserved for this package.
-    _meta = dict(getattr(func, "_azure_functions_metadata", None) or {})
-    _meta["validation"] = {
+    _payload: ValidationMetadata = {
         "version": 1,
         "body": config.body,
         "query": config.query,
@@ -284,6 +284,6 @@ def _make_wrapper(
         "headers": config.headers,
         "response_model": config.response_model,
     }
-    setattr(wrapper, "_azure_functions_metadata", _meta)
+    set_validation_metadata(wrapper, func, _payload)
 
     return wrapper
