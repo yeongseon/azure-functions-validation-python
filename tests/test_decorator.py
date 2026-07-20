@@ -168,3 +168,29 @@ class TestMetadataIsolation:
 
         wrapped = validate_http(body=UserModel)(handler)
         assert not hasattr(wrapped, "__wrapped__")
+
+
+class TestCopyIdentityAttrs:
+    """The canonical ``copy_identity_attrs`` primitive must not leak state."""
+
+    def test_copies_identity_without_wrapped_or_dict_alias(self) -> None:
+        from azure_functions_validation._metadata_helpers import (
+            SAFE_IDENTITY_ATTRS,
+            copy_identity_attrs,
+        )
+
+        def func(req: object, context: object) -> None:
+            """Original docstring."""
+
+        def wrapper(*args: object, **kwargs: object) -> None:
+            pass
+
+        copy_identity_attrs(wrapper, func)
+
+        for attr in SAFE_IDENTITY_ATTRS:
+            assert getattr(wrapper, attr) == getattr(func, attr)
+        # __wrapped__ must NOT be set (defeats worker indexing otherwise).
+        assert not hasattr(wrapper, "__wrapped__")
+        # __dict__ must not be aliased: mutating wrapper must not touch func.
+        wrapper.__dict__["_marker"] = 1
+        assert "_marker" not in func.__dict__
