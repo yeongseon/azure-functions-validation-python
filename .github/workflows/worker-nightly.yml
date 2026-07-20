@@ -1,0 +1,48 @@
+name: Worker Compatibility (nightly)
+
+# Exercises the WorkerCompat shims (src/azure_functions_validation/decorator.py)
+# against the latest pre-release of the azure-functions Python library so that
+# upstream worker/loader changes that break signature-override, annotation
+# clearing, or safe-metadata copying are caught early rather than at a user's
+# deployment. Scheduled + manual only; intentionally NOT a required PR check.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 05:00 UTC (after maintenance 04:00 / performance 03:00).
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  worker-compat:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.14"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Hatch and dependencies via Makefile
+        run: |
+          pip install hatch
+          make install
+
+      - name: Upgrade azure-functions to latest pre-release
+        run: |
+          pip install --pre --upgrade azure-functions
+          python -c "import azure.functions as f; print('azure-functions', f.__version__)"
+
+      - name: Run WorkerCompat suite against pre-release worker library
+        run: |
+          hatch run pytest tests/test_decorator.py tests/test_integration.py \
+            -v --no-header -p no:cacheprovider --no-cov
