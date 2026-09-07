@@ -84,14 +84,65 @@ jobs:
           echo "docs_only=${docs_only}"
           echo "docs_only=${docs_only}" >> "$GITHUB_OUTPUT"
 
+  # Lint, type-check and security run once on a single pinned interpreter
+  # (Python 3.10, matching the ruff/mypy target-version in pyproject). These
+  # checks are interpreter-agnostic, so fanning them across the matrix would
+  # only duplicate work. Installed with a plain `pip install -e '.[dev]'` so the
+  # checks run on the interpreter this job provisions (NOT through the
+  # Python-3.10-pinned hatch env, which is what silently forced the whole test
+  # matrix onto 3.10 before this fix).
+  quality:
+    name: Lint, type-check & security (Py 3.10)
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+
+      - name: Install package with dev extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Check endpoint schema hash pin
+        run: |
+          python -c "import hashlib, pathlib, sys; d = pathlib.Path('src/azure_functions_validation/schemas'); expected = (d / 'endpoint.schema.sha256').read_text().split()[0]; actual = hashlib.sha256((d / 'endpoint.schema.json').read_bytes()).hexdigest(); print('endpoint.schema.json digest matches pin.') if expected == actual else sys.exit('endpoint.schema.json digest drift:\n  pinned:  ' + expected + '\n  actual:  ' + actual + '\nUpdate endpoint.schema.sha256 if this change is intentional.')"
+
+      - name: Lint workflows (pin hygiene + release-gate canonical SHAs)
+        run: |
+          python tools/lint_release_workflows.py
+          python tools/lint_workflow_pins.py
+
+      - name: Ruff style check
+        run: ruff check src tests
+
+      - name: Type check (mypy, strict)
+        run: mypy src tests
+
+      - name: Security scan (bandit)
+        run: python -m bandit -r src
+
   test:
+    name: Test (Py ${{ matrix.python-version }})
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        # Python 3.14 is stable and required in this matrix (not allow-fail).
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        # The full test suite runs against the declared dependency contract
+        # (azure-functions>=1.17,<2.0.0). That 1.x line is only installable on
+        # Python 3.10-3.12 (recent 1.x releases pin requires-python <3.13), so
+        # the matrix stops at 3.12. Python 3.13/3.14 carry a separate,
+        # non-blocking `azure-functions-2x` compatibility lane below - running
+        # the full suite there would require the (uncertified) 2.x worker path.
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -102,15 +153,44 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Hatch and dependencies via Makefile
+      - name: Assert the runtime interpreter matches the matrix cell
+        # Tests must run on the interpreter this cell claims to exercise. Before
+        # this fix the whole matrix ran through the Python-3.10-pinned hatch env,
+        # so 3.11/3.12 were never actually tested. This guard fails loudly if the
+        # running interpreter ever drifts from matrix.python-version again.
+        env:
+          EXPECTED: ${{ matrix.python-version }}
         run: |
-          pip install hatch
-          make install
+          python - <<'PY'
+          import os, sys
+          expected = tuple(int(p) for p in os.environ["EXPECTED"].split("."))
+          actual = sys.version_info[: len(expected)]
+          assert actual == expected, f"interpreter {actual} != matrix {expected}"
+          print(f"interpreter OK: {sys.version.split()[0]}")
+          PY
 
-      - name: Run full quality checks
-        run: make check-all
+      - name: Install package with dev extras (on the matrix interpreter)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests on the matrix interpreter
+        # Raw pytest on the interpreter provisioned above (NOT through the
+        # Python-3.10-pinned hatch env). The repo pytest config enables --cov
+        # with fail_under=95; enforce that gate on the canonical 3.10 cell and
+        # run the other cells with --no-cov so a version-variant cell cannot
+        # fail the build on a spurious coverage dip.
+        env:
+          IS_COVERAGE_CELL: ${{ matrix.python-version == '3.10' }}
+        run: |
+          if [ "$IS_COVERAGE_CELL" = "true" ]; then
+            pytest tests/
+          else
+            pytest tests/ --no-cov
+          fi
 
       - name: Verify coverage output
+        if: matrix.python-version == '3.10'
         run: ls -lh coverage.xml
 
       - name: Upload coverage to Codecov
@@ -126,21 +206,23 @@ jobs:
 
   # Single required status check for branch protection. It always runs so the
   # required check is never left permanently pending. It passes when the diff is
-  # docs-only (test matrix intentionally skipped) or when the test matrix
-  # succeeded, and fails otherwise.
+  # docs-only (test matrix intentionally skipped) or when the quality job and
+  # the test matrix both succeeded, and fails otherwise.
   ci-required:
-    needs: [changes, test]
+    needs: [changes, quality, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate required checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
         run: |
           set -euo pipefail
           echo "changes result: ${CHANGES_RESULT}"
+          echo "quality result: ${QUALITY_RESULT}"
           echo "test result:    ${TEST_RESULT}"
           echo "docs_only:      ${DOCS_ONLY}"
 
@@ -150,16 +232,16 @@ jobs:
           fi
 
           if [ "${DOCS_ONLY}" = "true" ]; then
-            echo "Docs-only change: test matrix intentionally skipped. Passing."
+            echo "Docs-only change: quality + test intentionally skipped. Passing."
             exit 0
           fi
 
-          if [ "${TEST_RESULT}" = "success" ]; then
-            echo "Test matrix succeeded. Passing."
+          if [ "${QUALITY_RESULT}" = "success" ] && [ "${TEST_RESULT}" = "success" ]; then
+            echo "Quality and test matrix succeeded. Passing."
             exit 0
           fi
 
-          echo "Test matrix result was '${TEST_RESULT}'. Failing required check."
+          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}'. Failing required check."
           exit 1
 
   # azure-functions 2.x compatibility proof lane (issue #351), modeled on
