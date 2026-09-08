@@ -67,6 +67,7 @@ check-schema-hash: ensure-hatch
 lint-workflows: ensure-hatch
 	@$(HATCH) run python tools/lint_release_workflows.py
 	@$(HATCH) run python tools/lint_workflow_pins.py
+	@$(HATCH) run python tools/lint_hatch_matrix.py
 
 
 .PHONY: check
