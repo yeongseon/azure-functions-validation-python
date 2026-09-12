@@ -48,10 +48,12 @@ jobs:
           print(f"interpreter OK: {sys.version.split()[0]}")
           PY
 
-      - name: Install Hatch and dependencies via Makefile
+      - name: Install package with dev extras
+        # Install directly onto the matrix interpreter (NOT the Python-3.10-pinned
+        # hatch env) so the WorkerCompat suite genuinely runs on 3.10/3.12/3.14.
         run: |
-          pip install hatch
-          make install
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Upgrade azure-functions to latest pre-release
         run: |
@@ -60,7 +62,7 @@ jobs:
 
       - name: Run WorkerCompat suite against pre-release worker library
         run: |
-          hatch run pytest tests/test_decorator.py tests/test_integration.py \
+          python -m pytest tests/test_decorator.py tests/test_integration.py \
             -v --no-header -p no:cacheprovider --no-cov
 
       - name: Explain a WorkerCompat break
