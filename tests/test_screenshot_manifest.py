@@ -94,3 +94,50 @@ def test_source_drift_warns_but_passes_without_strict(tmp_path: Path) -> None:
     strict = _run("--manifest", str(manifest), "--strict")
     assert strict.returncode == 1
     assert "drift detected" in strict.stdout
+
+
+def test_secret_leak_in_metadata_fails(tmp_path: Path) -> None:
+    manifest = tmp_path / "m.yml"
+    _write(
+        manifest,
+        """
+        schema_version: 1
+        screenshots:
+          - id: leaky
+            image: examples/e2e_app/function_app.py
+            captured:
+              package_version: "0.0.0"
+              git_sha: x
+              date: "2026-01-01"
+              method: "https://acct.blob.core.windows.net/c/img.png?sig=abc123def"
+            source: {inputs: [examples/e2e_app/function_app.py], hash: "sha256:x"}
+        """,
+    )
+    result = _run("--manifest", str(manifest))
+    assert result.returncode == 1
+    assert "SAS signature sig= param" in result.stdout
+
+
+def test_secret_leak_can_be_allowlisted(tmp_path: Path) -> None:
+    manifest = tmp_path / "m.yml"
+    _write(
+        manifest,
+        """
+        schema_version: 1
+        secret_scan:
+          allow:
+            - "12345678-1234-1234-1234-1234567890ab"
+        screenshots:
+          - id: known-safe-guid
+            image: examples/e2e_app/function_app.py
+            captured:
+              package_version: "0.0.0"
+              git_sha: "12345678-1234-1234-1234-1234567890ab"
+              date: "2026-01-01"
+              method: manual
+            source: {inputs: [examples/e2e_app/function_app.py], hash: "sha256:x"}
+        """,
+    )
+    result = _run("--manifest", str(manifest))
+    assert result.returncode == 0
+    assert "leak" not in result.stdout
