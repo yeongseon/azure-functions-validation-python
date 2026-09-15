@@ -2,7 +2,9 @@ name: screenshots
 
 # Validates docs/assets/screenshots.yml on pull requests: fails on structural
 # problems (invalid manifest, missing image, missing source input, duplicate id)
-# and warns (without failing) when declared source inputs changed but the
+# and on high-signal secret leaks (subscription-ID GUID, AccountKey=, code=
+# function key, SAS sig=) found in an entry's metadata or a captured image's
+# bytes, and warns (without failing) when declared source inputs changed but the
 # manifest was not refreshed — that drift is expected to be reviewed by a human
 # who then re-captures the screenshot via the e2e-azure workflow.
 on:
@@ -31,5 +33,5 @@ jobs:
       - name: Install checker dependencies
         run: pip install pyyaml
 
-      - name: Run staleness checker
+      - name: Run staleness + secret-leak checker
         run: python scripts/check_screenshots.py

@@ -21,6 +21,10 @@ Hard failures (exit 1):
   * missing required keys, duplicate ``id``, malformed entry
   * declared ``image`` file does not exist
   * declared ``source.inputs`` file does not exist
+  * a captured image's bytes or an entry's text/metadata matches a high-signal
+    secret pattern (subscription-ID GUID, ``AccountKey=``, ``code=`` function
+    key, SAS ``sig=``). Known-safe matches can be exempted via a top-level
+    ``secret_scan.allow`` list of exact matched tokens.
 
 Soft warnings (exit 0, unless ``--strict``):
   * recomputed source hash differs from the declared hash — the inputs changed
@@ -35,6 +39,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -44,6 +49,59 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MANIFEST = REPO_ROOT / "docs" / "assets" / "screenshots.yml"
 
 _REQUIRED_CAPTURED = ("package_version", "git_sha", "date", "method")
+
+# High-signal credential patterns that must never reach a public screenshot or
+# its metadata. The GUID pattern requires dashes at fixed offsets, so 40-hex
+# git SHAs and ``sha256:`` digests in the manifest never match it.
+_SECRET_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    (
+        "subscription-id GUID",
+        re.compile(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+        ),
+    ),
+    ("storage AccountKey", re.compile(r"AccountKey=")),
+    ("function key code= param", re.compile(r"[?&]code=")),
+    ("SAS signature sig= param", re.compile(r"[?&]sig=")),
+)
+
+
+def _iter_strings(obj: Any) -> "list[str]":
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for value in obj.values() for s in _iter_strings(value)]
+    if isinstance(obj, list):
+        return [s for value in obj for s in _iter_strings(value)]
+    return []
+
+
+def _scan_text(text: str, allow: "set[str]") -> "list[tuple[str, str]]":
+    findings: list[tuple[str, str]] = []
+    for label, pattern in _SECRET_PATTERNS:
+        for match in pattern.finditer(text):
+            token = match.group(0)
+            if token in allow:
+                continue
+            findings.append((label, token))
+    return findings
+
+
+def _scan_entry_secrets(
+    entry: dict[str, Any], entry_id: str, image: str | None, allow: "set[str]"
+) -> "list[str]":
+    """Return leak errors for one entry's text metadata and image bytes."""
+    errors: list[str] = []
+    for text in _iter_strings(entry):
+        for label, token in _scan_text(text, allow):
+            errors.append(f"{entry_id or '?'}: possible {label} leak in metadata: {token}")
+    if isinstance(image, str) and (REPO_ROOT / image).is_file():
+        # tEXt/EXIF chunks and any embedded ASCII in the PNG land in the bytes;
+        # decode latin-1 so every byte maps to a scannable character.
+        blob = (REPO_ROOT / image).read_bytes().decode("latin-1", errors="ignore")
+        for label, token in _scan_text(blob, allow):
+            errors.append(f"{entry_id or '?'}: possible {label} leak in image {image}: {token}")
+    return errors
 
 
 def _combined_source_hash(inputs: list[str]) -> str:
@@ -127,6 +185,11 @@ def _check(path: Path, strict: bool) -> int:
     warnings: list[str] = []
     seen_ids: set[str] = set()
 
+    raw_allow = manifest.get("secret_scan", {})
+    allow: set[str] = set()
+    if isinstance(raw_allow, dict) and isinstance(raw_allow.get("allow"), list):
+        allow = {a for a in raw_allow["allow"] if isinstance(a, str)}
+
     for index, entry in enumerate(manifest["screenshots"]):
         entry_errors, entry_id, inputs = _validate_entry(entry, index)
         hard_errors.extend(entry_errors)
@@ -134,6 +197,13 @@ def _check(path: Path, strict: bool) -> int:
             if entry_id in seen_ids:
                 hard_errors.append(f"duplicate id: {entry_id}")
             seen_ids.add(entry_id)
+        if isinstance(entry, dict):
+            image = entry.get("image")
+            hard_errors.extend(
+                _scan_entry_secrets(
+                    entry, entry_id, image if isinstance(image, str) else None, allow
+                )
+            )
         if entry_errors or not inputs:
             continue
         declared = entry["source"].get("hash")
