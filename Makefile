@@ -105,6 +105,13 @@ test: ensure-hatch
 	@echo "Running tests..."
 	@$(HATCH) run test
 
+.PHONY: worker-compat-2x
+worker-compat-2x: bootstrap
+	@echo "azure-functions 2.x requires Python >= 3.13; .venv must use a 3.13+ interpreter (run 'make clean-all' first if it was created on an older Python)."
+	@$(PIP) install -e ".[dev]" > /dev/null
+	@$(PIP) install --no-deps --force-reinstall 'azure-functions>=2,<3'
+	@AZFUNC_2X_SPIKE=1 $(PYTHON) -m pytest -m compat2x -o addopts='' tests/test_worker_compat_2x_spike.py -v
+
 .PHONY: cov
 cov: ensure-hatch
 	@$(HATCH) run cov

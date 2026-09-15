@@ -124,6 +124,34 @@ jobs:
         env:
           CODECOV_RETRIES: 3
 
+  # Advisory lane: install the real, GA azure-functions 2.x wheel from PyPI over
+  # the library's <2.0.0 cap and run the worker-compat spike. AF2 requires
+  # Python >= 3.13, so this runs only on 3.13/3.14 and installs directly on the
+  # matrix interpreter (the 3.10-pinned hatch env cannot resolve AF2). It
+  # produces a continuous, automated signal for whether the cap can be lifted,
+  # without blocking merges (it is intentionally NOT wired into ci-required).
+  worker-compat-2x:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run azure-functions 2.x worker-compat spike
+        run: make worker-compat-2x
+
   # Single required status check for branch protection. It always runs so the
   # required check is never left permanently pending. It passes when the diff is
   # docs-only (test matrix intentionally skipped) or when the test matrix
