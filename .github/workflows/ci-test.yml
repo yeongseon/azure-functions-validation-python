@@ -238,25 +238,38 @@ jobs:
   # docs-only (test matrix intentionally skipped) or when the quality job and
   # the test matrix both succeeded, and fails otherwise.
   ci-required:
-    needs: [changes, quality, test]
+    needs: [changes, format, quality, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate required checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          FORMAT_RESULT: ${{ needs.format.result }}
+          EVENT_NAME: ${{ github.event_name }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
         run: |
           set -euo pipefail
           echo "changes result: ${CHANGES_RESULT}"
+          echo "format result:  ${FORMAT_RESULT}"
           echo "quality result: ${QUALITY_RESULT}"
           echo "test result:    ${TEST_RESULT}"
           echo "docs_only:      ${DOCS_ONLY}"
 
           if [ "${CHANGES_RESULT}" != "success" ]; then
             echo "Classification job did not succeed; failing required check."
+            exit 1
+          fi
+
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            expected_format_result=success
+          else
+            expected_format_result=skipped
+          fi
+          if [ "${FORMAT_RESULT}" != "${expected_format_result}" ]; then
+            echo "Formatting check has an unexpected result; failing required check."
             exit 1
           fi
 
