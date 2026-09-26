@@ -43,10 +43,9 @@ make cov         # Run tests with coverage
 make check-all   # Run the full local gate
 ```
 
-Before opening a PR, run `ruff format --check <changed-python-files>` (or
-`ruff format <changed-python-files>` to fix them). `make format-check` checks
-`src` and `tests` without changing files. CI checks those same trees and also
-reports formatting failures on changed Python files in a dedicated step.
+Before opening a PR, run `make format-check` to check `src` and `tests` without
+changing files. Run `make format` to fix those trees. CI also checks every
+changed Python file, including files outside `src` and `tests`.
 
 ## GitHub Actions Pinning
 

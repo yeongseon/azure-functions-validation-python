@@ -134,6 +134,7 @@ Use Makefile entry points only. Do not bypass the Makefile in CI or contributor 
 | --- | --- |
 | Environment setup | `make install` |
 | Format code | `make format` |
+| Check formatting (`src`, `tests`) | `make format-check` |
 | Lint | `make lint` |
 | Type check | `make typecheck` |
 | Tests | `make test` |
