@@ -1,15 +1,24 @@
 # azure-functions 2.0 readiness
 
-This document is the canonical tracker for the `azure-functions>=1.17,<2.0.0`
-dependency cap in `azure-functions-validation` (and, by extension, the wider
-Azure Functions Python DX Toolkit). It records **why** the `<2.0.0` cap exists,
-**what** would have to be verified before it is lifted, and **how** to detect a
-break against a candidate `azure-functions` 2.x release.
+This document is the canonical tracker for the `azure-functions` dependency cap
+in `azure-functions-validation` (and, by extension, the wider Azure Functions
+Python DX Toolkit). It records **why** the cap exists, **what** has to be
+verified before it is lifted, and **how** to detect a break against a candidate
+`azure-functions` 2.x release.
 
-> **Status:** cap in place. The cap-lift conditions below are **not yet
-> verified** against a released `azure-functions` 2.x. See
+> **Status:** cap **partially lifted**, split by interpreter. This package now
+> ships `azure-functions>=1.17,<2.0.0` on Python < 3.13 and
+> `azure-functions>=1.17,<3.0.0` on Python >= 3.13, so 2.x is already
+> installable by users on 3.13+. `azure-functions` 2.x declares
+> `Requires-Python >=3.13`, which is why the split exists.
+>
+> Because 2.x is installable today, the `azure-functions 2.x compat (Py 3.13)`
+> lane is now wired into `ci-required` and gates merges. It was advisory only
+> while the cap held at `<2.0.0`.
+>
+> Real-Azure certification of the 2.x path remains outstanding. See
 > [`tests/test_worker_compat_2x_spike.py`](../tests/test_worker_compat_2x_spike.py)
-> for the opt-in spike that verifies them once a 2.x candidate is available.
+> for the opt-in spike.
 
 ## Why the cap exists
 
@@ -89,19 +98,22 @@ split in downstream apps.
 
 ## Fleet cap inventory
 
-All toolkit libraries cap `azure-functions` below the next major. As of this
-writing the lower bounds differ (historical), but the upper bound is being
-normalized to `<2.0.0` everywhere:
+Caps are no longer uniform. Four packages split the cap by interpreter, because
+`azure-functions` 2.x requires Python >= 3.13; the rest hold a flat `<2.0.0`.
+Lower bounds differ for historical reasons. Verified against each published
+`pyproject.toml`:
 
 | Package | Cap |
 | --- | --- |
-| azure-functions-validation | `>=1.17,<2.0.0` |
-| azure-functions-openapi | `>=1.21.0,<2.0.0` |
-| azure-functions-db | `>=1.22.0,<2.0.0` |
-| azure-functions-langgraph | `>=1.17,<2.0.0` |
-| azure-functions-knowledge | `>=1.22.0,<2.0.0` |
+| azure-functions-validation | `>=1.17,<2.0.0` (py<3.13) / `>=1.17,<3.0.0` (py>=3.13) |
+| azure-functions-openapi | `>=1.21.0,<2.0.0` (py<3.13) / `>=1.21.0,<3.0.0` (py>=3.13) |
+| azure-functions-db | `>=1.22.0,<2.0.0` (py<3.13) / `>=1.22.0,<3.0.0` (py>=3.13) |
+| azure-functions-langgraph | `>=1.17,<2.0.0` (py<3.13) / `>=1.17,<3.0.0` (py>=3.13) |
 | azure-functions-scaffold | `>=1.23.0,<2.0.0` |
 | azure-functions-durable-graph | `>=1.17,<2.0.0` |
+| azure-functions-knowledge | `>=1.22.0,<2.0.0` |
+| azure-functions-logging | no `azure-functions` dependency |
+| azure-functions-doctor | no `azure-functions` dependency |
 
 > `azure-functions-durable-graph` additionally caps the separate
 > `azure-functions-durable` extension at `<3`; that is a different package with
