@@ -238,7 +238,7 @@ jobs:
   # docs-only (test matrix intentionally skipped) or when the quality job and
   # the test matrix both succeeded, and fails otherwise.
   ci-required:
-    needs: [changes, format, quality, test]
+    needs: [changes, format, quality, test, azure-functions-2x]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -249,6 +249,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          AF2X_RESULT: ${{ needs.azure-functions-2x.result }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
         run: |
           set -euo pipefail
@@ -256,6 +257,7 @@ jobs:
           echo "format result:  ${FORMAT_RESULT}"
           echo "quality result: ${QUALITY_RESULT}"
           echo "test result:    ${TEST_RESULT}"
+          echo "af 2.x result:  ${AF2X_RESULT}"
           echo "docs_only:      ${DOCS_ONLY}"
 
           if [ "${CHANGES_RESULT}" != "success" ]; then
@@ -278,29 +280,28 @@ jobs:
             exit 0
           fi
 
-          if [ "${QUALITY_RESULT}" = "success" ] && [ "${TEST_RESULT}" = "success" ]; then
-            echo "Quality and test matrix succeeded. Passing."
+          if [ "${QUALITY_RESULT}" = "success" ] && [ "${TEST_RESULT}" = "success" ] \
+             && [ "${AF2X_RESULT}" = "success" ]; then
+            echo "Quality, test matrix and azure-functions 2.x lane succeeded. Passing."
             exit 0
           fi
 
-          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}'. Failing required check."
+          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}' af2x='${AF2X_RESULT}'. Failing required check."
           exit 1
 
   # azure-functions 2.x compatibility proof lane (issue #351), modeled on
   # langgraph d433b63. This is a SINGLE representative 2.x lane, not a matrix:
-  # it builds the wheel, installs it, overrides the pyproject `<2.0.0` cap to
-  # pull `azure-functions>=2,<3`, and runs the opt-in WorkerCompat spike against
+  # it builds the wheel, installs it, overrides the pyproject cap to pull
+  # `azure-functions>=2,<3`, and runs the opt-in WorkerCompat spike against
   # the wheel-installed package.
   #
-  # Gating decision (see docs/azure-functions-2.0-readiness.md): this lane runs
-  # on every non-docs PR as a VISIBLE compatibility signal, but it is
-  # intentionally NOT wired into the `ci-required` aggregation job, so it does
-  # not block merges. Worker/loader compatibility is existential, yet the
-  # runtime cap stays `<2.0.0` until 2.x is certified on real Azure via
-  # e2e-azure.yml; making this lane blocking before that certification would
-  # gate merges on an uncertified runtime. Promote it to a required check via
-  # branch protection once the cap is lifted. azure-functions 2.x declares
-  # Requires-Python >=3.13, so this lane pins Python 3.13.
+  # Gating: this lane IS wired into `ci-required`. It was originally advisory
+  # because the runtime cap stayed `<2.0.0` until 2.x was certified, and gating
+  # on an uncertified runtime would have been wrong. That condition no longer
+  # holds -- pyproject now ships `azure-functions>=1.17,<3.0.0` for
+  # Python >= 3.13, so users can already install 2.x and the lane is the only
+  # thing proving it works. azure-functions 2.x declares Requires-Python
+  # >=3.13, so this lane pins Python 3.13.
   azure-functions-2x:
     name: azure-functions 2.x compat (Py 3.13)
     needs: changes
