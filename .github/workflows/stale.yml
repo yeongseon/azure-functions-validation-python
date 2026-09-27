@@ -4,15 +4,28 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
+    inputs:
+      delete_branches:
+        description: "Actually delete stale branches. Leave false for a dry run."
+        type: boolean
+        default: false
   pull_request:
     types: [opened, edited, synchronize]
-  issues:
-    types: [opened, edited]
+
+permissions:
+  contents: read
 
 jobs:
+  # Maintenance jobs are write-capable, so they must never be reachable from a
+  # pull_request event — including one opened from a fork.
   stale-issues:
     runs-on: ubuntu-latest
-    if: github.repository == 'yeongseon/azure-functions-validation-python'
+    if: >-
+      github.repository == 'yeongseon/azure-functions-validation-python'
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      issues: write
+      pull-requests: write
 
     steps:
       - name: "Stale issues and PRs"
@@ -32,113 +45,156 @@ jobs:
 
   stale-branches:
     runs-on: ubuntu-latest
-    if: github.repository == 'yeongseon/azure-functions-validation-python'
+    if: >-
+      github.repository == 'yeongseon/azure-functions-validation-python'
+      && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    permissions:
+      contents: write
+      pull-requests: read
 
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
       - name: "Delete stale branches"
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DELETE_BRANCHES: ${{ github.event_name == 'workflow_dispatch' && inputs.delete_branches || 'false' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const dryRun = process.env.DELETE_BRANCHES !== 'true';
             const { owner, repo } = context.repo;
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - 90);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
 
-            const { data: branches } = await github.rest.repos.listBranches({
-              owner,
-              repo,
-              per_page: 100
+            const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repoInfo.default_branch;
+
+            // paginate: a single page silently truncates the keep-list, and a
+            // missed open PR means deleting a branch that is still in review.
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner, repo, per_page: 100,
+            });
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const closedPulls = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'closed', per_page: 100,
             });
 
-            const { data: closedPullRequests } = await github.rest.pulls.list({
-              owner,
-              repo,
-              state: 'closed',
-              base: 'main',
-              per_page: 100
-            });
+            const keep = new Set([defaultBranch, 'gh-pages']);
+            for (const pr of openPulls) {
+              if (pr.head?.ref) keep.add(pr.head.ref);
+            }
 
-            const mergedBranches = new Map();
-            closedPullRequests.forEach(pr => {
-              if (pr.merged_at && pr.head && pr.head.ref && pr.head.repo?.full_name === `${owner}/${repo}`) {
-                mergedBranches.set(pr.head.ref, new Date(pr.merged_at));
+            // Key on the head SHA the pull request actually merged, not on the
+            // branch name. A reused name whose tip has moved on must not be
+            // treated as merged.
+            const mergedHeadShas = new Map();
+            for (const pr of closedPulls) {
+              if (!pr.merged_at || !pr.head?.ref) continue;
+              if (pr.head.repo?.full_name !== `${owner}/${repo}`) continue;
+              const prior = mergedHeadShas.get(pr.head.ref);
+              if (!prior || new Date(pr.merged_at) > prior.mergedAt) {
+                mergedHeadShas.set(pr.head.ref, {
+                  sha: pr.head.sha,
+                  mergedAt: new Date(pr.merged_at),
+                });
               }
-            });
+            }
 
-            const { data: pullRequests } = await github.rest.pulls.list({
-              owner,
-              repo,
-              state: 'open',
-              per_page: 100
-            });
-
-            const branchesToKeep = new Set(['main']);
-
-            pullRequests.forEach(pr => {
-              if (pr.head.ref) {
-                branchesToKeep.add(pr.head.ref);
+            const isProtected = async (name) => {
+              try {
+                await github.rest.repos.getBranchProtection({ owner, repo, branch: name });
+                return true;
+              } catch (error) {
+                if (error.status === 404) return false;
+                // Anything other than "no protection configured" is unknown
+                // state, so treat it as protected and skip.
+                console.log(`Cannot read protection for ${name} (${error.status}); skipping.`);
+                return true;
               }
-            });
+            };
 
+            const hasRules = async (name) => {
+              try {
+                const { data } = await github.rest.repos.getBranchRules({ owner, repo, branch: name });
+                return Array.isArray(data) && data.length > 0;
+              } catch (error) {
+                console.log(`Cannot read rulesets for ${name} (${error.status}); skipping.`);
+                return true;
+              }
+            };
+
+            // "Merged" must be positively established. Reachable from the
+            // default branch covers merge commits and fast-forwards; for squash
+            // and rebase the branch tip is never an ancestor, so fall back to a
+            // merged pull request whose recorded head SHA still equals the
+            // current tip. Anything else is ambiguous and is skipped.
+            const isMerged = async (name, tip) => {
+              try {
+                const { data } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner, repo, basehead: `${defaultBranch}...${tip}`,
+                });
+                if (data.status === 'behind' || data.status === 'identical') return 'reachable';
+              } catch (error) {
+                console.log(`Cannot compare ${name} (${error.status}); skipping.`);
+                return null;
+              }
+              const merged = mergedHeadShas.get(name);
+              if (merged && merged.sha === tip) return 'squash-or-rebase';
+              return null;
+            };
+
+            let deleted = 0;
+            let skipped = 0;
             for (const branch of branches) {
-              if (branchesToKeep.has(branch.name)) {
+              const name = branch.name;
+              const tip = branch.commit.sha;
+              if (keep.has(name)) { skipped++; continue; }
+
+              let committedAt;
+              try {
+                const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: tip });
+                committedAt = new Date(commit.commit.committer.date);
+              } catch (error) {
+                console.log(`Cannot read tip of ${name} (${error.status}); skipping.`);
+                skipped++;
+                continue;
+              }
+              if (committedAt >= cutoff) { skipped++; continue; }
+
+              if (await isProtected(name) || await hasRules(name)) { skipped++; continue; }
+
+              const evidence = await isMerged(name, tip);
+              if (!evidence) {
+                console.log(`No positive merge evidence for ${name} at ${tip}; skipping.`);
+                skipped++;
                 continue;
               }
 
-              const { data: branchCommit } = await github.rest.repos.getCommit({
-                owner,
-                repo,
-                ref: branch.commit.sha
-              });
-              const branchDate = new Date(branchCommit.commit.committer.date);
-              if (branchDate < cutoffDate && branch.name !== 'main') {
-                console.log(`Checking stale branch for deletion: ${branch.name} (last updated: ${branchDate.toISOString()})`);
-
-                try {
-                  await github.rest.repos.getBranchProtection({
-                    owner,
-                    repo,
-                    branch: branch.name
-                  });
-                  console.log(`Branch ${branch.name} is protected, skipping deletion`);
-                  continue;
-                } catch (error) {
-                  if (error.status === 404) {
-                    console.log(`Branch ${branch.name} is not protected, proceeding with deletion`);
-
-                    const mergedAt = mergedBranches.get(branch.name);
-                    const isMergedStale = mergedAt && mergedAt < cutoffDate;
-                    if (branch.name !== 'main' && !branchesToKeep.has(branch.name) && isMergedStale) {
-                      console.log(`Deleting stale branch: ${branch.name}`);
-                      await github.rest.git.deleteRef({
-                        owner,
-                        repo,
-                        ref: `heads/${branch.name}`
-                      });
-                    }
-                  }
-                }
+              if (dryRun) {
+                console.log(`[dry run] would delete ${name} (${evidence}, tip ${tip})`);
+                skipped++;
+                continue;
               }
+              console.log(`Deleting ${name} (${evidence}, tip ${tip})`);
+              await github.rest.git.deleteRef({ owner, repo, ref: `heads/${name}` });
+              deleted++;
             }
+
+            await core.summary
+              .addHeading('Stale branch cleanup', 3)
+              .addRaw(dryRun ? 'Dry run — nothing was deleted.\n\n' : '')
+              .addRaw(`Deleted: ${deleted} · Skipped: ${skipped} · Default branch: ${defaultBranch}\n`)
+              .write();
 
   branch-naming-validation:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
 
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: "Validate branch naming convention"
-        id: validate-branch
+      - name: "Report branch naming convention"
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -153,42 +209,24 @@ jobs:
               /^ci\/.+$/,
               /^build\/.+$/,
               /^codex\/.+$/,
-              /^main$/
+              /^main$/,
             ];
 
-            const isValid = validPatterns.some(pattern => pattern.test(branchName));
-            core.setOutput('isValid', String(isValid));
-
-            if (!isValid) {
-              core.setFailed(`Invalid branch name: ${branchName}. Please use one of the following naming conventions:
-                - dependabot/<ecosystem>/<dependency>
-                - feat/<description>
-                - fix/<description>
-                - docs/<description>
-                - chore/<description>
-                - ci/<description>
-                - build/<description>
-                - codex/<description>
-                - main`);
-            } else {
-              core.info(`Branch name validation passed: ${branchName}`);
+            if (validPatterns.some((pattern) => pattern.test(branchName))) {
+              core.info(`Branch name follows the convention: ${branchName}`);
+              return;
             }
 
-            return { isValid };
-
-      - name: "Add comment with validation result"
-        if: steps.validate-branch.outputs.isValid == 'false'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
-            const branchName = context.payload.pull_request.head.ref;
-
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: prNumber,
-              body: 'Warning: branch naming validation failed\n\nYour branch name `' + branchName + '` does not follow our naming conventions.\n\nPlease rename your branch to follow one of these patterns:\n- `feat/<description>` for new features\n- `fix/<description>` for bug fixes\n- `docs/<description>` for documentation changes\n- `chore/<description>` for maintenance tasks\n- `ci/<description>` for CI/CD changes\n- `build/<description>` for build system and dependency changes\n- `codex/<description>` for Codex-generated changes\n\nTo rename your branch:\n1. `git checkout ' + branchName + '`\n2. `git branch -m feat/your-new-branch-name`\n3. `git push origin --delete ' + branchName + '`\n4. `git push origin feat/your-new-branch-name`\n\nOnce you have renamed the branch, please update the PR head branch.'
-            });
+            // A branch name is a suggestion, not a merge requirement. Renaming
+            // a branch mid-review forces a new pull request, which costs more
+            // than the inconsistency it would fix.
+            core.notice(
+              `Branch "${branchName}" does not match the suggested convention ` +
+                `(feat/, fix/, docs/, chore/, ci/, build/, codex/, dependabot/). ` +
+                `This does not block the pull request; please use one of these prefixes next time.`,
+            );
+            await core.summary
+              .addHeading('Branch naming', 3)
+              .addRaw(`\`${branchName}\` does not match the suggested prefixes. `)
+              .addRaw('This is advisory and does not block this pull request.\n')
+              .write();
