@@ -8,9 +8,10 @@ async handlers, and response model validation — all of which now live in
 """
 
 import asyncio
+from collections.abc import Callable
 import json
 import logging
-from typing import Callable, TypeAlias
+from typing import TypeAlias
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest

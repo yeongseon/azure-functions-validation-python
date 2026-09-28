@@ -1,5 +1,4 @@
 import json
-from typing import List, Optional
 
 import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -11,7 +10,7 @@ from azure_functions_validation import validate_http
 class UserModel(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
-    age: Optional[int] = Field(None, ge=0, le=150)
+    age: int | None = Field(None, ge=0, le=150)
 
     @field_validator("name")
     def name_must_not_be_admin(cls, v: str) -> str:
@@ -23,7 +22,7 @@ class UserModel(BaseModel):
 class PostModel(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     content: str = Field(..., min_length=1)
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     is_published: bool = False
 
 
@@ -51,14 +50,14 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
-    age: Optional[int] = None
+    age: int | None = None
 
 
 class PostResponse(BaseModel):
     id: int
     title: str
     content: str
-    tags: List[str]
+    tags: list[str]
     is_published: bool
     created_at: str
 

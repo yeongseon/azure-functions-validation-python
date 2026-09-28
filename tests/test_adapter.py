@@ -1,6 +1,6 @@
 """Tests for validation adapter."""
 
-from typing import TYPE_CHECKING, Any, List, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,14 +29,14 @@ class SimpleModel(BaseModel):
 
 class QueryModel(BaseModel):
     tag: str
-    tags: List[str]
+    tags: list[str]
 
 
 class HeaderModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     request_id: str = Field(alias="X-Request-Id")
-    values: List[str] = Field(alias="X-Values")
+    values: list[str] = Field(alias="X-Values")
 
 
 # Fixtures

@@ -8,9 +8,10 @@ keeps ``decorator.py`` focused on configuration and wiring.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 import logging
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from azure.functions import HttpResponse
 

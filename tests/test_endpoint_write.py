@@ -9,8 +9,9 @@ request_body_required) are honoured.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 import azure.functions as func
 import jsonschema

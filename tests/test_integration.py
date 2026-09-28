@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 import azure.functions as func
 from function_app import (
@@ -19,18 +19,18 @@ class MockHttpRequest:
     def __init__(
         self,
         method: str = "GET",
-        url: Optional[str] = None,
-        body: Optional[bytes] = None,
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, str]] = None,
-        route_params: Optional[Dict[str, str]] = None,
+        url: str | None = None,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
+        route_params: dict[str, str] | None = None,
     ) -> None:
         self._method: str = method
         self._url: str = url or "/"
         self._body: bytes = body or b""
-        self._headers: Dict[str, str] = headers or {}
-        self._params: Dict[str, str] = params or {}
-        self._route_params: Dict[str, str] = route_params or {}
+        self._headers: dict[str, str] = headers or {}
+        self._params: dict[str, str] = params or {}
+        self._route_params: dict[str, str] = route_params or {}
 
     @property
     def method(self) -> str:
@@ -41,21 +41,21 @@ class MockHttpRequest:
         return self._url
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         return self._headers
 
     @property
-    def params(self) -> Dict[str, str]:
+    def params(self) -> dict[str, str]:
         return self._params
 
     @property
-    def route_params(self) -> Dict[str, str]:
+    def route_params(self) -> dict[str, str]:
         return self._route_params
 
     def get_body(self) -> bytes:
         return self._body
 
-    def get_json(self) -> Optional[Dict[str, Any]]:
+    def get_json(self) -> dict[str, Any] | None:
         """Parse JSON body and return as dict"""
         if not self._body:
             return None

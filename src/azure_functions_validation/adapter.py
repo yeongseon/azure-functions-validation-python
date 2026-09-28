@@ -1,8 +1,9 @@
 """Validation adapter layer for request/response validation."""
 
+from collections.abc import Callable
 import dataclasses
 import json
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel, TypeAdapter

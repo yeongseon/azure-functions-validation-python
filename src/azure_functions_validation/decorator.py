@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 import inspect
 import types
-from typing import Any, Callable, Mapping, get_type_hints
+from typing import Any, get_type_hints
 import warnings
 
 from pydantic import TypeAdapter

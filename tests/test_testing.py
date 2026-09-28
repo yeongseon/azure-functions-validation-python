@@ -69,7 +69,7 @@ class TestMockHttpRequestConstruction:
 
     def test_str_body_is_utf8_encoded(self) -> None:
         request = MockHttpRequest(body="héllo")
-        assert request.get_body() == "héllo".encode("utf-8")
+        assert request.get_body() == "héllo".encode()
 
     def test_bytes_body_passthrough(self) -> None:
         request = MockHttpRequest(body=b"\x00\x01")

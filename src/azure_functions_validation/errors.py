@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import logging
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from azure.functions import HttpResponse
 

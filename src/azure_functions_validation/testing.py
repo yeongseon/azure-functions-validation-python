@@ -30,8 +30,9 @@ Example
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json as _json
-from typing import Any, Mapping
+from typing import Any
 
 from azure.functions import HttpRequest
 

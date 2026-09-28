@@ -7,7 +7,7 @@ DX Toolkit repositories (langgraph, durable-graph, db).
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest
@@ -27,9 +27,9 @@ def mock_request_factory() -> Callable[..., HttpRequest]:
         method: str = "GET",
         url: str = "http://example.com",
         body: bytes = b"",
-        params: Optional[Dict[str, str]] = None,
-        route_params: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, str] | None = None,
+        route_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> HttpRequest:
         mock_req = Mock(spec=HttpRequest)
         mock_req.method = method
