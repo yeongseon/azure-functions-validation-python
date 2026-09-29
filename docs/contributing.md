@@ -46,29 +46,7 @@ We follow a standard feature branch workflow:
 
 ## Commit Message Convention
 
-We use the [Conventional Commits](https://www.conventionalcommits.org/) specification for all commit messages. Release Please derives the next version and generates `CHANGELOG.md` from these messages, so the prefix you choose directly determines the release.
-
-### Prefix Types
-
-| Type | Description |
-| --- | --- |
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation only changes |
-| `style` | Formatting, missing semi colons, etc; no code change |
-| `refactor` | A code change that neither fixes a bug nor adds a feature |
-| `test` | Adding missing tests or correcting existing tests |
-| `chore` | Changes to the build process or auxiliary tools and libraries |
-
-### Examples
-
-```text
-feat: add support for header validation
-fix: handle null values in query parameters
-docs: update installation instructions in README
-refactor: simplify decorator logic in core.py
-test: add unit tests for mock_request_factory
-```
+Titles for issues, pull requests, and commits follow the **Title Convention** in [`CONTRIBUTING.md`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CONTRIBUTING.md#title-convention), the single source of truth for the format and the allowed types.
 
 ## Code Quality Standards
 
