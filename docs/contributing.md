@@ -46,7 +46,7 @@ We follow a standard feature branch workflow:
 
 ## Commit Message Convention
 
-We use the [Conventional Commits](https://www.conventionalcommits.org/) specification for all commit messages. This allows us to automatically generate the `CHANGELOG.md` via `git-cliff`.
+We use the [Conventional Commits](https://www.conventionalcommits.org/) specification for all commit messages. Release Please derives the next version and generates `CHANGELOG.md` from these messages, so the prefix you choose directly determines the release.
 
 ### Prefix Types
 
@@ -116,7 +116,7 @@ The project version is defined in `src/azure_functions_validation/__init__.py`. 
 - **Minor**: New features (backwards compatible).
 - **Patch**: Bug fixes (backwards compatible).
 
-The `CHANGELOG.md` is updated automatically via `git-cliff` during the release process.
+`CHANGELOG.md` is written by Release Please in the Release PR; see [Release Process](release_process.md).
 
 ## Code of Conduct
 

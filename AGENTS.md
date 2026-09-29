@@ -88,44 +88,71 @@ This repository is **issue-based, not milestone-based**. Track and group work us
 - `make build`
 
 ## Release Process
-- Version is managed via `hatch` (dynamic from `src/azure_functions_validation/__init__.py`).
-- **Do NOT manually edit version strings.** Use the Makefile targets below. The public-API test reads `__version__` against `importlib.metadata.version(...)`, so no test changes are needed when bumping.
 
-### Commands
-- `make release-patch` — bump patch version, update changelog, tag, and push
-- `make release-minor` — bump minor version, update changelog, tag, and push
-- `make release-major` — bump major version, update changelog, tag, and push
-- `make release VERSION=x.y.z` — set explicit version, update changelog, tag, and push
-- `make tag-release VERSION=x.y.z` — create and push an annotated tag (used internally by release targets)
+Three tools, one job each. Nothing else participates.
+
+| Tool | Owns |
+|---|---|
+| **Release Please** | version decision, `__version__`, `CHANGELOG.md`, Release PR, tag, GitHub Release |
+| **GitHub Actions** | verification, real-Azure e2e, PyPI publish |
+| **Hatch** | building the Python package (reads `__version__` from `src/azure_functions_validation/__init__.py`) |
+
+- **Do NOT manually edit version strings, `CHANGELOG.md`, `.release-please-manifest.json`, or tags.** Release Please owns all of them. The public-API test reads `__version__` against `importlib.metadata.version(...)`, so no test changes are needed when bumping.
+- Releases are driven by **Conventional Commits** on `main`: `fix:` → patch, `feat:` → minor, `feat!:`/`fix!:`/`BREAKING CHANGE:` → breaking. While this package is pre-1.0, `bump-minor-pre-major` keeps a breaking change on the `0.x` line.
+- There are **no release Makefile targets**. `make release-*`, `make changelog`, `make tag-release`, and `make publish-pypi` were deleted; a local `hatch publish` would have skipped every gate below.
+
+### Flow
+
+```
+feat:/fix: PR merged into main
+        |
+  Release Please  ->  Release PR (version + CHANGELOG)
+        |  maintainer reviews and merges
+  tag vX.Y.Z + GitHub Release
+        |
+  publish-pypi.yml  (started by the tag)
+        build -> lib-tests -> cookbook-smoke -> cookbook-host-smoke
+              -> azure-e2e -> PyPI
+```
+
+1. Merge Conventional-Commit PRs into `main`. Release Please keeps an open **Release PR** showing exactly what the next release would be.
+2. Merging that Release PR is the act of cutting a release.
+3. Release Please tags the release commit and publishes the GitHub Release. The tag starts `publish-pypi.yml`.
+4. Every verification tier runs in that one workflow. PyPI upload happens only if all of them pass.
+5. Update `docs/changelog.md` separately if needed. It holds hand-maintained version history and migration notes, and Release Please does not touch it.
+
+**Certification is an in-chain gate.** `azure-e2e` deploys to real Azure and runs the live e2e suite at the same ref being published, so it covers the exact published commit by construction. There is no separate certification step to dispatch, and no cross-run SHA or freshness matching to get wrong.
+
+**`RELEASE_PLEASE_TOKEN` is load-bearing.** It is a fine-grained PAT stored as a repository secret. The default `GITHUB_TOKEN` cannot trigger other workflows, which would leave the Release PR without the required status checks — permanently unmergeable — and would stop the tag from starting `publish-pypi.yml`. The PAT grants repository write only; PyPI upload uses OIDC Trusted Publishing and cannot be reached with it. **Fine-grained PATs expire**: when it does, no Release PR appears. Regenerate it and update the secret before the expiry date.
 
 ### Tiered runtime verification (what gates a release)
 
-Release verification is layered; each tier catches a different failure class, and **every tier is a pre-publish gate** (not a post-publish check):
+Every tier runs inside `publish-pypi.yml` on the tag, and **all of them gate the upload**:
 
-| Tier | Runs where | Catches |
-| --- | --- | --- |
-| `lib-tests` | publish-pypi.yml (per publish) | library unit regressions |
-| `cookbook-smoke` | publish-pypi.yml (per publish) | downstream import/registration drift (0.21.0 class) |
-| `cookbook-host-smoke` | publish-pypi.yml (per publish) | candidate wheel installs cleanly and a real `func` host + Azurite boots with it present, no cloud. NOTE: the cookbook HTTP examples do not import this package, so this is a host-boot smoke, **not** proof of this package's own runtime behavior (tracked separately) |
-| `verify-azure-certification` | publish-pypi.yml (per publish) | requires a fresh, SHA+version-matched **real-Azure** certification for the exact release commit |
-| Azure Release Certification (`e2e-azure.yml`) | `workflow_dispatch`, per release | cloud-only drift — deploys to real Azure, runs live e2e, records a certification artifact. **Certified per release, not per publish** (it no longer triggers on tag, which used to race the publish and could not gate it). |
+| Tier | Catches |
+| --- | --- |
+| `build` | tag/`__version__` mismatch; produces the one artifact that is later uploaded |
+| `lib-tests` | library unit regressions |
+| `cookbook-smoke` | downstream import/registration drift (0.21.0 class) |
+| `cookbook-host-smoke` | candidate wheel installs cleanly and a real `func` host + Azurite boots with it present, no cloud. NOTE: the cookbook HTTP examples do not import this package, so this is a host-boot smoke, **not** proof of this package's own runtime behavior (tracked separately) |
+| `azure-e2e` | cloud-only drift — deploys to real Azure, runs the live e2e suite, uploads an `azure-cert` record |
+| `publish` | uploads the exact artifact `build` produced; it never rebuilds |
 
-### Flow
-1. `make release-patch` (or `-minor` / `-major`) on `main`
-2. This runs: `hatch version` → `git commit` → `make changelog` → `git commit` → `git tag` → `git push`
-3. Tag push triggers the **Publish to PyPI** GitHub Actions workflow. **Verification is a pre-publish gate, not a post-publish check.** The `publish` job runs only after `build → lib-tests → cookbook-smoke → cookbook-host-smoke → verify-azure-certification` all pass, and it uploads the exact artifact that was tested (it never rebuilds). `cookbook-host-smoke` proves the candidate installs cleanly and a real Functions host boots with it present (import/dependency-resolution regressions), while `verify-azure-certification` requires a matching real-Azure certification — so a 0.21.0-class regression cannot reach PyPI. NOTE: the cookbook HTTP examples do not import this package, so decorator-level runtime behavior is exercised by `lib-tests` and (partially, at import time) `cookbook-smoke`, not by `cookbook-host-smoke`; package-native HTTP e2e is tracked separately.
-4. Update `docs/changelog.md` separately if needed (different format from `CHANGELOG.md`).
-5. **Failed-gate recovery (stuck tag).** A git tag is immutable and may already have been consumed, so if the gate fails do **not** move or reuse the tag. Fix forward on `main` and cut the next patch tag (`make release-patch`). The unpublished version number is simply skipped.
-6. **Local pre-tag dry run (recommended before releasing).** Reproduce the automated gate locally before pushing the tag so failures surface before a version is burned:
-   - Build the candidate: `make build` (produces `dist/*.whl`).
-   - In [`azure-functions-cookbook-python`](https://github.com/yeongseon/azure-functions-cookbook-python): `make install`, then install the candidate over the PyPI floor with `hatch run pip install --force-reinstall --no-deps <path-to-candidate-wheel>`, confirm `importlib.metadata.version("azure-functions-validation")` equals the tag, and run `hatch run smoke`.
-   - Reproduce the host-boot smoke tier: in the cookbook, with the candidate wheel installed, run `hatch run e2e tests/e2e/test_http_examples.py` (starts a real `func` host + Azurite). This confirms the candidate installs and the host boots with it present; it is the local stand-in for `cookbook-host-smoke` and must pass before tagging. NOTE: these HTTP examples do not import this package, so this is not a decorator runtime test — rely on `lib-tests` for `@validate_http` behavior.
-   - Treat any new `RuntimeWarning`/`DeprecationWarning` from `@validate_http` as release-blocking — the library surfaces decorator-order and API-drift problems as warnings, so a clean run (zero validation warnings) is part of the gate.
-   - If the cookbook pins a lower bound (`azure-functions-validation>=X.Y,<1`), bump it to the new minor in the same release PR so examples are tested against the version they advertise.
-7. **Real-Azure certification (required once per release, before the final tag).** `cookbook-host-smoke` substitutes for Azure on every publish, but a release must still be certified against real Azure at least once. Before pushing the release tag, dispatch the **Azure Release Certification** workflow on the exact release commit and version:
-   - `gh workflow run e2e-azure.yml --ref main -f ref=<release-sha> -f version=<x.y.z>`
-   - The run deploys to real Azure, executes the live e2e suite, and uploads the `azure-cert` artifact (keyed by commit SHA + version).
-   - `verify-azure-certification` in `publish-pypi.yml` later requires a successful, SHA+version-matched, non-stale (<14 day) certification for the release commit; without it the publish gate fails and the version stays unpublished.
+### Pre-release dry run (recommended before merging the Release PR)
+
+Reproduce the automated gate locally before merging the Release PR, so failures surface before a version is cut:
+
+- Build the candidate: `make build` (produces `dist/*.whl`).
+- In [`azure-functions-cookbook-python`](https://github.com/yeongseon/azure-functions-cookbook-python): `make install`, then install the candidate over the PyPI floor with `hatch run pip install --force-reinstall --no-deps <path-to-candidate-wheel>`, confirm `importlib.metadata.version("azure-functions-validation")` equals the tag, and run `hatch run smoke`.
+- Reproduce the host-boot smoke tier: in the cookbook, with the candidate wheel installed, run `hatch run e2e tests/e2e/test_http_examples.py` (starts a real `func` host + Azurite). This confirms the candidate installs and the host boots with it present; it is the local stand-in for `cookbook-host-smoke` and must pass before tagging. NOTE: these HTTP examples do not import this package, so this is not a decorator runtime test — rely on `lib-tests` for `@validate_http` behavior.
+- Treat any new `RuntimeWarning`/`DeprecationWarning` from `@validate_http` as release-blocking — the library surfaces decorator-order and API-drift problems as warnings, so a clean run (zero validation warnings) is part of the gate.
+- If the cookbook pins a lower bound (`azure-functions-validation>=X.Y,<1`), bump it to the new minor in the same release PR so examples are tested against the version they advertise.
+
+### Recovery
+- **Any gate failed.** Nothing was uploaded, so the version is still free. Fix the cause and re-run the workflow on the same tag (`gh workflow run publish-pypi.yml --ref main -f tag=vX.Y.Z`), or fix forward on `main` and let the next Release PR cut a new version. Never move or reuse a tag.
+- **A tag exists but was never published.** A valid resting state. Re-run publish, or abandon the version and let the next release take the following number.
+- **Release PR stopped appearing.** First check that `RELEASE_PLEASE_TOKEN` has not expired. Then check for a stale `autorelease: pending` label on an already-merged Release PR — Release Please treats that as a release still in flight and will not open another. This failure is silent: the workflow still reports success.
+- **Break-glass (automation unavailable).** Bump `__version__`, match `.release-please-manifest.json`, commit, tag, and push. The tag starts the same gated workflow — never bypass it.
 
 ## Golden Commands
 
