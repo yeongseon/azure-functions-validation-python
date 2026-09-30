@@ -1,6 +1,27 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.12.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.11.2...v0.12.0) (2026-09-30)
+
+
+### Features
+
+* **deps:** lift azure-functions &lt;2.0.0 cap on Python 3.13+ ([#390](https://github.com/yeongseon/azure-functions-validation-python/issues/390)) ([19c29e2](https://github.com/yeongseon/azure-functions-validation-python/commit/19c29e2b76f0b0150cae9bfe1a00ee92eb52cd3e))
+
+
+### Bug Fixes
+
+* **ci:** align canonical azure/login pin with the bumped v3.1.0 SHA ([#408](https://github.com/yeongseon/azure-functions-validation-python/issues/408)) ([4ea359a](https://github.com/yeongseon/azure-functions-validation-python/commit/4ea359a7c84a9bbd9f89b7f0e66194780945b4e5))
+* **ci:** bump azure/login canonical pin to v3.0.2 to match e2e-azure.yml ([#378](https://github.com/yeongseon/azure-functions-validation-python/issues/378)) ([52727e9](https://github.com/yeongseon/azure-functions-validation-python/commit/52727e9b4483fd37316c4271baf47d851fe5a460)), closes [#377](https://github.com/yeongseon/azure-functions-validation-python/issues/377)
+* **ci:** gate the azure-functions 2.x lane, correct release wording and stale inputs ([#417](https://github.com/yeongseon/azure-functions-validation-python/issues/417)) ([df0291d](https://github.com/yeongseon/azure-functions-validation-python/commit/df0291d704af941c637335fa454f41f724880235))
+* **ci:** run test matrix on real interpreters, not the pinned hatch env ([#379](https://github.com/yeongseon/azure-functions-validation-python/issues/379)) ([bfa18c6](https://github.com/yeongseon/azure-functions-validation-python/commit/bfa18c654a8e62f698e03123308664ce92784d54)), closes [#375](https://github.com/yeongseon/azure-functions-validation-python/issues/375)
+* **ci:** stop the changed-file format gate failing open ([#413](https://github.com/yeongseon/azure-functions-validation-python/issues/413)) ([da00cdc](https://github.com/yeongseon/azure-functions-validation-python/commit/da00cdc54f7c72850fcce3cbe5c07f6ed8c97293))
+* **decorator:** resolve passthrough annotations per-parameter ([#341](https://github.com/yeongseon/azure-functions-validation-python/issues/341)) ([7168b71](https://github.com/yeongseon/azure-functions-validation-python/commit/7168b71575bab0f782a8627ecd6c802aa2740087)), closes [#340](https://github.com/yeongseon/azure-functions-validation-python/issues/340)
+* **deps:** drop unsupported semver cooldown keys for github-actions ecosystem ([#386](https://github.com/yeongseon/azure-functions-validation-python/issues/386)) ([4fa8d33](https://github.com/yeongseon/azure-functions-validation-python/commit/4fa8d33829aa200415b36131f5213b894a46e432))
+* **endpoint:** report request_body_required truthfully ([#347](https://github.com/yeongseon/azure-functions-validation-python/issues/347)) ([#349](https://github.com/yeongseon/azure-functions-validation-python/issues/349)) ([16f9acb](https://github.com/yeongseon/azure-functions-validation-python/commit/16f9acbce5faf5d4731c799b5171aad39174839d))
+* **templates:** use Conventional Commit prefixes in issue forms ([#419](https://github.com/yeongseon/azure-functions-validation-python/issues/419)) ([e4a95db](https://github.com/yeongseon/azure-functions-validation-python/commit/e4a95db2bb982a5835dde324b183dfb18c32b578))
+* **testing:** preserve Content-Type headers regardless of casing (fixes [#399](https://github.com/yeongseon/azure-functions-validation-python/issues/399)) ([#400](https://github.com/yeongseon/azure-functions-validation-python/issues/400)) ([a0a88cf](https://github.com/yeongseon/azure-functions-validation-python/commit/a0a88cfbdfacf55f2e9cf05530f06839dfad413e))
+
 ## [0.11.2] - 2026-08-14
 
 ### ⚙️ Miscellaneous Tasks
