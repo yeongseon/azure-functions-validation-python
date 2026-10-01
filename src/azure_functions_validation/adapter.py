@@ -413,7 +413,7 @@ class PydanticAdapter:
             return {
                 "detail": [
                     {
-                        "loc": [],
+                        "loc": ["body"] if isinstance(exc, ValueError) else [],
                         "msg": str(exc),
                         "type": "value_error",
                     }

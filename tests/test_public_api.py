@@ -124,7 +124,7 @@ class TestErrorFormat:
         resp = handler(_make_request(b"not-json"))
         assert resp.status_code == 400
         data = json.loads(resp.get_body().decode())
-        assert "detail" in data
+        assert data["detail"] == [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]
 
     def test_response_validation_error_envelope(self) -> None:
         @validate_http(body=BodyModel, response_model=RespModel)
