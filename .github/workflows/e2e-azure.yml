@@ -101,10 +101,10 @@ jobs:
                 storageName="${{ steps.names.outputs.st }}" \
                 enableAppInsights=true
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       # Install Azure Functions Core Tools via npm.
       # We previously installed from packages.microsoft.com via apt, but that feed
@@ -149,7 +149,7 @@ jobs:
           pip install \
             --target examples/e2e_app/.python_packages/lib/site-packages \
             --platform manylinux2014_x86_64 \
-            --python-version 3.10 \
+            --python-version 3.11 \
             --only-binary=:all: \
             --implementation cp \
             "azure-functions" \

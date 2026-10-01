@@ -97,7 +97,7 @@ Consumers validating responses must allow unknown/additional properties. Custom
 
 | Dependency | Supported versions |
 |---|---|
-| Python | ≥ 3.10 |
+| Python | ≥ 3.11 |
 | azure-functions | ≥ 1.17 |
 | Pydantic | ≥ 2.0 |
 

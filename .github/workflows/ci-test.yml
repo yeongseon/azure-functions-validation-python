@@ -20,10 +20,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install Ruff
         run: python -m pip install 'ruff==0.16.8'
@@ -109,14 +109,14 @@ jobs:
           echo "docs_only=${docs_only}" >> "$GITHUB_OUTPUT"
 
   # Lint, type-check and security run once on a single pinned interpreter
-  # (Python 3.10, matching the ruff/mypy target-version in pyproject). These
+  # (Python 3.11, matching the ruff/mypy target-version in pyproject). These
   # checks are interpreter-agnostic, so fanning them across the matrix would
   # only duplicate work. Installed with a plain `pip install -e '.[dev]'` so the
   # checks run on the interpreter this job provisions (NOT through the
   # Python-3.10-pinned hatch env, which is what silently forced the whole test
   # matrix onto 3.10 before this fix).
   quality:
-    name: Lint, type-check & security (Py 3.10)
+    name: Lint, type-check & security (Py 3.11)
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
@@ -124,10 +124,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install package with dev extras
         run: |
@@ -167,11 +167,11 @@ jobs:
       matrix:
         # The full test suite runs against the declared dependency contract
         # (azure-functions>=1.17,<2.0.0). That 1.x line is only installable on
-        # Python 3.10-3.12 (recent 1.x releases pin requires-python <3.13), so
+        # Python 3.11-3.12 (recent 1.x releases pin requires-python <3.13), so
         # the matrix stops at 3.12. Python 3.13/3.14 carry a separate,
         # non-blocking `azure-functions-2x` compatibility lane below - running
         # the full suite there would require the (uncertified) 2.x worker path.
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -205,12 +205,12 @@ jobs:
 
       - name: Run tests on the matrix interpreter
         # Raw pytest on the interpreter provisioned above (NOT through the
-        # Python-3.10-pinned hatch env). The repo pytest config enables --cov
-        # with fail_under=95; enforce that gate on the canonical 3.10 cell and
+        # pinned hatch env). The repo pytest config enables --cov
+        # with fail_under=95; enforce that gate on the canonical 3.11 cell and
         # run the other cells with --no-cov so a version-variant cell cannot
         # fail the build on a spurious coverage dip.
         env:
-          IS_COVERAGE_CELL: ${{ matrix.python-version == '3.10' }}
+          IS_COVERAGE_CELL: ${{ matrix.python-version == '3.11' }}
         run: |
           if [ "$IS_COVERAGE_CELL" = "true" ]; then
             pytest tests/
@@ -219,11 +219,11 @@ jobs:
           fi
 
       - name: Verify coverage output
-        if: matrix.python-version == '3.10'
+        if: matrix.python-version == '3.11'
         run: ls -lh coverage.xml
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.10' && github.actor != 'dependabot[bot]'
+        if: matrix.python-version == '3.11' && github.actor != 'dependabot[bot]'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
