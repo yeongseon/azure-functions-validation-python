@@ -268,6 +268,25 @@ class TestRequestParsing:
 
         assert result.request_id == "req-1"
 
+    @pytest.mark.parametrize("header_name", ["X-User-ID", "x-user-id"])
+    def test_parse_headers_matches_alias_case_insensitively(
+        self, adapter: PydanticAdapter, header_name: str
+    ) -> None:
+        class AliasedHeaderModel(BaseModel):
+            x_user_id: str = Field(alias="X-User-ID")
+
+        request = func.HttpRequest(
+            method="GET",
+            url="/api/users",
+            body=b"",
+            params={},
+            headers={header_name: "user-1"},
+        )
+
+        result = adapter.parse_headers(request, AliasedHeaderModel)
+
+        assert result.x_user_id == "user-1"
+
     def test_parse_path_uses_route_params(self, adapter: PydanticAdapter) -> None:
         class PathModel(BaseModel):
             user_id: int

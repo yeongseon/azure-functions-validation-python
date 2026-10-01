@@ -324,10 +324,13 @@ class PydanticAdapter:
         # Parse headers
         headers = req.headers or {}
 
-        # Convert to regular dict and handle multi-value headers
-        header_data = {}
-        for key, value in headers.items():
-            header_data[key] = value
+        field_keys = {
+            candidate.casefold(): field.alias or name
+            for name, field in model.model_fields.items()
+            for candidate in (name, field.alias)
+            if isinstance(candidate, str)
+        }
+        header_data = {field_keys.get(key.casefold(), key): value for key, value in headers.items()}
 
         # Validate with Pydantic
         try:
