@@ -78,6 +78,16 @@ sources = ["src"]
 # path: it breaks build-via-sdist (the sdist strips the src/ prefix), which is how
 # the PyPI publish workflow builds the wheel.
 
+[tool.hatch.build.targets.sdist]
+# Documentation images and CI config are needed by neither a build nor a test
+# run, and dominated the published sdist.
+exclude = [
+  "**/*.png",
+  "**/*.gif",
+  "**/*.jpg",
+  ".github",
+]
+
 [tool.hatch.version]
 path = "src/azure_functions_validation/__init__.py"
 
