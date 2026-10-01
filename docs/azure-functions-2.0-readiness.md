@@ -17,7 +17,7 @@ verified before it is lifted, and **how** to detect a break against a candidate
 > while the cap held at `<2.0.0`.
 >
 > Real-Azure certification of the 2.x path remains outstanding. See
-> [`tests/test_worker_compat_2x_spike.py`](../tests/test_worker_compat_2x_spike.py)
+> [`tests/test_worker_compat_2x_spike.py`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/tests/test_worker_compat_2x_spike.py)
 > for the opt-in spike.
 
 ## Why the cap exists
