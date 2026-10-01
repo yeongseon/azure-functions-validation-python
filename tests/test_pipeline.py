@@ -867,13 +867,26 @@ class TestNoneReturn:
 
         assert response.status_code == 204
 
-    def test_none_return_with_response_model_gives_204(
+    def test_none_return_with_required_response_model_gives_500(
         self,
         mock_request_factory: RequestFactory,
     ) -> None:
-        """Test that None return bypasses response model validation with 204."""
-
         @validate_http(response_model=ResponseModel)
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        request = mock_request_factory()
+        response = handler(request)
+
+        assert response.status_code == 500
+
+    @pytest.mark.parametrize("response_model", [ResponseModel | None, None | ResponseModel])
+    def test_none_return_with_optional_response_model_gives_204(
+        self,
+        mock_request_factory: RequestFactory,
+        response_model: object,
+    ) -> None:
+        @validate_http(response_model=response_model)
         def handler(req: HttpRequest) -> None:
             return None
 

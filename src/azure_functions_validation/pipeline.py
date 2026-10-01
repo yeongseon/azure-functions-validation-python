@@ -254,8 +254,7 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     if isinstance(result, HttpResponse):
         return result
 
-    # Handle None return → 204 No Content
-    if result is None:
+    if result is None and config.response_model is None:
         return HttpResponse(status_code=204)
 
     # Validate and serialize response
@@ -290,6 +289,9 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
                 config.adapter,
                 config.error_formatter,
             )
+
+        if validated_result is None:
+            return HttpResponse(status_code=204)
 
         try:
             content, content_type = config.adapter.serialize(validated_result)
