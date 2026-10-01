@@ -566,6 +566,25 @@ class TestSerializeBroaderTypes:
 
         assert json.loads(content) == {"point": {"x": 1, "y": 2}}
 
+    def test_serialize_dataclass_with_nested_pydantic_model(
+        self,
+        adapter: PydanticAdapter,
+    ) -> None:
+        import dataclasses
+        import json
+
+        class Payload(BaseModel):
+            value: str
+
+        @dataclasses.dataclass
+        class Response:
+            payload: Payload
+
+        content, content_type = adapter.serialize(Response(payload=Payload(value="ok")))
+
+        assert content_type == "application/json"
+        assert json.loads(content) == {"payload": {"value": "ok"}}
+
     def test_serialize_unsupported_type_raises(
         self,
         adapter: PydanticAdapter,

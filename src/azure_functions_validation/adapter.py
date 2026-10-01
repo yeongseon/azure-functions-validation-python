@@ -49,7 +49,10 @@ _SERIALIZERS: tuple[tuple[Callable[[Any], bool], Callable[[Any], tuple[str | byt
     (lambda o: isinstance(o, str), lambda o: (o, "text/plain; charset=utf-8")),
     (lambda o: isinstance(o, bytes), lambda o: (o, "application/octet-stream")),
     (lambda o: isinstance(o, (int, float, bool)), lambda o: (json.dumps(o), "application/json")),
-    (_is_dataclass_instance, lambda o: (json.dumps(dataclasses.asdict(o)), "application/json")),
+    (
+        _is_dataclass_instance,
+        lambda o: (json.dumps(dataclasses.asdict(o), default=_json_default), "application/json"),
+    ),
 )
 
 
