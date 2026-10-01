@@ -1,6 +1,22 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.13.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.12.0...v0.13.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* **compat:** deprecate Python 3.10 ahead of its removal ([#440](https://github.com/yeongseon/azure-functions-validation-python/issues/440)) ([09cd134](https://github.com/yeongseon/azure-functions-validation-python/commit/09cd1345d8ff72e46f46dbd1d24ec3c69349c34c))
+* **errors:** locate malformed JSON errors at the body ([#444](https://github.com/yeongseon/azure-functions-validation-python/issues/444)) ([d51f74d](https://github.com/yeongseon/azure-functions-validation-python/commit/d51f74d43fe16b08fd5b9e776255e45428702ffb))
+* **headers:** match header models case-insensitively ([#443](https://github.com/yeongseon/azure-functions-validation-python/issues/443)) ([895d132](https://github.com/yeongseon/azure-functions-validation-python/commit/895d1326a679db1655d9406900979c9af97c8c82))
+* **validation:** enforce a required response_model when the handler returns None ([#441](https://github.com/yeongseon/azure-functions-validation-python/issues/441)) ([68c186e](https://github.com/yeongseon/azure-functions-validation-python/commit/68c186ea593332bb3d5b87d8c3a04b6153a73446))
+* **validation:** serialize nested models inside dataclass responses ([#442](https://github.com/yeongseon/azure-functions-validation-python/issues/442)) ([9625109](https://github.com/yeongseon/azure-functions-validation-python/commit/9625109ae0472ba41f576eb5c8b9e35d3e615644))
+
+
+### Miscellaneous Tasks
+
+* release 0.13.0 ([26569d0](https://github.com/yeongseon/azure-functions-validation-python/commit/26569d0c75ab3cf970144c083ef3f116bcf21172))
+
 ## [0.12.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.11.2...v0.12.0) (2026-09-30)
 
 
