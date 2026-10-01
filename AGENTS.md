@@ -7,7 +7,7 @@
 - Project: `azure-functions-validation`
 - Project type: Python library
 - Runtime scope: Azure Functions Python v2 programming model
-- Minimum supported Python: `3.11`
+- Minimum supported Python: `3.10`
 - Packaging: `pyproject.toml` with Hatch
 
 ## Read First
@@ -20,7 +20,7 @@
 - Maintain test coverage at **95% or above** for committed changes and PRs.
 - Run `hatch run pytest --cov --cov-report=term-missing -q` to verify before submitting changes.
 - Any PR that drops coverage below 95% must include additional tests to compensate.
-- Runtime code must remain compatible with Python 3.11+.
+- Runtime code must remain compatible with Python 3.10+.
 - Public APIs must be fully typed.
 - `azure-functions` (>=1.17) is a required runtime dependency; import it directly. This library only runs inside an Azure Functions app, where the package is always present.
 - Keep documentation examples, decorator behaviour, and tests synchronized.

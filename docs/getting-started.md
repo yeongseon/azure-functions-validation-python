@@ -17,7 +17,7 @@ By the end, you will have:
 
 Before starting, make sure you have:
 
-1. Python 3.11 or newer.
+1. Python 3.10 or newer.
 2. An Azure Functions Python v2 app structure.
 3. Dependencies installed:
    - `azure-functions`

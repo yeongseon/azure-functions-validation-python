@@ -100,7 +100,7 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
 
 ## Compatibility
 
-- Python 3.11+
+- Python 3.10+
 - Azure Functions Python v2 programming model
 - Pydantic v2
 

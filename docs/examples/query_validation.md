@@ -17,7 +17,7 @@ from URL and headers rather than JSON body.
 
 ## Prerequisites
 
-1. Python 3.11+
+1. Python 3.10+
 2. Azure Functions Python v2 project
 3. Installed `azure-functions-validation` and dependencies
 

@@ -25,7 +25,7 @@ To begin contributing, follow these steps to set up your local development envir
    make check-all
    ```
 
-Python 3.11 or higher is required for development.
+Python 3.10 or higher is required for development.
 
 ## Development Workflow
 

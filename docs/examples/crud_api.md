@@ -14,7 +14,7 @@ request and response contracts.
 
 ## Prerequisites
 
-1. Python 3.11+
+1. Python 3.10+
 2. Azure Functions Python v2 project
 3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic`)
 
