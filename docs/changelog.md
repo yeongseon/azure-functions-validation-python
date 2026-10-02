@@ -10,7 +10,8 @@ This project follows Semantic Versioning (semver.org). Given a version number MA
 - MINOR version when you add functionality in a backward compatible manner
 - PATCH version when you make backward compatible bug fixes
 
-The changelog is generated from Conventional Commits using git-cliff. Breaking changes are explicitly listed under the "Breaking Changes" section for each release.
+Release Please generates the root `CHANGELOG.md` from Conventional Commits.
+This page remains hand-maintained for version history and migration guidance.
 
 ## Migration Guides
 
