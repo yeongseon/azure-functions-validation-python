@@ -1,6 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.13.1](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.0...v0.13.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **body:** validate body annotations with TypeAdapter ([#455](https://github.com/yeongseon/azure-functions-validation-python/issues/455)) ([04fd21a](https://github.com/yeongseon/azure-functions-validation-python/commit/04fd21a42551acde81ce4e0778fb7aa20088df6f))
+* **query:** preserve repeated URL query keys ([#458](https://github.com/yeongseon/azure-functions-validation-python/issues/458)) ([0842ae3](https://github.com/yeongseon/azure-functions-validation-python/commit/0842ae3ba505063d70c3b2ab0610153ac3a95779))
+* **response:** serialize JSON-compatible Python types ([#459](https://github.com/yeongseon/azure-functions-validation-python/issues/459)) ([80154b7](https://github.com/yeongseon/azure-functions-validation-python/commit/80154b7b157b4f8a8384a44e0ae9f6c182ef7251))
+
 ## [0.13.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.12.0...v0.13.0) (2026-10-01)
 
 
@@ -753,4 +762,4 @@ All notable changes to this project will be documented in this file.
 ### 🧪 Testing
 
 - Fix failing tests and improve code quality 
-- Add scaffolding (#11) 
+- Add scaffolding (#11)

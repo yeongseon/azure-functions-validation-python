@@ -18,7 +18,7 @@ __all__ = [
     "HttpError",
 ]
 
-__version__ = "0.13.0"
+__version__ = "0.13.1"
 
 
 if sys.version_info < (3, 11):
