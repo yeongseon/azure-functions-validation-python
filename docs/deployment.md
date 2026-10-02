@@ -238,7 +238,7 @@ Representative response:
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
 
-{"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
+{"detail":[{"loc":["body"],"msg":"Invalid JSON","type":"value_error"}]}
 ```
 
 ✅ **`hello_validation` is now running on Azure with schema validation behavior confirmed.**
@@ -481,7 +481,7 @@ Representative response:
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
 
-{"detail":[{"loc":[],"msg":"Invalid JSON","type":"value_error"}]}
+{"detail":[{"loc":["body"],"msg":"Invalid JSON","type":"value_error"}]}
 ```
 
 ✅ **`crud_api` validation and error-path behavior is verified on Azure.**

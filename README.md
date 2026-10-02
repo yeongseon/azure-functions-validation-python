@@ -181,7 +181,7 @@ $ curl -s -X POST http://localhost:7071/api/users \
 ```
 
 ```json
-{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
 ```
 
 > HTTP 400
@@ -340,7 +340,7 @@ curl -s http://localhost:7071/api/users \
 ```
 
 ```json
-{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
 ```
 
 > HTTP 400
@@ -354,7 +354,7 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 ```
 
 ```json
-{"detail": [{"loc": [], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
 ```
 
 > HTTP 400

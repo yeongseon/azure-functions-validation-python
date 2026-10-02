@@ -13,6 +13,8 @@ in production handlers.
     response_model=...,
     adapter=...,
     error_formatter=...,
+    status_code=200,
+    legacy_loc=False,
 )
 ```
 
@@ -28,6 +30,8 @@ Public keyword-only parameters:
 - `response_model`
 - `adapter`
 - `error_formatter`
+- `status_code` (default `200`)
+- `legacy_loc` (default `False`)
 
 !!! note "Keyword-only API"
     `validate_http` parameters are keyword-only. Prefer explicit names for
@@ -99,6 +103,9 @@ def inspect(req: func.HttpRequest, headers: HeadersModel) -> dict[str, str]:
     return {"request_id": headers.x_request_id}
 ```
 
+Header names are matched case-insensitively against field names and aliases, so
+`X-Request-ID`, `x-request-id`, and `X-REQUEST-ID` all populate the same field.
+
 ### `request_model` (deprecated)
 
 !!! warning "Deprecated — use `body`"
@@ -145,6 +152,19 @@ def health(req: func.HttpRequest) -> dict[str, str]:
 
 Also supports generic type forms like `list[ResultModel]`.
 
+Nested Pydantic models inside dataclass return values are serialized too, so a
+dataclass holding a `BaseModel` field renders as plain JSON rather than raising
+a serialization error.
+
+!!! warning "Returning `None` with a non-Optional `response_model`"
+    If the handler returns `None` while `response_model` does not allow `None`,
+    response validation fails and the caller gets a sanitized
+    `500` whose body is the generic
+    `{"detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}]}`.
+    The real cause is logged server-side, never leaked to the caller. Declare the model as Optional
+    (for example `response_model=ResultModel | None`) when `None` is a valid
+    outcome; then returning `None` produces a `204 No Content` instead.
+
 ### `adapter`
 
 `adapter` allows plugging a custom implementation of the internal
@@ -180,6 +200,30 @@ def formatter(exc: Exception, status_code: int) -> dict[str, Any]:
 
 @validate_http(body=RequestModel, error_formatter=formatter)
 def handler_custom(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
+    return {"text": body.text}
+```
+
+### `status_code`
+
+`status_code` sets the HTTP status code for successful responses (default
+`200`). Use it for creation endpoints and similar cases.
+
+```python
+@validate_http(body=RequestModel, response_model=ResultModel, status_code=201)
+def create_item(req: func.HttpRequest, body: RequestModel) -> ResultModel:
+    return ResultModel(status="created")
+```
+
+### `legacy_loc`
+
+`legacy_loc` (default `False`) restores pre-0.13 error locations: `loc` values
+omit the leading input-source segment, so you get `["email"]` instead of
+`["body", "email"]`. It is a one-cycle migration escape hatch and is ignored
+when a custom `adapter` is supplied — configure that adapter directly instead.
+
+```python
+@validate_http(body=RequestModel, legacy_loc=True)
+def legacy(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
     return {"text": body.text}
 ```
 
