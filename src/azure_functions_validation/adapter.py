@@ -59,7 +59,7 @@ _SERIALIZERS: tuple[tuple[Callable[[Any], bool], Callable[[Any], tuple[str | byt
 class ValidationAdapter(Protocol):
     """Protocol defining the interface for validation adapters."""
 
-    def parse_body(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+    def parse_body(self, req: HttpRequest, model: Any) -> Any:
         """Parse and validate request body.
 
         Args:
@@ -218,7 +218,7 @@ class PydanticAdapter:
         message, detail = _MISSING_BODY_ERROR
         return AdapterValidationError(message, [dict(entry) for entry in detail])
 
-    def parse_body(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+    def parse_body(self, req: HttpRequest, model: Any) -> Any:
         """Parse and validate request body from JSON.
 
         Args:
@@ -255,7 +255,7 @@ class PydanticAdapter:
 
         # Validate with Pydantic
         try:
-            return model.model_validate(data)
+            return TypeAdapter(model).validate_python(data)
         except PydanticValidationError as exc:
             raise self._source_error(exc, "body") from exc
 

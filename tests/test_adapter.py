@@ -75,6 +75,21 @@ class TestParseBody:
         assert result.name == "Alice"
         assert result.age == 30
 
+    def test_optional_body_accepts_json_null_with_real_request(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        request = func.HttpRequest(
+            method="POST",
+            url="/api/users",
+            body=b"null",
+            params={},
+            headers={"Content-Type": "application/json"},
+        )
+
+        result = adapter.parse_body(request, UserModel | None)
+
+        assert result is None
+
     def test_empty_body(self, adapter: PydanticAdapter, mock_request: type) -> None:
         """Test parsing empty body raises AdapterValidationError with type='missing'."""
         req = mock_request(b"")
