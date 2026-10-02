@@ -251,6 +251,41 @@ class TestValidateResponse:
 
 
 class TestRequestParsing:
+    def test_parse_query_preserves_repeated_url_values_with_real_request(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class RepeatedQueryModel(BaseModel):
+            tags: list[str]
+            active: bool
+            count: int
+            empty: str
+            text: str
+
+        request = func.HttpRequest(
+            method="GET",
+            url=(
+                "/api/items?tags=first&tags=second&active=true&count=7"
+                "&empty=&text=%ED%95%9C%EA%B8%80"
+            ),
+            body=b"",
+            params={
+                "tags": "second",
+                "active": "true",
+                "count": "7",
+                "empty": "",
+                "text": "한글",
+            },
+            headers={},
+        )
+
+        result = adapter.parse_query(request, RepeatedQueryModel)
+
+        assert result.tags == ["first", "second"]
+        assert result.active is True
+        assert result.count == 7
+        assert result.empty == ""
+        assert result.text == "한글"
+
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
         """Azure Functions params dict returns scalar values."""
 

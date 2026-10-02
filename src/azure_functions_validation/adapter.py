@@ -4,6 +4,7 @@ from collections.abc import Callable
 import dataclasses
 import json
 from typing import Any, Protocol
+from urllib.parse import parse_qs, urlsplit
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel, TypeAdapter
@@ -272,13 +273,9 @@ class PydanticAdapter:
         Raises:
             AdapterValidationError: If validation fails
         """
-        # Parse query parameters
-        query_params = req.params or {}
-
-        # Convert MultiDict to regular dict
-        query_data = {}
-        for key, value in query_params.items():
-            query_data[key] = value
+        query_data = dict(req.params or {})
+        url_values = parse_qs(urlsplit(getattr(req, "url", "")).query, keep_blank_values=True)
+        query_data.update({key: values for key, values in url_values.items() if len(values) > 1})
 
         # Validate with Pydantic
         try:
