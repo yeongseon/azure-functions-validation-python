@@ -9,10 +9,14 @@ async handlers, and response model validation — all of which now live in
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime, timezone
+from decimal import Decimal
+from enum import Enum
 import json
 import logging
 from typing import TypeAlias
 from unittest.mock import Mock
+from uuid import UUID
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel, Field
@@ -940,6 +944,31 @@ class TestScalarReturn:
         assert response.status_code == 200
         data = json.loads(response.get_body().decode())
         assert data is True
+
+    def test_json_compatible_standard_types_in_mapping(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        class Status(str, Enum):
+            ACTIVE = "active"
+
+        @validate_http()
+        def handler(req: HttpRequest) -> dict[str, object]:
+            return {
+                "created_at": datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                "amount": Decimal("12.30"),
+                "request_id": UUID("12345678-1234-5678-1234-567812345678"),
+                "status": Status.ACTIVE,
+            }
+
+        response = handler(mock_request_factory())
+
+        assert response.status_code == 200
+        assert json.loads(response.get_body()) == {
+            "created_at": "2026-01-02T03:04:05Z",
+            "amount": "12.30",
+            "request_id": "12345678-1234-5678-1234-567812345678",
+            "status": "active",
+        }
 
 
 class TestDataclassReturn:

@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from azure.functions import HttpRequest
 from pydantic import BaseModel, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import PydanticSerializationError, to_jsonable_python
 
 from .errors import AdapterValidationError, SerializationError
 
@@ -27,11 +28,10 @@ def _prefix_loc(source: str | None, loc: list[Any], *, legacy_loc: bool) -> list
 
 def _json_default(value: Any) -> Any:
     """Fallback JSON encoder for nested models/dataclasses inside dict/list."""
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return dataclasses.asdict(value)
-    raise SerializationError(type(value).__name__)
+    try:
+        return to_jsonable_python(value)
+    except PydanticSerializationError as exc:
+        raise SerializationError(type(value).__name__) from exc
 
 
 def _is_dataclass_instance(obj: Any) -> bool:
