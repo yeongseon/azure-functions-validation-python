@@ -238,7 +238,7 @@ jobs:
   # docs-only (test matrix intentionally skipped) or when the quality job and
   # the test matrix both succeeded, and fails otherwise.
   ci-required:
-    needs: [changes, format, quality, test, azure-functions-2x]
+    needs: [changes, format, quality, test, azure-functions-2x, host-smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -250,6 +250,7 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
           AF2X_RESULT: ${{ needs.azure-functions-2x.result }}
+          HOST_SMOKE_RESULT: ${{ needs.host-smoke.result }}
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
         run: |
           set -euo pipefail
@@ -258,6 +259,7 @@ jobs:
           echo "quality result: ${QUALITY_RESULT}"
           echo "test result:    ${TEST_RESULT}"
           echo "af 2.x result:  ${AF2X_RESULT}"
+          echo "host smoke:     ${HOST_SMOKE_RESULT}"
           echo "docs_only:      ${DOCS_ONLY}"
 
           if [ "${CHANGES_RESULT}" != "success" ]; then
@@ -281,12 +283,55 @@ jobs:
           fi
 
           if [ "${QUALITY_RESULT}" = "success" ] && [ "${TEST_RESULT}" = "success" ] \
-             && [ "${AF2X_RESULT}" = "success" ]; then
-            echo "Quality, test matrix and azure-functions 2.x lane succeeded. Passing."
+             && [ "${AF2X_RESULT}" = "success" ] \
+             && [ "${HOST_SMOKE_RESULT}" = "success" ]; then
+            echo "Quality, test matrix, azure-functions 2.x and host smoke succeeded. Passing."
             exit 0
           fi
 
-          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}' af2x='${AF2X_RESULT}'. Failing required check."
+          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}' af2x='${AF2X_RESULT}' host-smoke='${HOST_SMOKE_RESULT}'. Failing required check."
+          exit 1
+
+  host-smoke:
+    name: Real Functions host smoke (Py 3.12)
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Functions Core Tools v4 and Azurite
+        run: |
+          npm install --global azure-functions-core-tools@4 --unsafe-perm true
+          npm install --global azurite
+
+      - name: Install smoke app dependencies
+        working-directory: tests/host_smoke
+        run: pip install -r requirements.txt
+
+      - name: Start Azurite and Functions host
+        run: |
+          azurite --silent > /tmp/azurite.log 2>&1 &
+          cd tests/host_smoke
+          func start --python --port 7071 > /tmp/functions-host.log 2>&1 &
+
+      - name: Call validated handler
+        run: |
+          for attempt in {1..30}; do
+            if response="$(curl --fail --silent http://127.0.0.1:7071/api/smoke)"; then
+              python -c 'import json, sys; assert json.loads(sys.argv[1]) == {"function_name": "smoke"}' "$response"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/functions-host.log
           exit 1
 
   # azure-functions 2.x compatibility proof lane (issue #351), modeled on
