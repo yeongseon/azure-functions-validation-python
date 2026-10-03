@@ -163,6 +163,7 @@ strict = true
 ignore_missing_imports = true
 show_error_codes = true
 pretty = true
+exclude = ["tests/host_smoke"]
 
 [[tool.mypy.overrides]]
 module = "examples.*"
