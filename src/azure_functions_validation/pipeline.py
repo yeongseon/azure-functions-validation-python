@@ -294,8 +294,8 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             return HttpResponse(status_code=204)
 
         try:
-            content, content_type = config.adapter.serialize(validated_result)
-        except (SerializationError, TypeError) as e:
+            content = config.response_type_adapter.dump_json(validated_result, by_alias=True)
+        except (SerializationError, TypeError, ValueError) as e:
             logger.error(
                 "Failed to serialize validated response for handler %r",
                 config.handler_name,
@@ -311,7 +311,7 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
         return HttpResponse(
             body=content,
             status_code=config.success_status_code,
-            headers={"Content-Type": content_type},
+            headers={"Content-Type": "application/json"},
         )
 
     # No response model, serialize directly

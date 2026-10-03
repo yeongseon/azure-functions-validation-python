@@ -53,6 +53,18 @@ class ItemResponseModel(BaseModel):
     name: str
 
 
+class PublicUserModel(BaseModel):
+    name: str
+
+
+class StoredUserModel(PublicUserModel):
+    password_hash: str
+
+
+class AliasedResponseModel(BaseModel):
+    internal: str = Field(serialization_alias="wireName")
+
+
 class QueryModel(BaseModel):
     """Test model for query parameters."""
 
@@ -256,6 +268,26 @@ class TestSuccessfulValidation:
             {"id": 1, "name": "Alice"},
             {"id": 2, "name": "Bob"},
         ]
+
+    def test_response_model_drops_subclass_fields(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(response_model=PublicUserModel)
+        def handler(req: HttpRequest) -> StoredUserModel:
+            return StoredUserModel(name="Ada", password_hash="secret")
+
+        response = handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == {"name": "Ada"}
+
+    def test_response_model_serializes_aliases(self, mock_request_factory: RequestFactory) -> None:
+        @validate_http(response_model=AliasedResponseModel)
+        def handler(req: HttpRequest) -> AliasedResponseModel:
+            return AliasedResponseModel(internal="value")
+
+        response = handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == {"wireName": "value"}
 
     def test_request_inputs_are_parsed_once(self, mock_request_factory: RequestFactory) -> None:
         """Test that configured request inputs are parsed only once."""
