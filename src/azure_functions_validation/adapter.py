@@ -3,7 +3,7 @@
 from collections.abc import Callable
 import dataclasses
 import json
-from typing import Any, Protocol
+from typing import Any, Protocol, get_origin
 from urllib.parse import parse_qs, urlsplit
 
 from azure.functions import HttpRequest
@@ -276,6 +276,12 @@ class PydanticAdapter:
         query_data = dict(req.params or {})
         url_values = parse_qs(urlsplit(getattr(req, "url", "")).query, keep_blank_values=True)
         query_data.update({key: values for key, values in url_values.items() if len(values) > 1})
+        for name, field in model.model_fields.items():
+            key = field.alias or name
+            if get_origin(field.annotation) is list and key in query_data:
+                value = query_data[key]
+                if not isinstance(value, list):
+                    query_data[key] = [value]
 
         # Validate with Pydantic
         try:

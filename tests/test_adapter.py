@@ -251,6 +251,24 @@ class TestValidateResponse:
 
 
 class TestRequestParsing:
+    def test_parse_query_listifies_single_value_with_real_request(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class QueryModel(BaseModel):
+            tags: list[str]
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first",
+            body=b"",
+            params={"tags": "first"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, QueryModel)
+
+        assert result.tags == ["first"]
+
     def test_parse_query_preserves_repeated_url_values_with_real_request(
         self, adapter: PydanticAdapter
     ) -> None:
