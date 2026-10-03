@@ -234,13 +234,6 @@ def _validate_no_conflicts(
 _MISSING: Any = object()  # sentinel for absent req argument
 
 
-#: Parameter names the Azure Functions worker injects implicitly (by name),
-#: without a corresponding user-registered binding. These must stay HIDDEN from
-#: the exposed signature or the worker indexer fails (issue #284). ``context``
-#: (``func.Context``) is the canonical example.
-_WORKER_INJECTED_PARAMS: frozenset[str] = frozenset({"context"})
-
-
 def _validation_injected_names(config: Any) -> set[str]:
     """Return the handler param names that the validation pipeline fills.
 
@@ -276,12 +269,10 @@ def _passthrough_params(config: Any) -> list[tuple[str, inspect.Parameter]]:
     or ``@app.cosmos_db_output`` (``order_doc``). The worker indexer matches
     these to their registered bindings BY NAME, so they must appear in the
     exposed signature. Excluded are: the HTTP request param (exposed as ``req``),
-    the validation-injected params, the implicitly worker-injected params
-    (``context``), and any ``*args``/``**kwargs`` catch-alls.
+    the validation-injected params and any ``*args``/``**kwargs`` catch-alls.
+    Worker-injected ``context`` remains visible so the worker knows to supply it.
     """
-    hidden = (
-        _validation_injected_names(config) | {config.request_param_name} | _WORKER_INJECTED_PARAMS
-    )
+    hidden = _validation_injected_names(config) | {config.request_param_name}
     variadic = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
     return [
         (name, param)

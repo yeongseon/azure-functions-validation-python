@@ -8,7 +8,7 @@ that happens when ``@validate_http(...)`` is applied to a function.
 from collections.abc import Callable
 from typing import TypeVar
 
-from azure.functions import HttpRequest, HttpResponse
+from azure.functions import Context, HttpRequest, HttpResponse
 from pydantic import BaseModel, Field
 import pytest
 
@@ -340,15 +340,15 @@ class TestReqContextWorkerIndexing:
     still forwarding ``context`` through to the handler at call time.
     """
 
-    def test_sync_exposes_single_req_signature(self) -> None:
+    def test_sync_exposes_req_and_context_signature(self) -> None:
         import inspect
 
         @validate_http(query=QueryModel)
-        def handler(req: HttpRequest, context: object) -> HttpResponse:
+        def handler(req: HttpRequest, context: Context) -> HttpResponse:
             return HttpResponse("ok")
 
-        assert list(inspect.signature(handler).parameters) == ["req"]
-        assert handler.__annotations__ == {}
+        assert list(inspect.signature(handler).parameters) == ["req", "context"]
+        assert handler.__annotations__ == {"context": Context}
         assert not hasattr(handler, "__wrapped__")
 
     def test_sync_forwards_context_and_returns_success(self) -> None:
@@ -371,7 +371,7 @@ class TestReqContextWorkerIndexing:
         assert seen["query"].limit == 5
 
     @pytest.mark.anyio
-    async def test_async_exposes_single_req_and_forwards_context(self) -> None:
+    async def test_async_exposes_req_and_context_and_forwards_context(self) -> None:
         import inspect
 
         from azure_functions_validation.testing import MockHttpRequest
@@ -383,8 +383,8 @@ class TestReqContextWorkerIndexing:
             seen["context"] = context
             return HttpResponse("ok")
 
-        assert list(inspect.signature(handler).parameters) == ["req"]
-        assert handler.__annotations__ == {}
+        assert list(inspect.signature(handler).parameters) == ["req", "context"]
+        assert handler.__annotations__ == {"context": object}
         assert not hasattr(handler, "__wrapped__")
 
         sentinel = object()
@@ -506,13 +506,11 @@ class TestPassthroughBindingParams:
         assert seen["order_doc"] is out
         assert isinstance(seen["body"], UserModel)
 
-    def test_context_stays_hidden_alongside_binding(self) -> None:
+    def test_context_stays_visible_alongside_binding(self) -> None:
         import inspect
 
         import azure.functions as func
 
-        # ``context`` is worker-injected implicitly and must stay hidden (#284),
-        # while ``order_doc`` is a registered binding and must be exposed (#297).
         @validate_http(query=QueryModel)
         def handler(
             req: HttpRequest,
@@ -522,8 +520,8 @@ class TestPassthroughBindingParams:
         ) -> HttpResponse:
             return HttpResponse("ok")
 
-        assert list(inspect.signature(handler).parameters) == ["req", "order_doc"]
-        assert "context" not in handler.__annotations__
+        assert list(inspect.signature(handler).parameters) == ["req", "context", "order_doc"]
+        assert handler.__annotations__ == {"context": object, "order_doc": func.Out[str]}
 
     def test_no_extra_binding_regression(self) -> None:
         import inspect
