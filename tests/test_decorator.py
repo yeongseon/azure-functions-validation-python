@@ -6,10 +6,11 @@ that happens when ``@validate_http(...)`` is applied to a function.
 """
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from azure.functions import Context, HttpRequest, HttpResponse
 from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel as BaseModelV1
 import pytest
 
 from azure_functions_validation import validate_http
@@ -40,6 +41,10 @@ class HeaderModel(BaseModel):
     user_agent: str = Field(default="unknown")
 
 
+class LegacyModel(BaseModelV1):
+    value: int
+
+
 # ---------------------------------------------------------------------------
 # Configuration error tests
 # ---------------------------------------------------------------------------
@@ -47,6 +52,20 @@ class HeaderModel(BaseModel):
 
 class TestConfigurationErrors:
     """Tests for decorator configuration errors."""
+
+    @pytest.mark.parametrize(
+        "model_option",
+        ["body", "query", "path", "headers", "request_model", "response_model"],
+    )
+    def test_pydantic_v1_model_is_rejected_at_decoration_time(self, model_option: str) -> None:
+        options: dict[str, Any] = {model_option: LegacyModel}
+        decorator = validate_http(**options)
+
+        with pytest.raises(TypeError, match="Pydantic v1.*Pydantic v2"):
+
+            @decorator
+            def handler(req: HttpRequest) -> HttpResponse:
+                return HttpResponse("ok")
 
     def test_request_model_with_body_conflict(self) -> None:
         """Test ValueError when request_model and body are both provided."""
