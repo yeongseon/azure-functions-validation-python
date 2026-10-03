@@ -476,9 +476,7 @@ class TestValidationErrors:
         data = json.loads(response.get_body().decode())
         assert "detail" in data
 
-    def test_non_value_error_body_parse_returns_500(
-        self, mock_request_factory: RequestFactory
-    ) -> None:
+    def test_non_value_error_body_parse_returns_500(self, caplog: pytest.LogCaptureFixture) -> None:
         adapter = Mock()
         adapter.parse_body.side_effect = RuntimeError("adapter exploded")
 
@@ -486,12 +484,24 @@ class TestValidationErrors:
         def handler(req: HttpRequest, body: UserModel) -> ResponseModel:
             return ResponseModel(message="ok")
 
-        request = mock_request_factory(body=b'{"name": "Valid", "age": 30}')
-        response = handler(request)
+        request = HttpRequest(
+            method="POST",
+            url="https://example.test/api/users",
+            body=b'{"name": "Valid", "age": 30}',
+            params={},
+            route_params={},
+            headers={},
+        )
+        with caplog.at_level(logging.ERROR, logger="azure_functions_validation.pipeline"):
+            response = handler(request)
 
         assert response.status_code == 500
         data = json.loads(response.get_body().decode())
         assert data["detail"][0]["msg"] == "Internal Server Error"
+        records = [record for record in caplog.records if record.levelno == logging.ERROR]
+        assert len(records) == 1
+        assert records[0].exc_info is not None
+        assert records[0].getMessage().endswith(".<locals>.handler' in body")
 
     def test_all_validation_sources(self, mock_request_factory: RequestFactory) -> None:
         """Test validation of all input sources at once."""

@@ -224,6 +224,11 @@ def _parse_inputs(
         except ValueError as e:
             return format_error_response(e, 400, config.adapter, config.error_formatter)
         except Exception as e:
+            logger.exception(
+                "Unexpected input parsing error for handler %r in %s",
+                config.handler_name,
+                name,
+            )
             return format_error_response(e, 500, config.adapter, config.error_formatter)
         inject(name, parsed, config, parsed_inputs)
 
