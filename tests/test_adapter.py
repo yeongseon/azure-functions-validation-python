@@ -1,5 +1,6 @@
 """Tests for validation adapter."""
 
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import azure.functions as func
@@ -251,6 +252,24 @@ class TestValidateResponse:
 
 
 class TestRequestParsing:
+    def test_parse_query_listifies_single_value_with_real_request(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class QueryModel(BaseModel):
+            tags: list[str]
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first",
+            body=b"",
+            params={"tags": "first"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, QueryModel)
+
+        assert result.tags == ["first"]
+
     def test_parse_query_preserves_repeated_url_values_with_real_request(
         self, adapter: PydanticAdapter
     ) -> None:
@@ -489,6 +508,20 @@ class TestSerialize:
     ) -> None:
         with pytest.raises(TypeError, match="Cannot serialize type object"):
             adapter.serialize({"nested": object()})
+
+    @pytest.mark.parametrize(
+        "value",
+        [float("nan"), float("inf"), float("-inf"), {"nested": float("nan")}],
+    )
+    def test_serialize_non_finite_float_as_strict_json(
+        self, adapter: PydanticAdapter, value: object
+    ) -> None:
+        content, content_type = adapter.serialize(value)
+
+        assert content_type == "application/json"
+        assert json.loads(content, parse_constant=lambda token: pytest.fail(token)) == (
+            {"nested": None} if isinstance(value, dict) else None
+        )
 
 
 # Test format_error
