@@ -1,5 +1,6 @@
 """Tests for validation adapter."""
 
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import azure.functions as func
@@ -489,6 +490,20 @@ class TestSerialize:
     ) -> None:
         with pytest.raises(TypeError, match="Cannot serialize type object"):
             adapter.serialize({"nested": object()})
+
+    @pytest.mark.parametrize(
+        "value",
+        [float("nan"), float("inf"), float("-inf"), {"nested": float("nan")}],
+    )
+    def test_serialize_non_finite_float_as_strict_json(
+        self, adapter: PydanticAdapter, value: object
+    ) -> None:
+        content, content_type = adapter.serialize(value)
+
+        assert content_type == "application/json"
+        assert json.loads(content, parse_constant=lambda token: pytest.fail(token)) == (
+            {"nested": None} if isinstance(value, dict) else None
+        )
 
 
 # Test format_error

@@ -7,9 +7,9 @@ from typing import Any, Protocol
 from urllib.parse import parse_qs, urlsplit
 
 from azure.functions import HttpRequest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
-from pydantic_core import PydanticSerializationError, to_jsonable_python
+from pydantic_core import PydanticSerializationError
 
 from .errors import AdapterValidationError, SerializationError
 
@@ -27,16 +27,27 @@ def _prefix_loc(source: str | None, loc: list[Any], *, legacy_loc: bool) -> list
     return [source, *loc]
 
 
-def _json_default(value: Any) -> Any:
-    """Fallback JSON encoder for nested models/dataclasses inside dict/list."""
-    try:
-        return to_jsonable_python(value)
-    except PydanticSerializationError as exc:
-        raise SerializationError(type(value).__name__) from exc
-
-
 def _is_dataclass_instance(obj: Any) -> bool:
     return dataclasses.is_dataclass(obj) and not isinstance(obj, type)
+
+
+_JSON_TYPE_ADAPTER = TypeAdapter(Any, config=ConfigDict(ser_json_inf_nan="null"))
+
+
+def _dump_json(value: Any) -> str:
+    try:
+        compatible = _JSON_TYPE_ADAPTER.dump_python(
+            value,
+            mode="json",
+            fallback=lambda unsupported: (_ for _ in ()).throw(
+                SerializationError(type(unsupported).__name__)
+            ),
+        )
+        return json.dumps(compatible)
+    except PydanticSerializationError as exc:
+        if isinstance(exc.__cause__, SerializationError):
+            raise exc.__cause__ from exc
+        raise SerializationError(type(value).__name__) from exc
 
 
 # Ordered serialization dispatch table: (type predicate, serializer).
@@ -45,14 +56,17 @@ _SERIALIZERS: tuple[tuple[Callable[[Any], bool], Callable[[Any], tuple[str | byt
     (lambda o: isinstance(o, BaseModel), lambda o: (o.model_dump_json(), "application/json")),
     (
         lambda o: isinstance(o, (dict, list)),
-        lambda o: (json.dumps(o, default=_json_default), "application/json"),
+        lambda o: (_dump_json(o), "application/json"),
     ),
     (lambda o: isinstance(o, str), lambda o: (o, "text/plain; charset=utf-8")),
     (lambda o: isinstance(o, bytes), lambda o: (o, "application/octet-stream")),
-    (lambda o: isinstance(o, (int, float, bool)), lambda o: (json.dumps(o), "application/json")),
+    (
+        lambda o: isinstance(o, (int, float, bool)),
+        lambda o: (_dump_json(o), "application/json"),
+    ),
     (
         _is_dataclass_instance,
-        lambda o: (json.dumps(dataclasses.asdict(o), default=_json_default), "application/json"),
+        lambda o: (_dump_json(dataclasses.asdict(o)), "application/json"),
     ),
 )
 
