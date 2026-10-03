@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.13.2](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.1...v0.13.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **decorator:** keep context in the worker-visible signature ([#468](https://github.com/yeongseon/azure-functions-validation-python/issues/468)) ([6492277](https://github.com/yeongseon/azure-functions-validation-python/commit/6492277adb2003b3c896d0b191db55afd5599a41))
+* **response:** serialize through the declared response model ([#470](https://github.com/yeongseon/azure-functions-validation-python/issues/470)) ([3af0eee](https://github.com/yeongseon/azure-functions-validation-python/commit/3af0eeed74c1183fcddc85a8d068c2261c89360f))
+
 ## [0.13.1](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.0...v0.13.1) (2026-10-02)
 
 
