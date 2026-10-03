@@ -1,6 +1,16 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.13.3](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.2...v0.13.3) (2026-10-03)
+
+
+### Bug Fixes
+
+* **decorator:** reject pydantic.v1 models at decoration time ([#473](https://github.com/yeongseon/azure-functions-validation-python/issues/473)) ([3880e93](https://github.com/yeongseon/azure-functions-validation-python/commit/3880e93f85665e4615aeae2b7ed1ededb4af52b9))
+* **pipeline:** log unexpected input parsing errors ([#476](https://github.com/yeongseon/azure-functions-validation-python/issues/476)) ([41bd935](https://github.com/yeongseon/azure-functions-validation-python/commit/41bd93586a12d7c11e34c970a37afe8b4597417c))
+* **query:** accept a single value for list query fields ([#475](https://github.com/yeongseon/azure-functions-validation-python/issues/475)) ([7515cf4](https://github.com/yeongseon/azure-functions-validation-python/commit/7515cf403428b6fe9950542466f6838c06d92e7f))
+* **response:** emit standards-compliant JSON for non-finite floats ([#474](https://github.com/yeongseon/azure-functions-validation-python/issues/474)) ([fd2e7d6](https://github.com/yeongseon/azure-functions-validation-python/commit/fd2e7d60b32753ce7131117396ccd5320afa98a6))
+
 ## [0.13.2](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.1...v0.13.2) (2026-10-03)
 
 
