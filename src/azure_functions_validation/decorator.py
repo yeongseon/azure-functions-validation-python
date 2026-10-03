@@ -9,6 +9,7 @@ from typing import Any, get_type_hints
 import warnings
 
 from pydantic import TypeAdapter
+from pydantic.v1 import BaseModel as BaseModelV1
 
 from ._endpoint import build_endpoint_metadata, set_endpoint_metadata
 from ._metadata import METADATA_ATTR, ValidationMetadata, set_validation_metadata
@@ -99,6 +100,19 @@ def validate_http(
                 RuntimeWarning,
                 stacklevel=2,
             )
+
+        for option_name, model in (
+            ("body", body),
+            ("query", query),
+            ("path", path),
+            ("headers", headers),
+            ("request_model", request_model),
+            ("response_model", response_model),
+        ):
+            if isinstance(model, type(BaseModelV1)) and issubclass(model, BaseModelV1):
+                raise TypeError(
+                    f"{option_name} uses a Pydantic v1 model; Pydantic v2 models are required"
+                )
 
         is_async = inspect.iscoroutinefunction(func)
 
