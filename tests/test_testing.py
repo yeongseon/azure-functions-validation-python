@@ -85,6 +85,35 @@ class TestMockHttpRequestConstruction:
         assert request.route_params["id"] == "42"
         assert request.headers["X-Trace"] == "abc"
 
+    def test_input_mappings_are_copied(self) -> None:
+        headers = {"X-Trace": "abc"}
+        params = {"limit": "10"}
+        route_params = {"id": "42"}
+
+        request = MockHttpRequest(
+            headers=headers,
+            params=params,
+            route_params=route_params,
+        )
+
+        headers["X-Trace"] = "changed"
+        headers["X-New"] = "new"
+
+        params["limit"] = "99"
+        params["page"] = "2"
+
+        route_params["id"] = "100"
+        route_params["slug"] = "new"
+
+        assert request.headers["X-Trace"] == "abc"
+        assert "X-New" not in request.headers
+
+        assert request.params["limit"] == "10"
+        assert "page" not in request.params
+
+        assert request.route_params["id"] == "42"
+        assert "slug" not in request.route_params
+
     def test_body_and_json_are_mutually_exclusive(self) -> None:
         with pytest.raises(ValueError, match="either 'body' or 'json'"):
             MockHttpRequest(body=b"{}", json={})
