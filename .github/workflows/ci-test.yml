@@ -165,13 +165,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The full test suite runs against the declared dependency contract
-        # (azure-functions>=1.17,<2.0.0). That 1.x line is only installable on
-        # Python 3.10-3.12 (recent 1.x releases pin requires-python <3.13), so
-        # the matrix stops at 3.12. Python 3.13/3.14 carry a separate,
-        # non-blocking `azure-functions-2x` compatibility lane below - running
-        # the full suite there would require the (uncertified) 2.x worker path.
-        python-version: ["3.10", "3.11", "3.12"]
+        # Exercise the full suite across every interpreter declared in
+        # requires-python. The dependency markers install azure-functions 1.x
+        # on Python 3.10-3.12 and 2.x on Python 3.13-3.14.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Checkout code
