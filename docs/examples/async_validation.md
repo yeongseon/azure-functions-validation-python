@@ -14,7 +14,7 @@ logic can `await` asynchronous work.
 
 ## Prerequisites
 
-1. Python 3.10+
+1. Python 3.11+
 2. Azure Functions Python v2 app
 3. Installed dependencies
 

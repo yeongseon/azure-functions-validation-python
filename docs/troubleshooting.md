@@ -10,7 +10,7 @@ If you are still setting up, read [Installation](installation.md) and
 
 Before deep debugging, confirm:
 
-1. Python 3.10+
+1. Python 3.11+
 2. Pydantic v2 installed
 3. Azure Functions Python v2 decorator model in use
 4. `@validate_http` placed directly above function definition
