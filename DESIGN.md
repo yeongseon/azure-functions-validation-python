@@ -41,7 +41,7 @@ This repository owns:
 
 ## Compatibility Policy
 
-- Minimum supported Python version: `3.10`
+- Minimum supported Python version: `3.11`
 - Supported runtime target: Azure Functions Python v2 programming model
 - Public APIs follow semantic versioning expectations
 
