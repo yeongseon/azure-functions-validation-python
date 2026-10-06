@@ -9,7 +9,7 @@ async handlers, and response model validation — all of which now live in
 
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
 import json
@@ -996,7 +996,7 @@ class TestScalarReturn:
         @validate_http()
         def handler(req: HttpRequest) -> dict[str, object]:
             return {
-                "created_at": datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                "created_at": datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC),
                 "amount": Decimal("12.30"),
                 "request_id": UUID("12345678-1234-5678-1234-567812345678"),
                 "status": Status.ACTIVE,
