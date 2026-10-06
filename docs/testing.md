@@ -66,7 +66,7 @@ The `azure-functions-validation` project maintains a high standard of quality th
 
 - **Total Tests**: 145+
 - **Code Coverage**: 99%
-- **Supported Environments**: Python 3.10, 3.11, 3.12, 3.13, and 3.14
+- **Supported Environments**: Python 3.11, 3.12, 3.13, and 3.14
 
 The test suite covers unit tests for individual modules, integration tests with real Azure Function handlers, and smoke tests using the provided examples.
 
@@ -197,7 +197,7 @@ You can view the coverage configuration under the `[tool.coverage.run]` and `[to
 The test suite runs automatically on every pull request and push to the main branch. The CI matrix ensures compatibility across:
 
 - **OS**: `ubuntu-latest`
-- **Python Versions**: 3.10, 3.11, 3.12, 3.13, 3.14
+- **Python Versions**: 3.11, 3.12, 3.13, 3.14
 
 This is managed via the `.github/workflows/ci-test.yml` configuration.
 
