@@ -990,7 +990,7 @@ class TestScalarReturn:
     def test_json_compatible_standard_types_in_mapping(
         self, mock_request_factory: RequestFactory
     ) -> None:
-        class Status(str, Enum):
+        class Status(str, Enum):  # noqa: UP042 - fixture preserves legacy enum serialization
             ACTIVE = "active"
 
         @validate_http()
