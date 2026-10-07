@@ -6,7 +6,7 @@ This guide covers how to set up a local development environment, run tests, and 
 
 ## Prerequisites
 
-- **Python 3.11+**
+- **Python 3.11-3.14**
 - **Git**
 - **Hatch** (`pip install hatch`)
 - **Make**
@@ -65,11 +65,15 @@ azure-functions-validation/
 
 This project uses pre-commit to ensure consistent code quality across formatting, linting, typing, and security.
 
-| Tool   | Version  | Purpose                        |
-|--------|----------|--------------------------------|
-| ruff   | v0.15.5  | Formatter + linter + import sorter |
-| mypy   | v1.19.1  | Static type checker            |
-| bandit | 1.9.4    | Security checker on `src/` only |
+| Tool   | Purpose                             |
+|--------|-------------------------------------|
+| ruff   | Formatter + linter + import sorter  |
+| mypy   | Static type checker                 |
+| bandit | Security checker on `src/` only     |
+
+Exact versions are pinned in the `dev` dependency group of `pyproject.toml`
+(and in `.pre-commit-config.yaml` for the hook revisions). Those files are the
+single source of truth, so this table does not restate the numbers.
 
 ### Bandit Configuration
 
@@ -134,7 +138,7 @@ Use these as the **golden commands** for local validation and CI parity. Prefer 
 
 ## Tips
 
-- Ensure you're using Python 3.11+.
+- Ensure you're using Python 3.11-3.14.
 - Use `make check-all` before committing to validate your changes.
 - Prefer `make` commands to ensure consistent dev experience across platforms.
 - Follow Conventional Commits for proper changelog generation.

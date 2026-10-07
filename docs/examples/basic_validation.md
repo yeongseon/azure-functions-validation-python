@@ -16,7 +16,7 @@ Source code path:
 
 Before running this example, make sure you have:
 
-1. Python 3.11+
+1. Python 3.11-3.14
 2. Azure Functions Python v2 app structure
 3. Installed dependencies (`azure-functions`, `azure-functions-validation`, `pydantic` v2)
 

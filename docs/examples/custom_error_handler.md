@@ -14,7 +14,7 @@ error code format.
 
 ## Prerequisites
 
-1. Python 3.11+
+1. Python 3.11-3.14
 2. Azure Functions Python v2 app
 3. Installed dependencies
 
