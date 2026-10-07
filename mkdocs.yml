@@ -21,6 +21,10 @@ nav:
   - User Guide:
       - Usage: usage.md
       - Architecture: architecture.md
+      - Endpoint Metadata Spec: METADATA_SPEC.md
+  - Deploying:
+      - Choose a Plan: choose-a-plan.md
+      - Deploy to Azure: deployment.md
   - Examples:
       - Basic Validation: examples/basic_validation.md
       - Query/Path/Header: examples/query_validation.md
@@ -32,7 +36,12 @@ nav:
       - Development: development.md
       - Testing: testing.md
       - Screenshot Capture: screenshot-capture.md
+      - Release Process: release_process.md
       - Guidelines: contributing.md
+      - Agent Playbook: agent-playbook.md
+      - azure-functions 2.0 Readiness: azure-functions-2.0-readiness.md
+      - Design Notes:
+          - Optional Body (#347): design/optional-body-347.md
   - Troubleshooting: troubleshooting.md
   - FAQ: faq.md
   - Security: security.md

@@ -16,11 +16,20 @@ can detect when they go stale.
 - **Manifest** — [`docs/assets/screenshots.yml`](assets/screenshots.yml) records
   the provenance of every documentation screenshot. It is seeded **empty**
   (`screenshots: []`), which the checker treats as clean.
-- **Checker** — `scripts/check_screenshots.py` hard-fails on missing images,
-  missing inputs, and duplicate ids; it warns (or, with `--strict`, fails) when
-  a screenshot's `source.inputs` change after capture.
+- **Checker** — `scripts/check_screenshots.py` hard-fails on an invalid
+  manifest, missing images, missing `source.inputs` files, duplicate ids, and
+  high-signal secret leaks (subscription-ID GUID, `AccountKey=`, a `code=`
+  function key, a SAS `sig=`) found either in an entry's metadata or in a
+  captured image's bytes. False positives can be allow-listed by exact token
+  under the manifest's `secret_scan.allow` list. Source-hash drift is a
+  **warning** by default and a failure only with `--strict`.
 - **PR gate** — [`.github/workflows/screenshots.yml`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/.github/workflows/screenshots.yml)
-  runs the checker on every pull request.
+  runs `python scripts/check_screenshots.py` (no `--strict`) on pull requests
+  that touch `docs/assets/screenshots.yml`, `scripts/check_screenshots.py`, or
+  anything under `examples/`, and on `workflow_dispatch`. Because the gate is
+  non-strict, structural problems and secret leaks block the PR while staleness
+  drift only prints a warning for a human to review and re-capture. Run
+  `make screenshots-check` locally for the strict version.
 
 Adding a manifest entry **before** the PNG exists will (correctly) fail the
 checker, so capture the image first, then register it.
@@ -64,9 +73,9 @@ screenshots:
   - id: portal-functionapp-overview
     image: docs/assets/portal-functionapp-overview.png
     captured:
-      package_version: "0.11.2"      # output of `make version`
+      package_version: "X.Y.Z"       # output of `make version`
       git_sha: "<commit-sha>"        # commit the capture was taken against
-      date: "2026-08-15"             # ISO-8601 capture date
+      date: "YYYY-MM-DD"             # ISO-8601 capture date
       method: manual                 # portal captures are always "manual"
     source:
       inputs:

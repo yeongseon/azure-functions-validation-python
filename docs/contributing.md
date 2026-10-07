@@ -25,7 +25,7 @@ To begin contributing, follow these steps to set up your local development envir
    make check-all
    ```
 
-Python 3.11 or higher is required for development.
+Python 3.11-3.14 is required for development (`pyproject.toml` declares `requires-python = ">=3.11,<3.15"`).
 
 ## Development Workflow
 
@@ -52,11 +52,14 @@ Titles for issues, pull requests, and commits follow the **Title Convention** in
 
 We maintain strict quality standards to ensure the reliability of the validation layer:
 
-- **Formatting**: Code must be formatted with `ruff` (v0.15.5).
-- **Linting**: We use `ruff` (v0.15.5) for linting and import sorting.
-- **Type Checking**: All public APIs must be fully typed. We use `mypy` (v1.19.1) for static type analysis.
-- **Security**: `bandit` (1.9.4) is used to scan for common security issues.
-- **Coverage**: We require 98% or higher test coverage for all changes.
+- **Formatting**: Code must be formatted with `ruff`.
+- **Linting**: We use `ruff` for linting and import sorting.
+- **Type Checking**: All public APIs must be fully typed. We use `mypy` for static type analysis.
+- **Security**: `bandit` is used to scan for common security issues.
+- **Coverage**: The `fail_under` threshold in `pyproject.toml` is **95%**; changes must keep coverage at or above it.
+
+Tool versions are pinned in the `dev` dependency group of `pyproject.toml` — that
+file is the single source of truth, so this guide does not restate the numbers.
 
 Run `make check-all` to execute all these tools locally before pushing your changes.
 
@@ -81,10 +84,16 @@ Examples are part of the supported developer experience and must remain runnable
 
 Every Pull Request must meet the following criteria before being merged:
 
-1. Pass all CI checks, including linting, type checking, security scans, and tests.
+1. Pass all CI checks required by branch protection on `main` — currently
+   `ci-required`, `bandit`, `semgrep`, `Analyze` (CodeQL), and `PR title`.
 2. Maintain or improve the overall project test coverage.
-3. Receive at least one approval from a maintainer.
+3. Resolve every review conversation (branch protection requires this).
 4. We prefer to squash and merge PRs to maintain a clean commit history.
+
+> **Reviews.** Branch protection does not currently require an approving review,
+> so a green PR with all conversations resolved is mergeable. Maintainer review
+> is still encouraged for anything touching the validation pipeline or the
+> public API.
 
 ## Version Management
 

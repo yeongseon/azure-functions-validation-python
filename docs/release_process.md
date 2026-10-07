@@ -27,12 +27,12 @@ Version bumps are derived from commit messages on `main`:
 
 | Commit | Bump |
 |---|---|
-| `fix:` | patch (`0.11.2` → `0.11.3`) |
-| `feat:` | minor (`0.11.2` → `0.12.0`) |
+| `fix:` | patch (`X.Y.Z` → `X.Y.Z+1`) |
+| `feat:` | minor (`X.Y.Z` → `X.Y+1.0`) |
 | `feat!:` / `fix!:` / `BREAKING CHANGE:` footer | minor while pre-1.0 (see below) |
 
 While this package is pre-1.0, `bump-minor-pre-major` is enabled, so a breaking change moves to the
-next minor (`0.12.0`) rather than jumping to `1.0.0`. Going to 1.0 is a deliberate, separate decision.
+next minor (`X.Y+1.0`) rather than jumping to `1.0.0`. Going to 1.0 is a deliberate, separate decision.
 
 Use scopes for more context: `fix(scope): short imperative summary`
 
@@ -56,11 +56,11 @@ These are configured in `release-please-config.json` under `changelog-sections`.
 
 ## Step 2: Merge the Release PR
 
-Release Please keeps an open **Release PR** titled like `chore(main): release 0.12.0`. It contains the
+Release Please keeps an open **Release PR** titled like `chore(main): release X.Y.Z`. It contains the
 version bump and the changelog entry.
 
 Merging that PR is the act of cutting a release. On merge, Release Please tags the release commit
-(`v0.12.0`) and publishes the GitHub Release.
+(`vX.Y.Z`) and publishes the GitHub Release.
 
 Release Please runs with `RELEASE_PLEASE_TOKEN` (a fine-grained PAT) rather than the default
 `GITHUB_TOKEN`, so the required status checks run on the Release PR and it is merged under the same
@@ -95,7 +95,7 @@ Publication uses PyPI Trusted Publishing (OIDC); there is no API token to manage
 To re-run after a failed gate (nothing was uploaded, so the version is still free):
 
 ```bash
-gh workflow run publish-pypi.yml --ref main -f tag=v0.12.0
+gh workflow run publish-pypi.yml --ref main -f tag=vX.Y.Z
 ```
 
 ---

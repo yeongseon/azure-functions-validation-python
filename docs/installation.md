@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11-3.14
 - `azure-functions`
 - Azure Functions Python **v2** (`func.FunctionApp` with decorators)
 
@@ -14,7 +14,7 @@
 
 | Component | Supported Range | Notes |
 | --- | --- | --- |
-| Python | 3.11+ | Project metadata currently declares `>=3.11,<3.15`. |
+| Python | 3.11-3.14 | Project metadata declares `>=3.11,<3.15`. Azure Functions has 3.11-3.14 generally available; 3.10 reaches end of support in October 2026. |
 | Pydantic | v2 (`>=2.0,<3.0`) | Validation models should inherit from `pydantic.BaseModel`. |
 | `azure-functions` | Required | Use with Python v2 decorator-based `FunctionApp`. |
 
@@ -49,7 +49,7 @@ python -c "import azure_functions_validation; print(azure_functions_validation._
 
 Expected outcome:
 
-- the command prints a version string such as `0.5.0`
+- the command prints the installed version string (`X.Y.Z`) — see [PyPI](https://pypi.org/project/azure-functions-validation/) for the current release
 - no import errors are raised
 
 You can also verify package metadata from your environment:

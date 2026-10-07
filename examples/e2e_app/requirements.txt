@@ -1,3 +1,15 @@
+# Dependencies for the Azure release-certification sample app.
+#
+# Release certification does NOT resolve this file. The `e2e-azure.yml`
+# workflow builds a wheel from the commit under test, pre-installs it (plus the
+# dependencies below) into `.python_packages/lib/site-packages`, and publishes
+# with `func ... --no-build`. That keeps certification bound to the candidate
+# wheel rather than whatever version PyPI happens to serve.
+#
+# This file exists so the sample app stays runnable locally (`func start`) and
+# so a manual `func azure functionapp publish` with remote build still works.
+# It is intentionally unpinned for `azure-functions-validation`: see the package
+# metadata on PyPI for the current version.
 azure-functions
-azure-functions-validation==0.5.6
+azure-functions-validation
 pydantic>=2.0,<3.0

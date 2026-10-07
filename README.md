@@ -357,7 +357,7 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 
 > HTTP 400
 
-> Manually verified by maintainers against a temporary Azure Functions deployment (koreacentral, Python 3.12, Consumption plan); response captured and URL anonymized. See [docs/deployment.md](docs/deployment.md#verification-status) for the verification status and context.
+> Manually verified by maintainers against a temporary Azure Functions deployment (koreacentral, Python 3.12, classic Linux Consumption plan — the plan in use at capture time). Response captured and URL anonymized. New deployments should use [Flex Consumption](https://learn.microsoft.com/azure/azure-functions/flex-consumption-plan): Linux Consumption retires on 30 September 2028 and receives no new Python versions. See [docs/deployment.md](docs/deployment.md#verification-status) for the verification status and context.
 
 ## Status codes and controlled errors
 
