@@ -27,12 +27,12 @@ Version bumps are derived from commit messages on `main`:
 
 | Commit | Bump |
 |---|---|
-| `fix:` | patch (`X.Y.Z` → `X.Y.Z+1`) |
-| `feat:` | minor (`X.Y.Z` → `X.Y+1.0`) |
+| `fix:` | patch (e.g. `0.14.0` → `0.14.1`) |
+| `feat:` | minor (e.g. `0.14.0` → `0.15.0`) |
 | `feat!:` / `fix!:` / `BREAKING CHANGE:` footer | minor while pre-1.0 (see below) |
 
 While this package is pre-1.0, `bump-minor-pre-major` is enabled, so a breaking change moves to the
-next minor (`X.Y+1.0`) rather than jumping to `1.0.0`. Going to 1.0 is a deliberate, separate decision.
+next minor release (e.g. `0.15.0`) rather than jumping to `1.0.0`. Going to 1.0 is a deliberate, separate decision.
 
 Use scopes for more context: `fix(scope): short imperative summary`
 
