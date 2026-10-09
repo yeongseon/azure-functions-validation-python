@@ -181,6 +181,10 @@ def handler(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
 !!! note "Advanced extension point"
     Most projects should keep the default adapter.
 
+The complete method, lifetime, serialization, and exception contract is in
+[Writing a custom adapter](adapters.md), including the reusable public
+conformance suite.
+
 Custom adapters use an explicit exception contract for all four request parsing
 methods (`parse_body`, `parse_query`, `parse_path`, and `parse_headers`):
 

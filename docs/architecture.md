@@ -165,6 +165,8 @@ Exported symbols (via `__all__`):
 - `MalformedRequestError` — custom adapters raise this for malformed client syntax
 - `ValidationAdapter` — the adapter protocol (public extension point)
 - `PydanticAdapter` — the default Pydantic v2 adapter implementation
+- `AdapterValidationError` — normalized backend-independent validation failure
+- `AdapterConformanceTests` — reusable public adapter contract tests
 - `__version__` — package version string
 
 Everything else (`PipelineConfig`, internal pipeline functions) is not part of

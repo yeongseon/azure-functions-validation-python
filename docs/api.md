@@ -4,6 +4,8 @@ This page documents the public API exported from `azure_functions_validation`.
 
 ```python
 from azure_functions_validation import (
+    AdapterConformanceTests,
+    AdapterValidationError,
     ErrorFormatter,
     HttpError,
     MalformedRequestError,
@@ -18,7 +20,8 @@ from azure_functions_validation import (
 !!! note "Public surface"
     The package exports (`__all__`): `validate_http`, `ResponseValidationError`,
     `SerializationError`, `MalformedRequestError`, `ErrorFormatter`,
-    `ValidationAdapter`, `PydanticAdapter`, and `HttpError`. Pipeline internals
+    `AdapterValidationError`, `ValidationAdapter`, `PydanticAdapter`,
+    `AdapterConformanceTests`, and `HttpError`. Pipeline internals
     (`PipelineConfig`, `run_pipeline`) are not
     public contracts.
 
@@ -364,6 +367,10 @@ Common status codes:
 implementation) are part of the public API. Pass a custom `adapter=` to
 `validate_http` to plug in a non-Pydantic validation backend; most deployments
 should keep the default `PydanticAdapter`.
+
+See [Writing a custom adapter](adapters.md) for every method's input, output,
+exception and content-type requirements, instance-reuse/thread-safety rules,
+formatter ordering, protocol versioning policy, and conformance-suite usage.
 
 Each `parse_body`, `parse_query`, `parse_path`, and `parse_headers` method must
 raise `MalformedRequestError` only for syntactically malformed client input
