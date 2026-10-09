@@ -14,6 +14,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Broken scenario: missing-h5-page.md
   - Getting Started:
       - Installation: installation.md
       - Quickstart: getting-started.md
