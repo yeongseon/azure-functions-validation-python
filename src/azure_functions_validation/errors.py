@@ -39,6 +39,14 @@ class InternalServerError(Exception):
         super().__init__("Internal Server Error")
 
 
+class RequestBindingError(Exception):
+    """Raised when the pipeline cannot resolve the handler's HTTP request."""
+
+
+class MalformedRequestError(Exception):
+    """Raised by adapters when client input is syntactically malformed."""
+
+
 class ErrorAdapter(Protocol):
     def format_error(self, exc: Exception) -> dict[str, Any]: ...
 

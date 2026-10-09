@@ -6,6 +6,7 @@ This page documents the public API exported from `azure_functions_validation`.
 from azure_functions_validation import (
     ErrorFormatter,
     HttpError,
+    MalformedRequestError,
     PydanticAdapter,
     ResponseValidationError,
     SerializationError,
@@ -16,8 +17,9 @@ from azure_functions_validation import (
 
 !!! note "Public surface"
     The package exports (`__all__`): `validate_http`, `ResponseValidationError`,
-    `SerializationError`, `ErrorFormatter`, `ValidationAdapter`, `PydanticAdapter`,
-    and `HttpError`. Pipeline internals (`PipelineConfig`, `run_pipeline`) are not
+    `SerializationError`, `MalformedRequestError`, `ErrorFormatter`,
+    `ValidationAdapter`, `PydanticAdapter`, and `HttpError`. Pipeline internals
+    (`PipelineConfig`, `run_pipeline`) are not
     public contracts.
 
 ## `validate_http`
@@ -337,9 +339,11 @@ misparsing new fields.
 
 Common status codes:
 
-- `400`: invalid JSON parsing (`"Invalid JSON"`).
+- `400`: an adapter raises `MalformedRequestError` for syntactically malformed
+  client input, including invalid JSON or UTF-8 (`"Invalid JSON"`).
 - `422`: request validation failed.
-- `500`: response validation failure or internal adapter failure.
+- `500`: request binding failure, response validation failure, or any unexpected
+  adapter exception, including a plain `ValueError`.
 
 !!! example "Typical loc values"
     - body errors: `loc` starts with `"body"`
@@ -360,6 +364,13 @@ Common status codes:
 implementation) are part of the public API. Pass a custom `adapter=` to
 `validate_http` to plug in a non-Pydantic validation backend; most deployments
 should keep the default `PydanticAdapter`.
+
+Each `parse_body`, `parse_query`, `parse_path`, and `parse_headers` method must
+raise `MalformedRequestError` only for syntactically malformed client input
+(`400`) and `AdapterValidationError` for validation failures (`422`). Every
+other exception is treated as an adapter or server fault, logged with traceback,
+and returned as a sanitized `500`. This is intentionally breaking: a custom
+adapter's plain `ValueError` is no longer classified as a client error.
 
 ```python
 from azure_functions_validation import PydanticAdapter, ValidationAdapter, validate_http

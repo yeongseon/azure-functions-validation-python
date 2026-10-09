@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import pytest
 
 from azure_functions_validation.adapter import PydanticAdapter
-from azure_functions_validation.errors import AdapterValidationError
+from azure_functions_validation.errors import AdapterValidationError, MalformedRequestError
 
 if TYPE_CHECKING:
     import pytest
@@ -124,10 +124,9 @@ class TestParseBody:
         assert len(exc_info.value.errors) == 1
 
     def test_invalid_json(self, adapter: PydanticAdapter, mock_request: type) -> None:
-        """Test parsing invalid JSON raises ValueError."""
         req = mock_request(b"{invalid json}")
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(MalformedRequestError) as exc_info:
             adapter.parse_body(req, UserModel)
 
         assert "Invalid JSON" in str(exc_info.value)
@@ -177,12 +176,11 @@ class TestParseBody:
         errors = exc_info.value.errors
         assert errors[0]["type"] == "missing"
 
-    def test_invalid_utf8_body_raises_value_error(
+    def test_invalid_utf8_body_raises_malformed_request_error(
         self, adapter: PydanticAdapter, mock_request: type
     ) -> None:
-        """Test that non-UTF-8 body bytes raise ValueError, not UnicodeDecodeError."""
         req = mock_request(b"\x80\x81\x82")
-        with pytest.raises(ValueError, match="Invalid JSON"):
+        with pytest.raises(MalformedRequestError, match="Invalid JSON"):
             adapter.parse_body(req, UserModel)
 
 
