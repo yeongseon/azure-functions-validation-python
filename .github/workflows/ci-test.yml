@@ -70,25 +70,12 @@ jobs:
             printf 'docs_only=false\ndocs_changed=true\nfull_required=true\n' >> "$GITHUB_OUTPUT"
           }
 
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            if [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ] && ! git cat-file -e "${HEAD_SHA}^{commit}"; then
-              if ! git fetch --no-tags origin "pull/${PR_NUMBER}/head"; then
-                fail_safe
-                exit 0
-              fi
-            fi
-            if ! git diff --name-only --no-renames "${BASE_SHA}...${HEAD_SHA}" > changed-files.txt; then
-              fail_safe
-              exit 0
-            fi
-          else
-            if [ -z "${BEFORE_SHA}" ] || [[ "${BEFORE_SHA}" =~ ^0+$ ]] \
-              || ! git cat-file -e "${BEFORE_SHA}^{commit}" \
-              || ! git merge-base --is-ancestor "${BEFORE_SHA}" "${SHA}" \
-              || ! git diff --name-only --no-renames "${BEFORE_SHA}" "${SHA}" > changed-files.txt; then
-              fail_safe
-              exit 0
-            fi
+          if ! tools/ci_collect_changed_files.sh \
+            "${EVENT_NAME}" "${BASE_SHA}" "${HEAD_SHA}" "${HEAD_REPOSITORY}" \
+            "${REPOSITORY}" "${PR_NUMBER}" "${BEFORE_SHA}" "${SHA}" \
+            > changed-files.txt; then
+            fail_safe
+            exit 0
           fi
 
           cat changed-files.txt
@@ -277,34 +264,13 @@ jobs:
 
       - name: Evaluate required checks
         env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          FORMAT_RESULT: ${{ needs.format.result }}
-          DOCS_CHECK_RESULT: ${{ needs.docs-check.result }}
           EVENT_NAME: ${{ github.event_name }}
-          QUALITY_RESULT: ${{ needs.quality.result }}
-          TEST_RESULT: ${{ needs.test.result }}
-          MINIMUM_DEPENDENCIES_RESULT: ${{ needs.minimum-dependencies.result }}
-          ARTIFACT_BUILD_RESULT: ${{ needs.artifact-build.result }}
-          ARTIFACT_PY310_RESULT: ${{ needs.artifact-python310-negative.result }}
-          ARTIFACT_PY311_RESULT: ${{ needs.artifact-python311.result }}
-          AF2X_RESULT: ${{ needs.azure-functions-2x.result }}
-          HOST_SMOKE_RESULT: ${{ needs.host-smoke.result }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
           DOCS_CHANGED: ${{ needs.changes.outputs.docs_changed }}
           FULL_REQUIRED: ${{ needs.changes.outputs.full_required }}
         run: |
           set -euo pipefail
-          printf '%s\n' \
-            "changes=${CHANGES_RESULT}" \
-            "format=${FORMAT_RESULT}" \
-            "docs-check=${DOCS_CHECK_RESULT}" \
-            "quality=${QUALITY_RESULT}" \
-            "test=${TEST_RESULT}" \
-            "minimum-dependencies=${MINIMUM_DEPENDENCIES_RESULT}" \
-            "artifact-build=${ARTIFACT_BUILD_RESULT}" \
-            "artifact-python310-negative=${ARTIFACT_PY310_RESULT}" \
-            "artifact-python311=${ARTIFACT_PY311_RESULT}" \
-            "azure-functions-2x=${AF2X_RESULT}" \
-            "host-smoke=${HOST_SMOKE_RESULT}" \
+          jq -r 'to_entries[] | "\(.key)=\(.value.result)"' <<< "${NEEDS_JSON}" \
             | tools/ci_check_required_results.sh \
                 "${EVENT_NAME}" "${DOCS_CHANGED}" "${FULL_REQUIRED}"
 
