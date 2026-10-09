@@ -82,6 +82,8 @@ def test_anything_that_may_affect_code_runs_the_full_matrix(files: list[str]) ->
         ["src/pkg/module.py"],
         ["tests/test_examples.py"],
         ["tests/test_screenshot_manifest.py"],
+        ["tests/test_endpoint_schema.py"],
+        ["scripts/check_screenshots.py"],
         [".github/workflows/ci-test.yml"],
         ["docs/hooks.py"],
         ["docs/extra.css"],
