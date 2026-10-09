@@ -47,8 +47,7 @@ def _run_workflow_wrapper(
     assert git_path is not None
     if fail_diff:
         (bin_dir / "git").write_text(
-            f"#!/usr/bin/env bash\n"
-            f'if [ "$1" = diff ]; then exit 42; fi\nexec "{git_path}" "$@"\n'
+            f'#!/usr/bin/env bash\nif [ "$1" = diff ]; then exit 42; fi\nexec "{git_path}" "$@"\n'
         )
         (bin_dir / "git").chmod(0o755)
     output = tmp_path / "github-output"
