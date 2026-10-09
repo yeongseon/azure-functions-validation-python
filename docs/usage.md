@@ -39,6 +39,30 @@ def create_user(req: func.HttpRequest, body: CreateUserBody) -> CreateUserResult
     Think of the decorator as a request/response contract layer:
     parse -> validate -> call handler -> validate response -> serialize.
 
+## Strict API boundary models
+
+The decorator respects each model's Pydantic configuration. A plain
+`BaseModel` uses lax coercion and ignores unknown fields: for example, `"123"`
+can become an integer and an undeclared field is dropped. For closed JSON body
+contracts, derive request models from a reusable base:
+
+```python
+from pydantic import BaseModel, ConfigDict
+
+
+class StrictApiModel(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+```
+
+Do not automatically reuse that strict base for `query=`, `path=`, or
+`headers=` models. Those values arrive as strings, so `strict=True` rejects
+common inputs such as `?limit=10` for an `int` field. Use a separate model with
+`ConfigDict(extra="forbid")` when you want normal URL/header parsing while
+still rejecting unknown fields.
+
+See [Strict API boundary models](strict-models.md) for runnable permissive and
+strict examples, exact `422` bodies, and source-specific recommendations.
+
 ## Input source patterns
 
 ### Body only
@@ -424,6 +448,7 @@ See [Troubleshooting](troubleshooting.md) for issue-by-issue fixes.
 
 ## Related pages
 
+- [Strict API boundary models](strict-models.md)
 - [Configuration](configuration.md)
 - [API Reference](api.md)
 - [Architecture](architecture.md)
