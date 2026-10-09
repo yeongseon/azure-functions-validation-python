@@ -43,6 +43,7 @@ def validate_http(
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
+    expose_internal_errors: bool = False,
 ) -> Callable[[Callable], Callable]:
     """Decorator for validating HTTP request inputs and response outputs.
     
@@ -55,6 +56,7 @@ def validate_http(
         response_model: Pydantic model or TypeAdapter-compatible type for response validation.
         adapter: Custom validation adapter (defaults to PydanticAdapter).
         error_formatter: Per-handler custom error formatter.
+        expose_internal_errors: Unsafe opt-in to pass original 5xx exceptions.
     
     Returns:
         A decorator that wraps the handler with validation logic.
@@ -64,7 +66,7 @@ def validate_http(
 ### Error Classes
 
 ```python
-from azure_functions_validation import ResponseValidationError, SerializationError
+from azure_functions_validation import InternalServerError, ResponseValidationError, SerializationError
 
 class ResponseValidationError(Exception):
     """Raised when response validation fails.
@@ -95,7 +97,7 @@ ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
 ```
 
 Type alias for custom error formatters. Called with:
-- `exception`: The caught validation or serialization exception
+- `exception`: Original for 4xx; sanitized `InternalServerError` for 5xx by default
 - `status_code`: HTTP status code (400, 422, 500, etc.)
 
 Must return a dict representing the error response body (will be JSON-serialized).
@@ -167,9 +169,10 @@ def create_user(req: func.HttpRequest, body: UserCreateRequest) -> CreateUserRes
 from azure_functions_validation import ErrorFormatter
 
 def my_error_formatter(exception: Exception, status_code: int) -> dict:
+    message = str(exception) if status_code < 500 else "Internal Server Error"
     return {
         "code": "VALIDATION_ERROR",
-        "message": str(exception),
+        "message": message,
         "status": status_code,
     }
 
