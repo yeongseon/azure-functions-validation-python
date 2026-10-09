@@ -21,6 +21,7 @@ nav:
   - User Guide:
       - Usage: usage.md
       - Architecture: architecture.md
+      - Custom Adapters: adapters.md
       - Endpoint Metadata Spec: METADATA_SPEC.md
   - Deploying:
       - Choose a Plan: choose-a-plan.md
