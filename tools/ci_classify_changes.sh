@@ -21,6 +21,7 @@ while IFS= read -r f || [ -n "$f" ]; do
       docs_changed=true
       ;;
     mkdocs.yml | pyproject.toml | src/* | examples/* | scripts/check_screenshots.py | \
+    tests/test_examples.py | tests/test_screenshot_manifest.py | .github/workflows/ci-test.yml | \
     docs/*.py | docs/*.yml | docs/*.yaml | \
     docs/*.json | docs/*.toml | docs/*.js | docs/*.css | docs/*.html | docs/*.txt)
       docs_only=false
@@ -33,7 +34,7 @@ while IFS= read -r f || [ -n "$f" ]; do
       docs_only=false
       ;;
     *.md | docs/*.png | docs/*.jpg | docs/*.jpeg | docs/*.gif | docs/*.svg | \
-    docs/*.webp | docs/*.ico | .omc/*)
+    docs/*.webp | docs/*.ico)
       docs_changed=true
       ;;
     *)
