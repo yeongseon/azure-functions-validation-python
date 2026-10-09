@@ -32,6 +32,13 @@ _SANITIZED_500_BODY = json.dumps(
 )
 
 
+class InternalServerError(Exception):
+    """Sanitized exception supplied to custom formatters for server errors."""
+
+    def __init__(self) -> None:
+        super().__init__("Internal Server Error")
+
+
 class ErrorAdapter(Protocol):
     def format_error(self, exc: Exception) -> dict[str, Any]: ...
 
@@ -121,6 +128,10 @@ def format_error_response(
     status_code: int,
     adapter: ErrorAdapter,
     error_formatter: ErrorFormatter | None = None,
+    *,
+    expose_internal_errors: bool = False,
+    handler_name: str | None = None,
+    log_exception: bool = True,
 ) -> HttpResponse:
     """Build an ``HttpResponse`` for a validation or parsing error.
 
@@ -129,6 +140,10 @@ def format_error_response(
         status_code: HTTP status code for the response.
         adapter: The validation adapter used for default formatting.
         error_formatter: Optional per-handler custom formatter.
+        expose_internal_errors: Pass the original server-side exception to the
+            custom formatter. This is unsafe because formatters may expose it.
+        handler_name: Name of the handler associated with a server error.
+        log_exception: Whether this function owns logging the server error.
 
     Returns:
         An ``HttpResponse`` with a JSON error body.
@@ -136,9 +151,20 @@ def format_error_response(
     response_status_code = status_code
     used_custom_formatter = False
 
+    if status_code >= 500 and log_exception:
+        logger.error(
+            "Server-side validation pipeline error for handler %r",
+            handler_name,
+            exc_info=exception,
+        )
+
+    formatter_exception = (
+        exception if status_code < 500 or expose_internal_errors else InternalServerError()
+    )
+
     if error_formatter is not None:
         try:
-            error_response = error_formatter(exception, status_code)
+            error_response = error_formatter(formatter_exception, status_code)
         except Exception:
             logger.exception("error_formatter raised an unexpected exception")
             response_status_code = 500

@@ -185,7 +185,8 @@ from typing import Any
 
 
 def formatter(exc: Exception, status_code: int) -> dict[str, Any]:
-    return {"error": {"code": status_code, "message": str(exc)}}
+    message = str(exc) if status_code < 500 else "Internal Server Error"
+    return {"error": {"code": status_code, "message": message}}
 
 
 @validate_http(body=BodyModel, error_formatter=formatter)

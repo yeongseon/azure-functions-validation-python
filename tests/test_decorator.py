@@ -53,6 +53,12 @@ class LegacyModel(BaseModelV1):
 class TestConfigurationErrors:
     """Tests for decorator configuration errors."""
 
+    @pytest.mark.parametrize("value", [None, 0, 1, "false"])
+    def test_expose_internal_errors_rejects_non_bool(self, value: object) -> None:
+        options: dict[str, Any] = {"expose_internal_errors": value}
+        with pytest.raises(TypeError, match="expose_internal_errors must be a bool"):
+            validate_http(**options)
+
     @pytest.mark.parametrize(
         "model_option",
         ["body", "query", "path", "headers", "request_model", "response_model"],

@@ -27,6 +27,7 @@ response schemas. FastAPI-like developer experience without the web framework.
 ## Key Concepts
 
 - Decorator-first: `@validate_http(body=Model, response_model=Model)`
+- Safe custom errors: 5xx formatters receive `InternalServerError` by default.
 - Request validation: body, query, path, headers all via Pydantic models
 - Automatic responses: 400/422 with `{"detail": [...]}` envelope on validation errors
 - Response enforcement: mismatches raise `ResponseValidationError` (HTTP 500)

@@ -2,7 +2,13 @@
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .decorator import validate_http
-from .errors import ErrorFormatter, HttpError, ResponseValidationError, SerializationError
+from .errors import (
+    ErrorFormatter,
+    HttpError,
+    InternalServerError,
+    ResponseValidationError,
+    SerializationError,
+)
 
 __all__ = [
     "__version__",
@@ -13,6 +19,7 @@ __all__ = [
     "ValidationAdapter",
     "PydanticAdapter",
     "HttpError",
+    "InternalServerError",
 ]
 
 __version__ = "0.14.0"

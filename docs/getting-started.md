@@ -153,10 +153,11 @@ from typing import Any
 
 
 def my_error_formatter(exc: Exception, status_code: int) -> dict[str, Any]:
+    message = str(exc) if status_code < 500 else "Internal Server Error"
     return {
         "error": {
             "code": f"VALIDATION_{status_code}",
-            "message": str(exc),
+            "message": message,
         }
     }
 

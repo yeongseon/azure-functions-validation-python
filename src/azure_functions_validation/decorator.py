@@ -36,6 +36,7 @@ def validate_http(
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
+    expose_internal_errors: bool = False,
     status_code: int = 200,
     legacy_loc: bool = False,
 ) -> Callable[..., Any]:
@@ -51,6 +52,9 @@ def validate_http(
         response_model: Pydantic model for response validation.
         adapter: Custom validation adapter (defaults to ``PydanticAdapter``).
         error_formatter: Per-handler custom error formatter.
+        expose_internal_errors: Unsafe opt-in that passes original server-side
+            exceptions to *error_formatter*. Defaults to ``False`` so custom
+            formatters receive a sanitized ``InternalServerError`` for 5xx errors.
         status_code: HTTP status code for successful responses (default 200).
             Use e.g. ``status_code=201`` for creation endpoints.
         legacy_loc: When ``True``, error ``loc`` values omit the leading
@@ -61,6 +65,9 @@ def validate_http(
     Returns:
         A decorator that wraps the handler with validation logic.
     """
+    if not isinstance(expose_internal_errors, bool):
+        raise TypeError("expose_internal_errors must be a bool")
+
     # Handle request_model shorthand
     if request_model is not None:
         warnings.warn(
@@ -134,6 +141,7 @@ def validate_http(
             response_model=response_model,
             adapter=adapter,
             error_formatter=error_formatter,
+            expose_internal_errors=expose_internal_errors,
             func_params=func_params,
             request_param_name=request_param_name,
             response_type_adapter=response_type_adapter,
