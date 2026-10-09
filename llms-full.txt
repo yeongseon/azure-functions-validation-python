@@ -36,15 +36,13 @@ override `make_adapter()`. Non-Pydantic backends also override its model hooks.
 
 ```python
 from azure_functions_validation import validate_http
-from pydantic import BaseModel
-
 def validate_http(
     *,
-    body: type[BaseModel] | None = None,
-    query: type[BaseModel] | None = None,
-    path: type[BaseModel] | None = None,
-    headers: type[BaseModel] | None = None,
-    request_model: type[BaseModel] | None = None,
+    body: Any = None,
+    query: Any = None,
+    path: Any = None,
+    headers: Any = None,
+    request_model: Any = None,
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
@@ -56,7 +54,7 @@ def validate_http(
     response_exclude_unset: bool = False,
     max_body_bytes: int | None = None,
     require_json_content_type: bool = False,
-) -> Callable[[Callable], Callable]:
+) -> Callable[..., Any]:
     """Decorator for validating HTTP request inputs and response outputs.
     
     Args:
@@ -64,11 +62,13 @@ def validate_http(
         query: Pydantic model for query parameter validation.
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
-        request_model: Shorthand alias for body parameter.
+        request_model: Deprecated shorthand alias for body. Use body instead.
         response_model: Pydantic model or TypeAdapter-compatible type for response validation.
         adapter: Custom validation adapter (defaults to PydanticAdapter).
         error_formatter: Per-handler custom error formatter.
         expose_internal_errors: Unsafe opt-in to pass original 5xx exceptions.
+        status_code: HTTP status code for successful responses (default 200).
+        legacy_loc: Omit the leading input source from error locations when true.
         response_by_alias: Use aliases in validated response JSON and schema metadata.
         response_exclude_none: Omit None-valued fields from validated response JSON.
         response_exclude_unset: Omit fields not explicitly set from validated response JSON.
