@@ -75,8 +75,9 @@ tracked for staleness.
 3. **Local `.env` values don't automatically appear on Azure.** You must set app settings separately via `az functionapp config appsettings set`.
 4. **First deploy takes longer than expected.** Azure runs a remote build to install your Python dependencies. Wait for the "Deployment successful" message before testing.
 5. **Deleting local files does not delete Azure resources.** You must explicitly delete the resource group to stop billing (see [Clean up resources](#clean-up-resources)).
-6. **Validation endpoints expect JSON requests with `Content-Type: application/json`.** Missing or incorrect JSON content headers can produce `400` parsing errors before field validation runs.
+6. **Content-Type enforcement is opt-in.** By default, body validation attempts JSON parsing regardless of `Content-Type`; malformed JSON returns `400`. With `require_json_content_type=True`, a non-empty body with a wrong or missing JSON media type returns `415`.
 7. **`400` and `422` are different failure classes.** `400 Bad Request` means malformed JSON; `422 Unprocessable Entity` means JSON is valid but does not satisfy schema constraints.
+8. **Application body limits are not transport limits.** `max_body_bytes` returns `413`, but Azure Functions has already buffered the request. Configure API Management or host limits to reject oversized requests before application code.
 
 ---
 
@@ -569,7 +570,9 @@ az functionapp create \
 
 | Symptom | Usually means | How to fix |
 |---|---|---|
-| `400 Bad Request` on POST | Malformed JSON or wrong/missing `Content-Type` | Send valid JSON and include `-H "Content-Type: application/json"` |
+| `400 Bad Request` on POST | Malformed JSON | Send syntactically valid JSON |
+| `413 Payload Too Large` on POST | Body exceeds opt-in `max_body_bytes` | Reduce the body; configure APIM/host limits for transport-level enforcement |
+| `415 Unsupported Media Type` on POST | Opt-in `require_json_content_type` rejected a non-empty body with wrong/missing `Content-Type` | Send `Content-Type: application/json` or an `application/*+json` media type |
 | `422 Unprocessable Entity` | JSON parsed successfully but schema validation failed | Inspect `detail` and fix request fields/types/constraints |
 | `404 Not Found` on expected route | Function route not loaded or wrong URL | Confirm publish output lists the function and use `/api/...` prefix |
 | `500 Internal Server Error` | Runtime exception in your function code | Stream logs and inspect traceback |
