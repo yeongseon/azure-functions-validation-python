@@ -59,6 +59,18 @@ class TestConfigurationErrors:
         with pytest.raises(TypeError, match="expose_internal_errors must be a bool"):
             validate_http(**options)
 
+    @pytest.mark.parametrize("value", [True, False, 0, -1, 1.5, "10"])
+    def test_max_body_bytes_rejects_invalid_values(self, value: object) -> None:
+        options: dict[str, Any] = {"max_body_bytes": value}
+        with pytest.raises(ValueError, match="max_body_bytes must be a positive integer"):
+            validate_http(**options)
+
+    @pytest.mark.parametrize("value", [None, 0, 1, "true"])
+    def test_require_json_content_type_rejects_non_bool(self, value: object) -> None:
+        options: dict[str, Any] = {"require_json_content_type": value}
+        with pytest.raises(TypeError, match="require_json_content_type must be a bool"):
+            validate_http(**options)
+
     @pytest.mark.parametrize(
         ("option_name", "option_value"),
         [

@@ -47,6 +47,20 @@ class MalformedRequestError(Exception):
     """Raised by adapters when client input is syntactically malformed."""
 
 
+class PayloadTooLargeError(Exception):
+    """Raised when a request body exceeds its configured byte limit."""
+
+    def __init__(self) -> None:
+        super().__init__("Request body too large")
+
+
+class UnsupportedMediaTypeError(Exception):
+    """Raised when a body endpoint requires JSON but receives another media type."""
+
+    def __init__(self) -> None:
+        super().__init__("Unsupported media type; expected application/json")
+
+
 class ErrorAdapter(Protocol):
     def format_error(self, exc: Exception) -> dict[str, Any]: ...
 
@@ -183,6 +197,26 @@ def format_error_response(
     elif isinstance(exception, HttpError) and status_code < 500:
         # Controlled handler error — render its detail through the envelope.
         error_response = {"detail": exception.to_detail()}
+    elif isinstance(exception, PayloadTooLargeError):
+        error_response = {
+            "detail": [
+                {
+                    "loc": ["body"],
+                    "msg": str(exception),
+                    "type": "payload_too_large",
+                }
+            ]
+        }
+    elif isinstance(exception, UnsupportedMediaTypeError):
+        error_response = {
+            "detail": [
+                {
+                    "loc": ["headers", "content-type"],
+                    "msg": str(exception),
+                    "type": "unsupported_media_type",
+                }
+            ]
+        }
     elif status_code >= 500:
         # Sanitize server errors — never leak internal details to the client
         error_response = json.loads(_SANITIZED_500_BODY)
