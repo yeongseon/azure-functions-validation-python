@@ -9,6 +9,9 @@ Part of the **Azure Functions Python DX Toolkit**. Pydantic-powered request vali
 - [Quickstart](https://yeongseon.dev/azure-functions-python/validation/getting-started/): Minimal end-to-end example.
 - [Configuration](https://yeongseon.dev/azure-functions-python/validation/configuration/): Customize validation behavior.
 - Custom formatters receive original 4xx exceptions and sanitized 5xx errors by default.
+- Validated responses support `response_by_alias`, `response_exclude_none`, and
+  `response_exclude_unset`; these require `response_model` and do not apply to
+  direct `HttpResponse` returns.
 - Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
   `AdapterValidationError` for validation failures (422); other exceptions are
   logged and sanitized as 500.
