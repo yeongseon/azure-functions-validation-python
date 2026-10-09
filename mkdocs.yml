@@ -20,6 +20,7 @@ nav:
       - Configuration: configuration.md
   - User Guide:
       - Usage: usage.md
+      - Strict API Boundary Models: strict-models.md
       - Architecture: architecture.md
       - Custom Adapters: adapters.md
       - Endpoint Metadata Spec: METADATA_SPEC.md
