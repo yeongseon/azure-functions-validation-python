@@ -64,8 +64,8 @@ Passing both `body` and `json` raises `ValueError`.
 
 The `azure-functions-validation` project maintains a high standard of quality through a comprehensive test suite. The suite ensures that request validation, response serialization, and decorator behavior work correctly across different Python versions and Azure Functions scenarios.
 
-- **Total Tests**: 145+
-- **Code Coverage**: 99%
+- **Coverage gate**: `fail_under = 95` in `pyproject.toml`; committed changes and pull requests must maintain at least 95% coverage under `AGENTS.md`.
+- **Current coverage**: See the CI coverage report or the Codecov badge in the project README rather than a hard-coded measurement.
 - **Supported Environments**: Python 3.11, 3.12, 3.13, and 3.14
 
 The test suite covers unit tests for individual modules, integration tests with real Azure Function handlers, and smoke tests using the provided examples.
