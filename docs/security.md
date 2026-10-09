@@ -84,6 +84,7 @@ Understanding the boundaries of this library is essential for building secure Az
 
 - **Authentication and Authorization**: This library does not handle user identity or permission checks. Use the built-in Azure Functions authentication levels or custom middleware.
 - **Rate Limiting**: Protection against denial-of-service (DoS) attacks via rate limiting is managed at the Azure API Management or Azure Functions platform level.
+- **Transport-Level Body Limits**: `max_body_bytes` runs after Azure Functions has buffered the request. It is an application contract, not protection against request-body resource exhaustion; configure host or API Management limits for that boundary.
 - **Encryption**: Data-at-rest and data-in-transit encryption are handled by the Azure platform and underlying Python runtime.
 
 Azure Functions runtime security and platform-level infrastructure are managed by the Azure platform and are outside the control of this library.
@@ -96,6 +97,7 @@ When using this library, follow these practices to enhance your application's se
 2. **Use Strict Pydantic Models**: Define field constraints in your Pydantic models (e.g., `min_length`, `max_length`, `ge`, `le`, `pattern`). Avoid using generic `Any` types where possible.
 3. **Prevent Data Leakage**: Always use `response_model` in the `@validate_http` decorator. This ensures that only the fields defined in your response model are sent back to the client, preventing accidental exposure of internal data structures.
 4. **Keep Dependencies Updated**: Regularly update `pydantic` and `azure-functions` to benefit from the latest security patches.
+5. **Layer Body Controls**: Use `max_body_bytes` and `require_json_content_type` for handler contracts, plus Azure Functions host or API Management limits for transport enforcement.
 
 ## Dependency Security
 
