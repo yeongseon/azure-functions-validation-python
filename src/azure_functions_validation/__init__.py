@@ -8,8 +8,10 @@ from .errors import (
     HttpError,
     InternalServerError,
     MalformedRequestError,
+    PayloadTooLargeError,
     ResponseValidationError,
     SerializationError,
+    UnsupportedMediaTypeError,
 )
 from .testing import AdapterConformanceTests
 
@@ -24,6 +26,8 @@ __all__ = [
     "HttpError",
     "InternalServerError",
     "MalformedRequestError",
+    "PayloadTooLargeError",
+    "UnsupportedMediaTypeError",
     "AdapterValidationError",
     "AdapterConformanceTests",
 ]
