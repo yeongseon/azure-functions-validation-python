@@ -9,9 +9,11 @@ from azure_functions_validation import (
     ErrorFormatter,
     HttpError,
     MalformedRequestError,
+    PayloadTooLargeError,
     PydanticAdapter,
     ResponseValidationError,
     SerializationError,
+    UnsupportedMediaTypeError,
     ValidationAdapter,
     validate_http,
 )
@@ -19,7 +21,8 @@ from azure_functions_validation import (
 
 !!! note "Public surface"
     The package exports (`__all__`): `validate_http`, `ResponseValidationError`,
-    `SerializationError`, `MalformedRequestError`, `ErrorFormatter`,
+    `SerializationError`, `MalformedRequestError`, `PayloadTooLargeError`,
+    `UnsupportedMediaTypeError`, `ErrorFormatter`,
     `AdapterValidationError`, `ValidationAdapter`, `PydanticAdapter`,
     `AdapterConformanceTests`, and `HttpError`. Pipeline internals
     (`PipelineConfig`, `run_pipeline`) are not
@@ -34,11 +37,24 @@ from azure_functions_validation import (
 | `response_by_alias` | `True` | Use serialization aliases in validated response JSON and endpoint response metadata. |
 | `response_exclude_none` | `False` | Omit validated fields whose value is `None`. |
 | `response_exclude_unset` | `False` | Omit validated fields that were not explicitly set. |
+| `max_body_bytes` | `None` | Reject a configured body above this byte count with `413`. |
+| `require_json_content_type` | `False` | Require `application/json` or `application/*+json` for non-empty configured bodies; otherwise return `415`. |
 
 The response serialization options require `response_model`. Non-default values
 without a response model raise `ValueError` at decoration time. They do not apply
 when a handler returns `HttpResponse` directly; that path remains a full bypass.
 Exclusion options alter payload presence, not the emitted response schema.
+
+Body-policy failures are public typed exceptions:
+
+- `PayloadTooLargeError` maps to `413` with `loc=["body"]` and type
+  `payload_too_large`.
+- `UnsupportedMediaTypeError` maps to `415` with
+  `loc=["headers", "content-type"]` and type `unsupported_media_type`.
+
+Custom formatters receive these original exceptions because both are 4xx
+errors. Endpoint metadata remains unchanged and does not yet advertise the
+optional `413`/`415` responses.
 
 ### Usage example: body + response validation
 
