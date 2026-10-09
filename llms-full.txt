@@ -27,6 +27,11 @@ pip install -e .[dev]
 
 ## Public API
 
+Custom adapter authors can import `ValidationAdapter`, `AdapterValidationError`,
+`MalformedRequestError`, `SerializationError`, and `AdapterConformanceTests`.
+The suite is pytest-agnostic at import time; subclass it in a test module and
+override `make_adapter()`. Non-Pydantic backends also override its model hooks.
+
 ### Main Decorator
 
 ```python
@@ -275,3 +280,11 @@ Custom adapter parsing methods must raise `MalformedRequestError` for malformed
 client syntax (`400`) or `AdapterValidationError` for validation failures
 (`422`). Every other exception, including plain `ValueError`, is an adapter fault
 that is logged with traceback and returned as a sanitized `500`.
+
+Adapters are instantiated once at decoration and reused across concurrent
+invocations, so they must be stateless or thread-safe. `serialize()` returns a
+`(str | bytes, content_type: str)` pair and raises `SerializationError` for
+unsupported values; the pipeline handles `None` as 204 before serialization.
+Protocol signatures, exception/status classification, normalized error shape,
+content types, and reuse semantics are compatibility contracts. While the
+package is pre-1.0, incompatible protocol changes require a minor release.
