@@ -190,7 +190,8 @@ requires plain JSON Schema with `$defs` left unresolved:
 
 | Rule | Value |
 | --- | --- |
-| Alias handling | `by_alias=True` |
+| Request/parameter alias handling | `by_alias=True` |
+| Response alias handling | Matches `response_by_alias` (default `True`) |
 | Request schema mode | `mode='validation'` |
 | Response schema mode | `mode='serialization'` |
 | Ref template | Pydantic default `#/$defs/{model}` |
@@ -201,6 +202,8 @@ requires plain JSON Schema with `$defs` left unresolved:
 The response-schema mode above applies to **Pydantic-derived response-model
 schemas**. The `422` validation-error response schema is produced directly
 (not from a Pydantic model) and is unaffected by these settings.
+`response_exclude_none` and `response_exclude_unset` affect runtime payload
+presence but do not change the response schema.
 
 ### Structural rule: `$defs` if `$ref`
 
