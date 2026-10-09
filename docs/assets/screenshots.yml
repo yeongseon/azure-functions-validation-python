@@ -10,7 +10,7 @@ screenshots:
   source:
     inputs:
     - examples/e2e_app/function_app.py
-    hash: sha256:5121dbb348962969f08039e90f62d470680706f6046c8b67df987abc4c187d85
+    hash: sha256:4ee18db26ec72d0741999b2b9b63c69660618c34c39595579b065536eb0d39c6
   output:
     hash: sha256:682a8a2611a49973ca9a07d8d16e69d109e27b49e4c42e8c661d73311f16bbe4
 - id: portal-functionapp-functions
@@ -23,6 +23,6 @@ screenshots:
   source:
     inputs:
     - examples/e2e_app/function_app.py
-    hash: sha256:5121dbb348962969f08039e90f62d470680706f6046c8b67df987abc4c187d85
+    hash: sha256:4ee18db26ec72d0741999b2b9b63c69660618c34c39595579b065536eb0d39c6
   output:
     hash: sha256:134e330aeeaaa85cb6cf44275a02ea8624c515647cc55cc3f227bba100273f56
