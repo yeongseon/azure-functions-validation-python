@@ -54,6 +54,8 @@ def validate_http(
     response_by_alias: bool = True,
     response_exclude_none: bool = False,
     response_exclude_unset: bool = False,
+    max_body_bytes: int | None = None,
+    require_json_content_type: bool = False,
 ) -> Callable[[Callable], Callable]:
     """Decorator for validating HTTP request inputs and response outputs.
     
@@ -70,6 +72,8 @@ def validate_http(
         response_by_alias: Use aliases in validated response JSON and schema metadata.
         response_exclude_none: Omit None-valued fields from validated response JSON.
         response_exclude_unset: Omit fields not explicitly set from validated response JSON.
+        max_body_bytes: Optional positive application-level body byte limit (HTTP 413).
+        require_json_content_type: Require JSON media types for non-empty bodies (HTTP 415).
     
     Returns:
         A decorator that wraps the handler with validation logic.
@@ -82,8 +86,10 @@ def validate_http(
 from azure_functions_validation import (
     InternalServerError,
     MalformedRequestError,
+    PayloadTooLargeError,
     ResponseValidationError,
     SerializationError,
+    UnsupportedMediaTypeError,
 )
 
 class ResponseValidationError(Exception):
@@ -106,6 +112,12 @@ class SerializationError(TypeError):
 
 class MalformedRequestError(Exception):
     """Raised by adapters for syntactically malformed client input (HTTP 400)."""
+
+class PayloadTooLargeError(Exception):
+    """Raised when max_body_bytes is exceeded (HTTP 413)."""
+
+class UnsupportedMediaTypeError(Exception):
+    """Raised when require_json_content_type rejects a media type (HTTP 415)."""
 ```
 
 ### Error Formatting
