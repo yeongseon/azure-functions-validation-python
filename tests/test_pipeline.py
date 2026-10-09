@@ -22,7 +22,8 @@ from azure.functions import HttpRequest
 from pydantic import BaseModel, Field
 import pytest
 
-from azure_functions_validation import validate_http
+from azure_functions_validation import HttpError, InternalServerError, validate_http
+from azure_functions_validation.adapter import PydanticAdapter
 
 RequestFactory: TypeAlias = Callable[..., HttpRequest]
 
@@ -764,6 +765,93 @@ class TestHttpRequestInjection:
 
 class TestCustomErrorFormatter:
     """Tests for custom error formatter functionality."""
+
+    @pytest.mark.parametrize("failure", ["parse", "serialize", "response", "http_error"])
+    def test_custom_formatter_receives_sanitized_exception_for_sync_5xx_paths(
+        self,
+        failure: str,
+        mock_request_factory: RequestFactory,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        captured: list[Exception] = []
+
+        def formatter(exc: Exception, status_code: int) -> dict[str, object]:
+            captured.append(exc)
+            return {"message": str(exc), "status": status_code}
+
+        adapter = PydanticAdapter()
+        if failure == "parse":
+            adapter = Mock(spec=PydanticAdapter)
+            adapter.parse_body.side_effect = RuntimeError("parse secret")
+        response_model = ResponseModel if failure == "response" else None
+
+        @validate_http(
+            body=UserModel if failure == "parse" else None,
+            response_model=response_model,
+            adapter=adapter,
+            error_formatter=formatter,
+        )
+        def handler(req: HttpRequest) -> object:
+            if failure == "serialize":
+                return object()
+            if failure == "response":
+                return {"wrong": "shape"}
+            if failure == "http_error":
+                raise HttpError(503, "database secret")
+            return {"ok": True}
+
+        with caplog.at_level(logging.ERROR):
+            response = handler(mock_request_factory(body=b'{"name": "Ada", "age": 30}'))
+
+        assert response.status_code >= 500
+        assert len(captured) == 1
+        assert isinstance(captured[0], InternalServerError)
+        assert str(captured[0]) == "Internal Server Error"
+        records = [record for record in caplog.records if record.exc_info is not None]
+        assert len(records) == 1
+
+    @pytest.mark.anyio
+    async def test_async_5xx_formatter_receives_sanitized_exception(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        captured: list[Exception] = []
+
+        def formatter(exc: Exception, status_code: int) -> dict[str, object]:
+            captured.append(exc)
+            return {"message": str(exc)}
+
+        @validate_http(error_formatter=formatter)
+        async def handler(req: HttpRequest) -> object:
+            raise HttpError(500, "async secret")
+
+        response = await handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert len(captured) == 1
+        assert isinstance(captured[0], InternalServerError)
+
+    def test_expose_internal_errors_passes_original_exception(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        captured: list[Exception] = []
+
+        def formatter(exc: Exception, status_code: int) -> dict[str, object]:
+            captured.append(exc)
+            return {"message": str(exc)}
+
+        original = HttpError(500, "unsafe secret")
+
+        @validate_http(error_formatter=formatter, expose_internal_errors=True)
+        def handler(req: HttpRequest) -> object:
+            raise original
+
+        response = handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert captured == [original]
+        assert json.loads(response.get_body()) == {"message": "unsafe secret"}
 
     def test_custom_formatter_for_validation_error(
         self, mock_request_factory: RequestFactory

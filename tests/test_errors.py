@@ -9,6 +9,7 @@ import pytest
 from azure_functions_validation.errors import (
     ERROR_FORMAT_VERSION,
     ErrorFormatter,
+    InternalServerError,
     ResponseValidationError,
     SerializationError,
     format_error_response,
@@ -119,20 +120,71 @@ class TestFormatErrorResponse:
         }
         adapter.format_error.assert_not_called()
 
-    def test_500_sanitization_bypassed_by_custom_formatter(self) -> None:
-        """Test that custom error_formatter takes precedence over sanitization."""
+    def test_custom_500_formatter_receives_sanitized_exception(self) -> None:
         adapter = Mock()
+        captured: list[Exception] = []
 
         def fmt(exc: Exception, status: int) -> dict[str, object]:
-            return {"custom": True, "status": status}
+            captured.append(exc)
+            return {"message": str(exc), "status": status}
 
-        resp = format_error_response(RuntimeError("x"), 500, adapter, error_formatter=fmt)
+        original = RuntimeError("secret")
+        resp = format_error_response(original, 500, adapter, error_formatter=fmt)
 
         assert resp.status_code == 500
-        data = json.loads(resp.get_body().decode())
-        assert data["custom"] is True
-        assert data["status"] == 500
+        assert json.loads(resp.get_body()) == {"message": "Internal Server Error", "status": 500}
+        assert len(captured) == 1
+        assert isinstance(captured[0], InternalServerError)
+        assert captured[0].__cause__ is None
+        assert captured[0].__context__ is None
         adapter.format_error.assert_not_called()
+
+    def test_custom_500_formatter_can_receive_original_with_unsafe_opt_in(self) -> None:
+        adapter = Mock()
+        captured: list[Exception] = []
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            captured.append(exc)
+            return {"message": str(exc)}
+
+        original = RuntimeError("secret")
+        resp = format_error_response(
+            original,
+            500,
+            adapter,
+            error_formatter=fmt,
+            expose_internal_errors=True,
+        )
+
+        assert json.loads(resp.get_body()) == {"message": "secret"}
+        assert captured == [original]
+
+    def test_custom_4xx_formatter_receives_original_exception(self) -> None:
+        adapter = Mock()
+        captured: list[Exception] = []
+
+        def fmt(exc: Exception, status: int) -> dict[str, object]:
+            captured.append(exc)
+            return {"message": str(exc)}
+
+        original = ValueError("bad input")
+        format_error_response(original, 400, adapter, error_formatter=fmt)
+
+        assert captured == [original]
+
+    def test_500_original_is_logged_once_with_traceback(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        adapter = Mock()
+        original = RuntimeError("secret")
+
+        format_error_response(original, 500, adapter)
+
+        records = [record for record in caplog.records if record.exc_info is not None]
+        assert len(records) == 1
+        assert records[0].exc_info is not None
+        assert records[0].exc_info[1] is original
 
     def test_formatter_exception_returns_sanitized_500(
         self,
