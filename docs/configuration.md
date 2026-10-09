@@ -18,6 +18,8 @@ in production handlers.
     error_formatter=...,
     status_code=200,
     legacy_loc=False,
+    max_body_bytes=None,
+    require_json_content_type=False,
 )
 ```
 
@@ -38,6 +40,8 @@ Public keyword-only parameters:
 - `error_formatter`
 - `status_code` (default `200`)
 - `legacy_loc` (default `False`)
+- `max_body_bytes` (default `None`)
+- `require_json_content_type` (default `False`)
 
 !!! note "Keyword-only API"
     `validate_http` parameters are keyword-only. Prefer explicit names for
@@ -64,6 +68,36 @@ Behavior:
 - Empty body -> `422` (`missing` error)
 - Invalid JSON syntax -> `400`
 - Invalid field values -> `422`
+
+### `max_body_bytes`
+
+Set a positive byte limit to reject oversized configured bodies with `413
+Payload Too Large` before JSON decoding or custom-adapter parsing. The default
+`None` preserves unlimited application-level behavior. The byte count uses
+`req.get_body()`; a declared `Content-Length` above the limit can be rejected
+first, but Azure Functions has already buffered the body before user code runs.
+
+```python
+@validate_http(body=CreateBody, max_body_bytes=1_048_576)
+def create(req: func.HttpRequest, body: CreateBody) -> dict[str, str]:
+    return {"name": body.name}
+```
+
+`max_body_bytes` is an application contract, not transport-level DoS
+protection. Configure Azure Functions host and/or API Management request-size
+limits as the outer enforcement boundary.
+
+### `require_json_content_type`
+
+Set `require_json_content_type=True` with `body=` to reject non-empty bodies
+whose media type is neither `application/json` nor `application/*+json` with
+`415 Unsupported Media Type`. Matching is case-insensitive and ignores
+parameters such as `; charset=utf-8`.
+
+Empty bodies without `Content-Type` continue to the existing `422` missing-body
+path. A non-empty body without `Content-Type` receives `415`. The default
+`False` preserves the existing behavior of attempting JSON parsing regardless
+of the header.
 
 ### `query`
 

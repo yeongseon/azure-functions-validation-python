@@ -51,6 +51,23 @@ def handler(req: func.HttpRequest, body: CreateUserBody) -> dict[str, str]:
     return {"name": body.name}
 ```
 
+For an endpoint that requires JSON and caps the application-visible body at 1
+MiB, opt in explicitly:
+
+```python
+@validate_http(
+    body=CreateUserBody,
+    max_body_bytes=1_048_576,
+    require_json_content_type=True,
+)
+def protected_handler(req: func.HttpRequest, body: CreateUserBody) -> dict[str, str]:
+    return {"name": body.name}
+```
+
+This returns `413` above the byte limit and `415` for a non-empty body without
+a JSON media type. Azure has already buffered the request, so enforce transport
+limits in the host or API Management too.
+
 ### Query only
 
 ```python
