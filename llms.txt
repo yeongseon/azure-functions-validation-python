@@ -29,6 +29,8 @@ response schemas. FastAPI-like developer experience without the web framework.
 
 - Decorator-first: `@validate_http(body=Model, response_model=Model)`
 - Safe custom errors: 5xx formatters receive `InternalServerError` by default.
+- Opt-in body policies: `max_body_bytes` returns 413 above the byte limit;
+  `require_json_content_type` returns 415 for non-JSON non-empty bodies.
 - Request validation: body, query, path, headers all via Pydantic models
 - Automatic responses: 400/422 with `{"detail": [...]}` envelope on validation errors
 - Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
