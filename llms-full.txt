@@ -137,6 +137,17 @@ Must return a dict representing the error response body (will be JSON-serialized
 
 ## Common Patterns
 
+### Strict API Boundary Models
+
+Plain Pydantic models use lax coercion and `extra="ignore"`. For closed JSON
+body contracts, derive request models from a base with
+`ConfigDict(strict=True, extra="forbid")`. Do not automatically reuse it for
+query, path, or header models: Azure Functions supplies those values as strings,
+so model-wide strictness rejects inputs such as `?limit=10` for `limit: int`.
+Use `ConfigDict(extra="forbid")` without `strict=True` for those sources when
+normal string parsing is required. Full runnable examples and exact 422 bodies:
+https://yeongseon.dev/azure-functions-python/validation/strict-models/
+
 ### Basic Request Body Validation
 
 ```python

@@ -293,6 +293,13 @@ def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserRes
     return CreateUserResponse(message=f"Hello {body.name}")
 ```
 
+Plain Pydantic models use lax coercion and ignore unknown fields. For public
+JSON body contracts, consider a reusable
+`ConfigDict(strict=True, extra="forbid")` base. Query, path, and header values
+arrive as strings and usually need a separate model that keeps coercion. See
+[Strict API boundary models](docs/strict-models.md) for runnable examples and
+exact validation responses.
+
 Start the Functions host locally:
 
 ```bash
@@ -425,6 +432,7 @@ leak to clients.
 ## Documentation
 
 - Project docs live under `docs/`
+- Strict request-model policies: [`docs/strict-models.md`](docs/strict-models.md)
 - Smoke-tested examples live under `examples/`
 - Endpoint metadata contract: [`docs/METADATA_SPEC.md`](docs/METADATA_SPEC.md) — the `endpoint` namespace payload (parameters, `in` mapping, `required` rules) that [`azure-functions-openapi`](https://github.com/yeongseon/azure-functions-openapi-python) consumes
 - Product requirements: `PRD.md`
