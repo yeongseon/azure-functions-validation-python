@@ -28,6 +28,9 @@ response schemas. FastAPI-like developer experience without the web framework.
 ## Key Concepts
 
 - Decorator-first: `@validate_http(body=Model, response_model=Model)`
+- Successful responses default to status 200; set `status_code` for another success code.
+- `legacy_loc` temporarily omits input-source prefixes from error locations.
+- `request_model` is deprecated; use `body` instead.
 - Safe custom errors: 5xx formatters receive `InternalServerError` by default.
 - Opt-in body policies: `max_body_bytes` returns 413 above the byte limit;
   `require_json_content_type` returns 415 for non-JSON non-empty bodies.
