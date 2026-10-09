@@ -79,7 +79,7 @@ build -> lib-tests -> cookbook-smoke -> cookbook-host-smoke -> azure-e2e -> publ
 
 | Tier | Catches |
 |---|---|
-| `build` | tag/`__version__` mismatch; produces the one artifact that is later uploaded |
+| `build` | tag/`__version__` mismatch; builds the wheel from the sdist, verifies the packaged endpoint schema and SHA-256 pin in an isolated install, and produces the one artifact that is later uploaded |
 | `lib-tests` | library unit regressions |
 | `cookbook-smoke` | downstream import/registration drift (0.21.0 class) |
 | `cookbook-host-smoke` | candidate wheel installs cleanly and a real `func` host + Azurite boots with it present, no cloud. NOTE: the cookbook HTTP examples do not import this package, so this is a host-boot smoke, **not** proof of this package's own runtime behavior (tracked separately) |
