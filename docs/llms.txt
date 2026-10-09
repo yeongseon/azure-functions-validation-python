@@ -12,6 +12,9 @@ Part of the **Azure Functions Python DX Toolkit**. Pydantic-powered request vali
 - Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
   `AdapterValidationError` for validation failures (422); other exceptions are
   logged and sanitized as 500.
+- Adapter instances are shared across concurrent invocations and must be
+  stateless or thread-safe. Validate implementations with
+  `AdapterConformanceTests` from the public testing surface.
 
 ## User Guide
 - [Usage](https://yeongseon.dev/azure-functions-python/validation/usage/): Decorator reference and models.
