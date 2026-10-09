@@ -173,8 +173,16 @@ By default, errors use:
 Common status codes:
 
 - `400` for malformed JSON.
+- `413` when opt-in `max_body_bytes` is exceeded.
+- `415` when opt-in `require_json_content_type` rejects a non-JSON media type.
 - `422` for validation failures.
 - `500` for response validation failure or internal pipeline errors.
+
+By default, `Content-Type` is not enforced: the body is still parsed as JSON.
+With `require_json_content_type=True`, `application/json` and
+`application/*+json` are accepted case-insensitively (parameters are ignored).
+An empty body without the header keeps the normal `422` missing-body response;
+a non-empty body without it receives `415`.
 
 ## Can I customize the error format?
 
