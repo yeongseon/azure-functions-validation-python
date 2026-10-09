@@ -6,6 +6,7 @@ from .errors import (
     ErrorFormatter,
     HttpError,
     InternalServerError,
+    MalformedRequestError,
     ResponseValidationError,
     SerializationError,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "PydanticAdapter",
     "HttpError",
     "InternalServerError",
+    "MalformedRequestError",
 ]
 
 __version__ = "0.14.0"

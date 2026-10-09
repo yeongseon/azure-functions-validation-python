@@ -30,6 +30,9 @@ response schemas. FastAPI-like developer experience without the web framework.
 - Safe custom errors: 5xx formatters receive `InternalServerError` by default.
 - Request validation: body, query, path, headers all via Pydantic models
 - Automatic responses: 400/422 with `{"detail": [...]}` envelope on validation errors
+- Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
+  `AdapterValidationError` for validation failures (422); all other exceptions,
+  including `ValueError`, are logged and sanitized as 500.
 - Response enforcement: mismatches raise `ResponseValidationError` (HTTP 500)
 - Per-handler error formatting via `ErrorFormatter` callback
 

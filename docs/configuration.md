@@ -181,6 +181,17 @@ def handler(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
 !!! note "Advanced extension point"
     Most projects should keep the default adapter.
 
+Custom adapters use an explicit exception contract for all four request parsing
+methods (`parse_body`, `parse_query`, `parse_path`, and `parse_headers`):
+
+- raise `MalformedRequestError` for syntactically malformed client input (`400`)
+- raise `AdapterValidationError` for model validation failures (`422`)
+- let every other exception propagate as an adapter fault (`500`, logged and sanitized)
+
+Plain `ValueError` is in the last category. There is no compatibility shim for
+the former `ValueError`-to-`400` behavior; custom adapters must migrate malformed
+syntax failures to `MalformedRequestError`.
+
 ### `error_formatter`
 
 `error_formatter` customizes error response payloads per handler.

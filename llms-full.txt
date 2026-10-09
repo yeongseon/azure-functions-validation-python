@@ -66,7 +66,12 @@ def validate_http(
 ### Error Classes
 
 ```python
-from azure_functions_validation import InternalServerError, ResponseValidationError, SerializationError
+from azure_functions_validation import (
+    InternalServerError,
+    MalformedRequestError,
+    ResponseValidationError,
+    SerializationError,
+)
 
 class ResponseValidationError(Exception):
     """Raised when response validation fails.
@@ -85,6 +90,9 @@ class SerializationError(TypeError):
     """
     def __init__(self, type_name: str) -> None:
         pass
+
+class MalformedRequestError(Exception):
+    """Raised by adapters for syntactically malformed client input (HTTP 400)."""
 ```
 
 ### Error Formatting
@@ -214,7 +222,7 @@ def protected_endpoint(
 1. **Decorator-first**: Configuration happens at decoration time, validation at runtime.
 2. **Explicit over implicit**: All parameters are explicit in decorator arguments.
 3. **Pydantic v2 native**: Leverages Pydantic's validation power and error messages.
-4. **Error consistency**: All validation errors return `400` or `422` with `{"detail": [...]}` format.
+4. **Error consistency**: Malformed syntax returns `400`, validation failures return `422`, and binding or adapter faults return sanitized `500` responses.
 5. **Response enforcement**: Response models catch contract drift before deployment.
 6. **Minimal overhead**: No request processing happens until handler is called.
 7. **Azure Functions v2 aligned**: Follows Azure Functions Python v2 programming model conventions.
@@ -262,3 +270,8 @@ Supported parameter types in decorator:
 - `response_model`: Pydantic `BaseModel` subclass, or any TypeAdapter-compatible type (e.g. `list[Model]`)
 - `error_formatter`: Callable matching `ErrorFormatter` signature
 - `adapter`: Custom validation adapter implementing `ValidationAdapter` protocol
+
+Custom adapter parsing methods must raise `MalformedRequestError` for malformed
+client syntax (`400`) or `AdapterValidationError` for validation failures
+(`422`). Every other exception, including plain `ValueError`, is an adapter fault
+that is logged with traceback and returned as a sanitized `500`.

@@ -12,6 +12,7 @@ from azure_functions_validation import (
     ErrorFormatter,
     HttpError,
     InternalServerError,
+    MalformedRequestError,
     ResponseValidationError,
     validate_http,
 )
@@ -35,6 +36,7 @@ class TestAPISurface:
             "PydanticAdapter",
             "HttpError",
             "InternalServerError",
+            "MalformedRequestError",
         }
 
     def test_version_matches_distribution_metadata(self) -> None:
@@ -53,6 +55,10 @@ class TestAPISurface:
         assert str(error) == "Internal Server Error"
         assert error.__cause__ is None
         assert error.__context__ is None
+
+    def test_malformed_request_error_is_plain_exception(self) -> None:
+        assert issubclass(MalformedRequestError, Exception)
+        assert not issubclass(MalformedRequestError, ValueError)
 
     def test_error_formatter_is_callable_alias(self) -> None:
         # ErrorFormatter is Callable[[Exception, int], dict[str, Any]]
