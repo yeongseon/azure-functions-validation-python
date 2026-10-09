@@ -20,6 +20,8 @@ from .errors import (
     AdapterValidationError,
     ErrorFormatter,
     HttpError,
+    MalformedRequestError,
+    RequestBindingError,
     SerializationError,
     format_error_response,
 )
@@ -96,8 +98,8 @@ def _prepare_invocation(
     """
     try:
         http_request = _resolve_http_request(args, kwargs, config)
-    except ValueError as e:
-        return _format_error(e, 400, config), {}
+    except RequestBindingError as e:
+        return _format_error(e, 500, config), {}
     parsed = _parse_inputs(http_request, config)
     if isinstance(parsed, HttpResponse):
         return parsed, {}
@@ -182,7 +184,7 @@ def _resolve_http_request(
         if _is_http_request_like(value):
             return value
 
-    raise ValueError("Function must receive an HttpRequest-like object as argument")
+    raise RequestBindingError("Function must receive an HttpRequest-like object as argument")
 
 
 def _inject_named(
@@ -234,7 +236,7 @@ def _parse_inputs(
             parsed = parse(http_request, model)
         except AdapterValidationError as e:
             return _format_error(e, 422, config)
-        except ValueError as e:
+        except MalformedRequestError as e:
             return _format_error(e, 400, config)
         except Exception as e:
             logger.exception(

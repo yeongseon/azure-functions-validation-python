@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 
-from .errors import AdapterValidationError, SerializationError
+from .errors import AdapterValidationError, MalformedRequestError, SerializationError
 
 
 def _prefix_loc(source: str | None, loc: list[Any], *, legacy_loc: bool) -> list[Any]:
@@ -85,8 +85,9 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            AdapterValidationError: If body is missing or validation fails
-            ValueError: If JSON parsing fails
+            MalformedRequestError: If client input is syntactically malformed (HTTP 400).
+            AdapterValidationError: If body validation fails (HTTP 422).
+            Exception: Any other failure is treated as an adapter fault (HTTP 500).
         """
         ...
 
@@ -101,7 +102,9 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            AdapterValidationError: If validation fails
+            MalformedRequestError: If client input is syntactically malformed (HTTP 400).
+            AdapterValidationError: If validation fails (HTTP 422).
+            Exception: Any other failure is treated as an adapter fault (HTTP 500).
         """
         ...
 
@@ -116,7 +119,9 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            AdapterValidationError: If validation fails
+            MalformedRequestError: If client input is syntactically malformed (HTTP 400).
+            AdapterValidationError: If validation fails (HTTP 422).
+            Exception: Any other failure is treated as an adapter fault (HTTP 500).
         """
         ...
 
@@ -131,7 +136,9 @@ class ValidationAdapter(Protocol):
             Validated model instance
 
         Raises:
-            AdapterValidationError: If validation fails
+            MalformedRequestError: If client input is syntactically malformed (HTTP 400).
+            AdapterValidationError: If validation fails (HTTP 422).
+            Exception: Any other failure is treated as an adapter fault (HTTP 500).
         """
         ...
 
@@ -244,8 +251,8 @@ class PydanticAdapter:
             Validated model instance
 
         Raises:
-            AdapterValidationError: If body is missing (with type="missing")
-            ValueError: If JSON is invalid (with "Invalid JSON" message)
+            MalformedRequestError: If JSON or UTF-8 decoding is invalid.
+            AdapterValidationError: If body is missing or validation fails.
         """
         body = req.get_body()
 
@@ -257,7 +264,7 @@ class PydanticAdapter:
         try:
             body_str = body.decode("utf-8")
         except UnicodeDecodeError as e:
-            raise ValueError("Invalid JSON") from e
+            raise MalformedRequestError("Invalid JSON") from e
 
         if not body_str.strip():
             # Empty JSON string - this is a missing body, not invalid JSON
@@ -266,7 +273,7 @@ class PydanticAdapter:
         try:
             data = json.loads(body_str)
         except json.JSONDecodeError as e:
-            raise ValueError("Invalid JSON") from e
+            raise MalformedRequestError("Invalid JSON") from e
 
         # Validate with Pydantic
         try:
@@ -433,7 +440,7 @@ class PydanticAdapter:
             return {
                 "detail": [
                     {
-                        "loc": ["body"] if isinstance(exc, ValueError) else [],
+                        "loc": ["body"] if isinstance(exc, MalformedRequestError) else [],
                         "msg": str(exc),
                         "type": "value_error",
                     }
