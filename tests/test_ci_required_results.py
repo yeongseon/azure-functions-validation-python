@@ -71,3 +71,24 @@ def test_unexpected_results_fail(
 
 def test_main_docs_only_push_accepts_expected_skips() -> None:
     assert evaluate(event="push", docs_changed="true", full_required="false").returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("docs_changed", "full_required"),
+    [
+        ("", "true"),
+        ("invalid", "true"),
+        ("false", ""),
+        ("false", "invalid"),
+        ("false", "false"),
+    ],
+)
+def test_invalid_or_contradictory_classifier_outputs_fail(
+    docs_changed: str, full_required: str
+) -> None:
+    assert evaluate(docs_changed=docs_changed, full_required=full_required).returncode == 1
+
+
+@pytest.mark.parametrize("result", ["failure", "skipped"])
+def test_unclassified_needs_job_must_succeed(result: str) -> None:
+    assert evaluate(overrides={"new-job": result}).returncode == 1
