@@ -69,6 +69,11 @@ Behavior:
 - Invalid JSON syntax -> `400`
 - Invalid field values -> `422`
 
+The model's own Pydantic configuration controls coercion and unknown fields.
+Plain `BaseModel` defaults are lax coercion plus `extra="ignore"`. For a closed
+JSON contract, see [Strict API boundary models](strict-models.md) for the
+reusable `ConfigDict(strict=True, extra="forbid")` pattern and exact errors.
+
 ### `max_body_bytes`
 
 Set a positive byte limit to reject oversized configured bodies with `413
@@ -102,6 +107,11 @@ of the header.
 ### `query`
 
 Use `query=QueryModel` to validate query-string parameters.
+
+Query values arrive as strings. Keep normal Pydantic coercion for fields such
+as `page: int`; a model-wide `strict=True` rejects `?page=2`. You can still use
+`ConfigDict(extra="forbid")` to reject undeclared query keys. See
+[Strict API boundary models](strict-models.md).
 
 ```python
 class QueryModel(BaseModel):
@@ -346,6 +356,7 @@ def create_custom(req: func.HttpRequest, body: RequestModel) -> ResultModel:
 
 ## Related references
 
+- [Strict API boundary models](strict-models.md)
 - [API Reference](api.md)
 - [Usage](usage.md)
 - [Troubleshooting](troubleshooting.md)
