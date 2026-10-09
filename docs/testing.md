@@ -201,6 +201,11 @@ The test suite runs automatically on every pull request and push to the main bra
 
 This is managed via the `.github/workflows/ci-test.yml` configuration.
 
+The artifact gate builds the source distribution first and then builds the wheel from that sdist,
+matching the release path. It runs `scripts/check_wheel_schemas.py --install-smoke` against the wheel
+to require both endpoint schema resources, verify their SHA-256 pin, and load them from an isolated
+installation outside the checkout.
+
 ## Troubleshooting
 
 ### Common Test Failures

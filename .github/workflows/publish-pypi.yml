@@ -72,8 +72,18 @@ jobs:
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Build distribution packages
-        run: python -m build
+      - name: Build source distribution and wheel from source distribution
+        run: |
+          python -m build --sdist
+          sdist=$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)
+          test -n "$sdist"
+          python -m build --wheel "$sdist"
+
+      - name: Verify packaged endpoint schema resources
+        run: |
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          test -n "$wheel"
+          python scripts/check_wheel_schemas.py --install-smoke "$wheel"
 
       - name: Upload distribution artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
