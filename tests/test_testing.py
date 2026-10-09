@@ -85,6 +85,30 @@ class TestMockHttpRequestConstruction:
         assert request.route_params["id"] == "42"
         assert request.headers["X-Trace"] == "abc"
 
+    def test_mappings_independent_of_post_construction_caller_mutation(self) -> None:
+        params = {"limit": "10"}
+        route_params = {"id": "42"}
+        headers = {"X-Trace": "abc"}
+        request = MockHttpRequest(
+            params=params,
+            route_params=route_params,
+            headers=headers,
+        )
+
+        params["limit"] = "999"
+        params["extra_param"] = "new"
+        route_params["id"] = "99"
+        route_params["extra_route"] = "new"
+        headers["X-Trace"] = "changed"
+        headers["X-New"] = "new"
+
+        assert request.params["limit"] == "10"
+        assert "extra_param" not in request.params
+        assert request.route_params["id"] == "42"
+        assert "extra_route" not in request.route_params
+        assert request.headers["X-Trace"] == "abc"
+        assert "X-New" not in request.headers
+
     def test_body_and_json_are_mutually_exclusive(self) -> None:
         with pytest.raises(ValueError, match="either 'body' or 'json'"):
             MockHttpRequest(body=b"{}", json={})
