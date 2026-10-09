@@ -49,6 +49,9 @@ class PipelineConfig:
     func_params: Mapping[str, Any] = field(default_factory=dict)
     request_param_name: str | None = None
     response_type_adapter: Any = None
+    response_by_alias: bool = True
+    response_exclude_none: bool = False
+    response_exclude_unset: bool = False
     success_status_code: int = 200
     handler_name: str | None = None
 
@@ -292,7 +295,12 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             return HttpResponse(status_code=204)
 
         try:
-            content = config.response_type_adapter.dump_json(validated_result, by_alias=True)
+            content = config.response_type_adapter.dump_json(
+                validated_result,
+                by_alias=config.response_by_alias,
+                exclude_none=config.response_exclude_none,
+                exclude_unset=config.response_exclude_unset,
+            )
         except (SerializationError, TypeError, ValueError) as e:
             return _format_error(e, 500, config)
 

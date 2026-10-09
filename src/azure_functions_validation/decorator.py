@@ -39,6 +39,9 @@ def validate_http(
     expose_internal_errors: bool = False,
     status_code: int = 200,
     legacy_loc: bool = False,
+    response_by_alias: bool = True,
+    response_exclude_none: bool = False,
+    response_exclude_unset: bool = False,
 ) -> Callable[..., Any]:
     """Decorator for validating HTTP request inputs and response outputs.
 
@@ -61,12 +64,22 @@ def validate_http(
             input-source segment (``["email"]`` instead of ``["body", "email"]``).
             A one-cycle migration escape hatch; ignored when a custom *adapter*
             is supplied (configure that adapter directly).
+        response_by_alias: Serialize validated responses using field aliases.
+        response_exclude_none: Exclude fields whose value is ``None`` from
+            validated responses.
+        response_exclude_unset: Exclude fields that were not explicitly set from
+            validated responses.
 
     Returns:
         A decorator that wraps the handler with validation logic.
     """
     if not isinstance(expose_internal_errors, bool):
         raise TypeError("expose_internal_errors must be a bool")
+
+    if response_model is None and (
+        not response_by_alias or response_exclude_none or response_exclude_unset
+    ):
+        raise ValueError("response serialization options require response_model")
 
     # Handle request_model shorthand
     if request_model is not None:
@@ -145,6 +158,9 @@ def validate_http(
             func_params=func_params,
             request_param_name=request_param_name,
             response_type_adapter=response_type_adapter,
+            response_by_alias=response_by_alias,
+            response_exclude_none=response_exclude_none,
+            response_exclude_unset=response_exclude_unset,
             success_status_code=status_code,
             handler_name=getattr(func, "__qualname__", None) or getattr(func, "__name__", None),
         )

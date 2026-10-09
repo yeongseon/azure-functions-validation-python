@@ -72,6 +72,12 @@ class AliasedResponseModel(BaseModel):
     internal: str = Field(serialization_alias="wireName")
 
 
+class SerializationOptionsResponse(BaseModel):
+    internal: str = Field(serialization_alias="wireName")
+    optional_value: str | None = None
+    default_value: str = "default"
+
+
 class QueryModel(BaseModel):
     """Test model for query parameters."""
 
@@ -295,6 +301,74 @@ class TestSuccessfulValidation:
         response = handler(mock_request_factory())
 
         assert json.loads(response.get_body()) == {"wireName": "value"}
+
+    def test_response_serialization_options_apply_after_validation(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(
+            response_model=SerializationOptionsResponse,
+            response_by_alias=False,
+            response_exclude_none=True,
+            response_exclude_unset=True,
+        )
+        def handler(req: HttpRequest) -> dict[str, object]:
+            return {"internal": "value"}
+
+        response = handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == {"internal": "value"}
+
+    def test_response_serialization_options_support_generic_list_model(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(
+            response_model=list[SerializationOptionsResponse],
+            response_by_alias=False,
+            response_exclude_none=True,
+        )
+        def handler(req: HttpRequest) -> list[SerializationOptionsResponse]:
+            return [SerializationOptionsResponse(internal="value")]
+
+        response = handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == [
+            {"internal": "value", "default_value": "default"}
+        ]
+
+    def test_response_serialization_options_preserve_none_as_204(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(
+            response_model=SerializationOptionsResponse | None,
+            response_by_alias=False,
+            response_exclude_none=True,
+            response_exclude_unset=True,
+        )
+        def handler(req: HttpRequest) -> None:
+            return None
+
+        response = handler(mock_request_factory())
+
+        assert response.status_code == 204
+        assert response.get_body() == b""
+
+    def test_response_serialization_options_do_not_modify_http_response(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        from azure.functions import HttpResponse
+
+        @validate_http(
+            response_model=SerializationOptionsResponse,
+            response_by_alias=False,
+            response_exclude_none=True,
+            response_exclude_unset=True,
+        )
+        def handler(req: HttpRequest) -> HttpResponse:
+            return HttpResponse(body='{"wireName":null}', mimetype="application/json")
+
+        response = handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == {"wireName": None}
 
     def test_request_inputs_are_parsed_once(self, mock_request_factory: RequestFactory) -> None:
         """Test that configured request inputs are parsed only once."""
@@ -744,6 +818,23 @@ class TestAsyncHandlers:
         assert response.status_code == 200
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Hello, Lucas"
+
+    @pytest.mark.anyio
+    async def test_async_response_serialization_options(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        @validate_http(
+            response_model=SerializationOptionsResponse,
+            response_by_alias=False,
+            response_exclude_none=True,
+            response_exclude_unset=True,
+        )
+        async def handler(req: HttpRequest) -> dict[str, str]:
+            return {"internal": "async"}
+
+        response = await handler(mock_request_factory())
+
+        assert json.loads(response.get_body()) == {"internal": "async"}
 
     @pytest.mark.anyio
     async def test_async_handler_with_kwargs_only(

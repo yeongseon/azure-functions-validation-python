@@ -54,7 +54,7 @@ class AllOptional(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    name: str
+    name: str = Field(serialization_alias="displayName")
 
 
 class ListQuery(BaseModel):
@@ -296,7 +296,16 @@ class TestCanonicalization:
 
         responses = _endpoint_of(handler)["responses"]
         assert set(responses) == {"200"}
-        assert responses["200"]["schema"]["properties"].keys() == {"id", "name"}
+        assert responses["200"]["schema"]["properties"].keys() == {"id", "displayName"}
+
+    def test_response_schema_uses_field_names_when_aliases_disabled(self) -> None:
+        @validate_http(response_model=UserResponse, response_by_alias=False)
+        def handler(req: func.HttpRequest) -> UserResponse:
+            return UserResponse(id=1, name="a")
+
+        schema = _endpoint_of(handler)["responses"]["200"]["schema"]
+
+        assert schema["properties"].keys() == {"id", "name"}
 
 
 # ---------------------------------------------------------------------------
