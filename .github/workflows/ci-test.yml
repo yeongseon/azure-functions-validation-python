@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   format:
     name: Ruff format check (changed Python files)
@@ -24,6 +28,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install Ruff
         run: python -m pip install 'ruff==0.16.8'
@@ -34,21 +40,18 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python tools/check_pr_format.py "$PR_BASE_SHA" "$PR_HEAD_SHA"
 
-  # Classify the PR diff as docs-only or not. This gates the (expensive) test
-  # matrix for pull requests while the release gate (publish-pypi.yml) and the
-  # security workflows (codeql.yml / security.yml) are NEVER selectively skipped.
-  #
-  # docs_only is only ever computed for pull_request events; push events to
-  # protected branches always run the full matrix (docs_only stays 'false').
   changes:
     runs-on: ubuntu-latest
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
+      docs_changed: ${{ steps.classify.outputs.docs_changed }}
+      full_required: ${{ steps.classify.outputs.full_required }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name != 'pull_request' && github.sha || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.event.pull_request.base.sha) }}
 
       - name: Classify changed paths
         id: classify
@@ -56,59 +59,44 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE_SHA: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          fail_safe() {
+            printf 'docs_only=false\ndocs_changed=true\nfull_required=true\n' >> "$GITHUB_OUTPUT"
+          }
 
-          # Full CI on anything that is not a pull request (push to main/develop).
-          if [ "${EVENT_NAME}" != "pull_request" ]; then
-            echo "Not a pull_request event (${EVENT_NAME}); running full CI."
-            echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            if [ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ] && ! git cat-file -e "${HEAD_SHA}^{commit}"; then
+              if ! git fetch --no-tags origin "pull/${PR_NUMBER}/head"; then
+                fail_safe
+                exit 0
+              fi
+            fi
+            if ! git diff --name-only --no-renames "${BASE_SHA}...${HEAD_SHA}" > changed-files.txt; then
+              fail_safe
+              exit 0
+            fi
+          else
+            if [ -z "${BEFORE_SHA}" ] || [[ "${BEFORE_SHA}" =~ ^0+$ ]] \
+              || ! git cat-file -e "${BEFORE_SHA}^{commit}" \
+              || ! git merge-base --is-ancestor "${BEFORE_SHA}" "${SHA}" \
+              || ! git diff --name-only --no-renames "${BEFORE_SHA}" "${SHA}" > changed-files.txt; then
+              fail_safe
+              exit 0
+            fi
           fi
 
-          files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
-          echo "Changed files:"
-          echo "${files}"
-
-          if [ -z "${files}" ]; then
-            # No files detected -> be conservative and run full CI.
-            echo "No changed files detected; running full CI."
-            echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          cat changed-files.txt
+          if ! tools/ci_classify_changes.sh < changed-files.txt >> "$GITHUB_OUTPUT"; then
+            fail_safe
           fi
 
-          docs_only=true
-          IFS=$'\n'
-          for f in ${files}; do
-            case "${f}" in
-              # NEVER docs-only: any change here must run the full matrix.
-              # In bash 'case', '*' matches '/', so 'src/*' covers nested paths.
-              src/* | tests/* | examples/* | cookbook/* | \
-              pyproject.toml | hatch.toml | Makefile | \
-              requirements*.txt | *.lock | \
-              .github/workflows/* | .github/actions/* | \
-              Dockerfile | docker-compose*.yml | docker-compose*.yaml)
-                echo "Non-docs path forces full CI: ${f}"
-                docs_only=false
-                break
-                ;;
-              # Docs allowlist.
-              *.md | docs/* | .omc/*)
-                ;;
-              # Anything unrecognised is treated as non-docs (fail safe).
-              *)
-                echo "Unrecognised path forces full CI: ${f}"
-                docs_only=false
-                break
-                ;;
-            esac
-          done
-          unset IFS
-
-          echo "docs_only=${docs_only}"
-          echo "docs_only=${docs_only}" >> "$GITHUB_OUTPUT"
-
-  # Lint, type-check and security run once on a single pinned interpreter
+  # Lint and type-check run once on a single pinned interpreter
   # (Python 3.11, matching the ruff/mypy target-version in pyproject). These
   # checks are interpreter-agnostic, so fanning them across the matrix would
   # only duplicate work. Installed with a plain `pip install -e '.[dev]'` so the
@@ -116,9 +104,9 @@ jobs:
   # Python-pinned Hatch env, which previously silently forced the whole test
   # matrix onto its default interpreter).
   quality:
-    name: Lint, type-check & security (Py 3.11)
+    name: Lint & type-check (Py 3.11)
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -128,6 +116,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install package with dev extras
         run: |
@@ -154,13 +144,10 @@ jobs:
       - name: Type check (mypy, strict)
         run: mypy src tests
 
-      - name: Security scan (bandit)
-        run: python -m bandit -r src
-
   test:
     name: Test (Py ${{ matrix.python-version }})
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -178,6 +165,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Assert the runtime interpreter matches the matrix cell
         # Tests must run on the interpreter this cell claims to exercise. Before
@@ -230,6 +219,37 @@ jobs:
         env:
           CODECOV_RETRIES: 3
 
+  docs-check:
+    name: Documentation checks
+    needs: changes
+    if: needs.changes.outputs.docs_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install docs checks
+        run: pip install -e ".[docs]" pytest pytest-cov PyYAML
+
+      - name: Build docs (strict)
+        run: mkdocs build --strict
+
+      - name: Check README examples and screenshot manifest
+        run: |
+          pytest --no-cov tests/test_examples.py::TestReadmeQuickStart \
+            tests/test_screenshot_manifest.py
+
+      - name: Check endpoint schema hash pin
+        run: |
+          python -c "import hashlib, pathlib, sys; d = pathlib.Path('src/azure_functions_validation/schemas'); expected = (d / 'endpoint.schema.sha256').read_text().split()[0]; actual = hashlib.sha256((d / 'endpoint.schema.json').read_bytes()).hexdigest(); print('endpoint.schema.json digest matches pin.') if expected == actual else sys.exit('endpoint.schema.json digest drift:\n  pinned:  ' + expected + '\n  actual:  ' + actual + '\nUpdate endpoint.schema.sha256 if this change is intentional.')"
+
   # Single required status check for branch protection. It always runs so the
   # required check is never left permanently pending. It passes when the diff is
   # docs-only (test matrix intentionally skipped) or when the quality job and
@@ -238,6 +258,7 @@ jobs:
     needs:
       - changes
       - format
+      - docs-check
       - quality
       - test
       - minimum-dependencies
@@ -249,10 +270,16 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name != 'pull_request' && github.sha || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.sha || github.event.pull_request.base.sha) }}
+
       - name: Evaluate required checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           FORMAT_RESULT: ${{ needs.format.result }}
+          DOCS_CHECK_RESULT: ${{ needs.docs-check.result }}
           EVENT_NAME: ${{ github.event_name }}
           QUALITY_RESULT: ${{ needs.quality.result }}
           TEST_RESULT: ${{ needs.test.result }}
@@ -262,59 +289,29 @@ jobs:
           ARTIFACT_PY311_RESULT: ${{ needs.artifact-python311.result }}
           AF2X_RESULT: ${{ needs.azure-functions-2x.result }}
           HOST_SMOKE_RESULT: ${{ needs.host-smoke.result }}
-          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          DOCS_CHANGED: ${{ needs.changes.outputs.docs_changed }}
+          FULL_REQUIRED: ${{ needs.changes.outputs.full_required }}
         run: |
           set -euo pipefail
-          echo "changes result: ${CHANGES_RESULT}"
-          echo "format result:  ${FORMAT_RESULT}"
-          echo "quality result: ${QUALITY_RESULT}"
-          echo "test result:    ${TEST_RESULT}"
-          echo "minimum deps:   ${MINIMUM_DEPENDENCIES_RESULT}"
-          echo "artifact build: ${ARTIFACT_BUILD_RESULT}"
-          echo "artifact 3.10:  ${ARTIFACT_PY310_RESULT}"
-          echo "artifact 3.11:  ${ARTIFACT_PY311_RESULT}"
-          echo "af 2.x result:  ${AF2X_RESULT}"
-          echo "host smoke:     ${HOST_SMOKE_RESULT}"
-          echo "docs_only:      ${DOCS_ONLY}"
-
-          if [ "${CHANGES_RESULT}" != "success" ]; then
-            echo "Classification job did not succeed; failing required check."
-            exit 1
-          fi
-
-          if [ "${EVENT_NAME}" = "pull_request" ]; then
-            expected_format_result=success
-          else
-            expected_format_result=skipped
-          fi
-          if [ "${FORMAT_RESULT}" != "${expected_format_result}" ]; then
-            echo "Formatting check has an unexpected result; failing required check."
-            exit 1
-          fi
-
-          if [ "${DOCS_ONLY}" = "true" ]; then
-            echo "Docs-only change: quality + test intentionally skipped. Passing."
-            exit 0
-          fi
-
-          if [ "${QUALITY_RESULT}" = "success" ] && [ "${TEST_RESULT}" = "success" ] \
-             && [ "${MINIMUM_DEPENDENCIES_RESULT}" = "success" ] \
-             && [ "${ARTIFACT_BUILD_RESULT}" = "success" ] \
-             && [ "${ARTIFACT_PY310_RESULT}" = "success" ] \
-             && [ "${ARTIFACT_PY311_RESULT}" = "success" ] \
-             && [ "${AF2X_RESULT}" = "success" ] \
-             && [ "${HOST_SMOKE_RESULT}" = "success" ]; then
-            echo "Quality, test matrix, azure-functions 2.x and host smoke succeeded. Passing."
-            exit 0
-          fi
-
-          echo "quality='${QUALITY_RESULT}' test='${TEST_RESULT}' af2x='${AF2X_RESULT}' host-smoke='${HOST_SMOKE_RESULT}'. Failing required check."
-          exit 1
+          printf '%s\n' \
+            "changes=${CHANGES_RESULT}" \
+            "format=${FORMAT_RESULT}" \
+            "docs-check=${DOCS_CHECK_RESULT}" \
+            "quality=${QUALITY_RESULT}" \
+            "test=${TEST_RESULT}" \
+            "minimum-dependencies=${MINIMUM_DEPENDENCIES_RESULT}" \
+            "artifact-build=${ARTIFACT_BUILD_RESULT}" \
+            "artifact-python310-negative=${ARTIFACT_PY310_RESULT}" \
+            "artifact-python311=${ARTIFACT_PY311_RESULT}" \
+            "azure-functions-2x=${AF2X_RESULT}" \
+            "host-smoke=${HOST_SMOKE_RESULT}" \
+            | tools/ci_check_required_results.sh \
+                "${EVENT_NAME}" "${DOCS_CHANGED}" "${FULL_REQUIRED}"
 
   minimum-dependencies:
     name: Minimum dependencies (Py 3.11)
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -324,6 +321,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install minimum runtime and development dependencies
         run: |
@@ -348,7 +347,7 @@ jobs:
   artifact-build:
     name: Build compatibility artifacts
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -358,6 +357,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Build wheel and source distribution
         run: |
@@ -373,13 +374,16 @@ jobs:
 
   artifact-python310-negative:
     name: Wheel install rejection (Py 3.10, negative test)
-    needs: artifact-build
+    needs: [changes, artifact-build]
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python 3.10 for negative install test
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Download built artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -402,13 +406,16 @@ jobs:
 
   artifact-python311:
     name: Wheel install and smoke (Py 3.11)
-    needs: artifact-build
+    needs: [changes, artifact-build]
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python 3.11
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Download built artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -446,7 +453,7 @@ jobs:
   host-smoke:
     name: Real Functions host smoke (Py ${{ matrix.python-version }})
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     strategy:
@@ -461,6 +468,10 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            tests/host_smoke/requirements.txt
 
       - name: Install Functions Core Tools v4 and Azurite
         run: |
@@ -505,7 +516,7 @@ jobs:
   azure-functions-2x:
     name: azure-functions 2.x compat (Py 3.13)
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.full_required == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -515,6 +526,8 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Build wheel
         # Prove 2.x against a WHEEL-installed build, not an editable/source tree.
