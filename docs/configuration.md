@@ -190,10 +190,11 @@ from typing import Any
 
 
 def formatter(exc: Exception, status_code: int) -> dict[str, Any]:
+    message = str(exc) if status_code < 500 else "Internal Server Error"
     return {
         "error": {
             "code": f"VALIDATION_{status_code}",
-            "message": str(exc),
+            "message": message,
         }
     }
 
@@ -202,6 +203,16 @@ def formatter(exc: Exception, status_code: int) -> dict[str, Any]:
 def handler_custom(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
     return {"text": body.text}
 ```
+
+The formatter receives the original exception for 4xx responses. For 5xx
+responses it receives a public `InternalServerError` containing only
+`"Internal Server Error"`; the original is logged once with traceback.
+
+### `expose_internal_errors`
+
+`expose_internal_errors` defaults to `False`. Setting it to `True` passes the
+original 5xx exception to `error_formatter`, restoring the old behavior. This
+is unsafe because a formatter can expose internal details to clients.
 
 ### `status_code`
 

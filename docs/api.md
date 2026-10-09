@@ -242,10 +242,11 @@ class InputModel(BaseModel):
 
 
 def app_error_formatter(exc: Exception, status_code: int) -> dict[str, object]:
+    message = str(exc) if status_code < 500 else "Internal Server Error"
     return {
         "error": {
             "code": f"VALIDATION_{status_code}",
-            "message": str(exc),
+            "message": message,
         }
     }
 
@@ -264,6 +265,11 @@ def custom_error(req: func.HttpRequest, body: InputModel) -> dict[str, int]:
 
 !!! tip "Formatter signature"
     Keep the formatter signature exactly `(exc: Exception, status_code: int) -> dict[str, Any]`.
+
+For 4xx responses, the formatter receives the original exception. For 5xx
+responses, it receives `InternalServerError("Internal Server Error")` by default,
+while the original is logged server-side with traceback. The unsafe
+`expose_internal_errors=True` option restores original-exception passthrough.
 
 ## `HttpError`
 

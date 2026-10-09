@@ -106,8 +106,10 @@ Owns:
 Error shaping policy:
 
 - validation/parsing errors use structured JSON payloads
-- 500-level internal errors are sanitized by default unless a custom formatter
-  is provided
+- custom formatters receive original exceptions for 4xx errors
+- 500-level originals are logged once with traceback, while custom formatters
+  receive a sanitized `InternalServerError` by default
+- `expose_internal_errors=True` is an unsafe compatibility opt-in
 
 
 ## Module boundaries
@@ -154,6 +156,7 @@ Exported symbols (via `__all__`):
 - `SerializationError` — exception type for response serialization failures
 - `ErrorFormatter` — type alias for custom error formatting callables
 - `HttpError` — raise from a handler to return a controlled error envelope
+- `InternalServerError` — sanitized exception passed to custom 5xx formatters
 - `ValidationAdapter` — the adapter protocol (public extension point)
 - `PydanticAdapter` — the default Pydantic v2 adapter implementation
 - `__version__` — package version string
