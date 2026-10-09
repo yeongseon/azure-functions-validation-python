@@ -13,6 +13,16 @@ The app lives in [`function_app.py`](function_app.py).
 | --- | --- | --- |
 | `GET` | `/api/health` | Liveness probe returning `{"status": "ok"}` |
 | `POST` | `/api/items` | Validated create via `@validate_http` (`CreateItemRequest` → `ItemResponse`) |
+| `GET` | `/api/pipeline/parameters/{item_id}` | Query, path, and aliased-header injection |
+| `POST` | `/api/pipeline/async` | Async body validation and response validation |
+| `GET` | `/api/pipeline/invalid-response` | Sanitized response-validation failure |
+| `GET` | `/api/pipeline/dataclass` | Dataclass serialization |
+| `DELETE` | `/api/pipeline/empty` | `None` serialization as HTTP 204 |
+| `GET` | `/api/pipeline/list` | Generic list response model |
+| `POST` | `/api/pipeline/formatter-failure` | Sanitized fallback when a custom formatter raises |
+| `POST` | `/api/pipeline/created` | Configured HTTP 201 success status |
+| `GET` | `/api/pipeline/missing` | Controlled `HttpError(404)` envelope |
+| `GET` | `/api/pipeline/context` | Azure `Context` binding passthrough |
 
 ## Run locally
 

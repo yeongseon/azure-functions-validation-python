@@ -232,6 +232,29 @@ Optional inputs: `-f ref=<branch|tag|sha>` to certify a specific commit and
 `-f version=<X.Y.Z>` to assert the expected package version (the run fails if it
 does not match `__version__` in the source).
 
+Without `E2E_BASE_URL`, the real-Azure modules are still collected but skipped.
+`tests/test_e2e_app.py` invokes the same deployed handlers through the real
+`@validate_http` decorator and `MockHttpRequest`, so their status codes and response
+bodies are verified locally before Azure certification.
+
+### Deployed Coverage
+
+The temporary app verifies the worker-sensitive pipeline branches that unit tests
+cannot prove on a deployed host:
+
+- body validation, malformed JSON (`400`), and source-prefixed query/path/header
+  validation errors (`422`);
+- synchronous and asynchronous validated handlers;
+- response-model enforcement with a sanitized `500` body;
+- dataclass, list-model, and `None`/`204` serialization;
+- sanitized fallback when a custom `error_formatter` raises;
+- configured `201` success and controlled `HttpError(404)` responses;
+- Azure `Context` binding passthrough alongside `@validate_http`.
+
+This coverage is intentionally representative rather than a duplicate of the unit
+suite. The `azure-e2e` job remains a required dependency of the PyPI publish job in
+`.github/workflows/publish-pypi.yml`.
+
 ### Required Secrets & Variables
 
 The `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` secrets are expected in the `azure-e2e` GitHub Environment used by `deploy_and_test` and `cleanup`. `AZURE_LOCATION` is read from the `vars` context with a fallback to `koreacentral`.
