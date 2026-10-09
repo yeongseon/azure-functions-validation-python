@@ -96,6 +96,29 @@ def test_source_drift_warns_but_passes_without_strict(tmp_path: Path) -> None:
     assert "drift detected" in strict.stdout
 
 
+def test_output_drift_fails_in_strict_mode(tmp_path: Path) -> None:
+    manifest = tmp_path / "m.yml"
+    _write(
+        manifest,
+        """
+        schema_version: 1
+        screenshots:
+          - id: drift
+            image: docs/assets/portal-functionapp-overview.png
+            captured: {package_version: "0.0.0", git_sha: x, date: "2026-01-01", method: manual}
+            source:
+              inputs: [examples/e2e_app/function_app.py]
+              hash: sha256:5121dbb348962969f08039e90f62d470680706f6046c8b67df987abc4c187d85
+            output: {hash: "sha256:stale"}
+        """,
+    )
+
+    result = _run("--manifest", str(manifest), "--strict")
+
+    assert result.returncode == 1
+    assert "output changed" in result.stdout
+
+
 def test_secret_leak_in_metadata_fails(tmp_path: Path) -> None:
     manifest = tmp_path / "m.yml"
     _write(

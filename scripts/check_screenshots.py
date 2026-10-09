@@ -215,6 +215,17 @@ def _check(path: Path, strict: bool) -> int:
                 f"(declared {declared}, actual {actual}); re-capture screenshot "
                 f"and refresh the manifest"
             )
+        output = entry.get("output")
+        image = entry.get("image")
+        if isinstance(output, dict) and isinstance(image, str):
+            declared_output = output.get("hash")
+            actual_output = _image_hash(image)
+            if declared_output != actual_output:
+                warnings.append(
+                    f"{entry_id}: screenshot output changed since capture "
+                    f"(declared {declared_output}, actual {actual_output}); "
+                    "refresh the manifest"
+                )
 
     if hard_errors:
         print("Screenshot manifest check FAILED:")
