@@ -78,7 +78,7 @@ Understanding the boundaries of this library is essential for building secure Az
 ### Within Scope
 
 - **Input Validation**: This library handles HTTP request validation for body, query parameters, path variables, and headers. Input validation is a primary security boundary against injection and malformed data.
-- **Data Integrity**: Pydantic v2 manages data validation, including type coercion and schema constraints, ensuring that incoming data matches expected models.
+- **Data Integrity**: Pydantic v2 manages data validation and schema constraints. Its plain `BaseModel` defaults are intentionally permissive: validation uses lax coercion and silently drops undeclared fields with `extra="ignore"`. Choose stricter model configuration when the API contract requires it.
 
 ### Out of Scope
 
@@ -94,10 +94,11 @@ Azure Functions runtime security and platform-level infrastructure are managed b
 When using this library, follow these practices to enhance your application's security:
 
 1. **Validate All Inputs**: Use the `@validate_http` decorator to check every input source, including body, query, path, and headers.
-2. **Use Strict Pydantic Models**: Define field constraints in your Pydantic models (e.g., `min_length`, `max_length`, `ge`, `le`, `pattern`). Avoid using generic `Any` types where possible.
-3. **Prevent Data Leakage**: Always use `response_model` in the `@validate_http` decorator. This ensures that only the fields defined in your response model are sent back to the client, preventing accidental exposure of internal data structures.
-4. **Keep Dependencies Updated**: Regularly update `pydantic` and `azure-functions` to benefit from the latest security patches.
-5. **Layer Body Controls**: Use `max_body_bytes` and `require_json_content_type` for handler contracts, plus Azure Functions host or API Management limits for transport enforcement.
+2. **Use Deliberate Pydantic Models**: Define field constraints (for example, `min_length`, `max_length`, `ge`, `le`, and `pattern`) and avoid generic `Any` types. For closed JSON body contracts, use `ConfigDict(strict=True, extra="forbid")`; see [Strict API boundary models](strict-models.md). Query, path, and header values arrive as strings and usually need a separate lax-coercion model.
+3. **Prevent Over-posting**: Default `extra="ignore"` drops unknown input rather than rejecting it. Do not use the original raw payload for assignment after validation. Set `extra="forbid"` when undeclared fields must fail with `422`, preventing hidden client mistakes and reducing mass-assignment risk.
+4. **Prevent Data Leakage**: Always use `response_model` in the `@validate_http` decorator. This ensures that only the fields defined in your response model are sent back to the client, preventing accidental exposure of internal data structures.
+5. **Keep Dependencies Updated**: Regularly update `pydantic` and `azure-functions` to benefit from the latest security patches.
+6. **Layer Body Controls**: Use `max_body_bytes` and `require_json_content_type` for handler contracts, plus Azure Functions host or API Management limits for transport enforcement.
 
 ## Dependency Security
 
