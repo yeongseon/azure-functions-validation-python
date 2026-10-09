@@ -36,7 +36,9 @@ from typing import Any
 
 from azure.functions import HttpRequest
 
-__all__ = ["MockHttpRequest"]
+from .conformance import AdapterConformanceTests
+
+__all__ = ["AdapterConformanceTests", "MockHttpRequest"]
 
 _JSON_CONTENT_TYPE = "application/json"
 

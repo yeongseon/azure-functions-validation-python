@@ -3,6 +3,7 @@
 from .adapter import PydanticAdapter, ValidationAdapter
 from .decorator import validate_http
 from .errors import (
+    AdapterValidationError,
     ErrorFormatter,
     HttpError,
     InternalServerError,
@@ -10,6 +11,7 @@ from .errors import (
     ResponseValidationError,
     SerializationError,
 )
+from .testing import AdapterConformanceTests
 
 __all__ = [
     "__version__",
@@ -22,6 +24,8 @@ __all__ = [
     "HttpError",
     "InternalServerError",
     "MalformedRequestError",
+    "AdapterValidationError",
+    "AdapterConformanceTests",
 ]
 
 __version__ = "0.14.0"

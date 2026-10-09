@@ -9,6 +9,8 @@ import pytest
 
 import azure_functions_validation
 from azure_functions_validation import (
+    AdapterConformanceTests,
+    AdapterValidationError,
     ErrorFormatter,
     HttpError,
     InternalServerError,
@@ -37,6 +39,8 @@ class TestAPISurface:
             "HttpError",
             "InternalServerError",
             "MalformedRequestError",
+            "AdapterValidationError",
+            "AdapterConformanceTests",
         }
 
     def test_version_matches_distribution_metadata(self) -> None:
@@ -59,6 +63,10 @@ class TestAPISurface:
     def test_malformed_request_error_is_plain_exception(self) -> None:
         assert issubclass(MalformedRequestError, Exception)
         assert not issubclass(MalformedRequestError, ValueError)
+
+    def test_adapter_contract_exports_are_public(self) -> None:
+        assert issubclass(AdapterValidationError, Exception)
+        assert hasattr(AdapterConformanceTests, "make_adapter")
 
     def test_error_formatter_is_callable_alias(self) -> None:
         # ErrorFormatter is Callable[[Exception, int], dict[str, Any]]
