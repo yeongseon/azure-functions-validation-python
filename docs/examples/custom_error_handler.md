@@ -36,10 +36,11 @@ class CommentRequest(BaseModel):
 
 
 def custom_error_formatter(exc: Exception, status_code: int) -> dict[str, object]:
+    message = str(exc) if status_code < 500 else "Internal Server Error"
     return {
         "error": {
             "code": f"VALIDATION_{status_code}",
-            "message": str(exc),
+            "message": message,
         }
     }
 
@@ -69,17 +70,19 @@ The decorator validates incoming JSON body against this model.
 
 ```python
 def custom_error_formatter(exc: Exception, status_code: int) -> dict[str, object]:
+    message = str(exc) if status_code < 500 else "Internal Server Error"
     return {
         "error": {
             "code": f"VALIDATION_{status_code}",
-            "message": str(exc),
+            "message": message,
         }
     }
 ```
 
 The formatter receives:
 
-- `exc`: the exception raised during parsing/validation
+- `exc`: the original exception for 4xx errors, or a sanitized
+  `InternalServerError` for 5xx errors
 - `status_code`: intended HTTP status code (`400`, `422`, `500`)
 
 ### Step 3: wire formatter into decorator
