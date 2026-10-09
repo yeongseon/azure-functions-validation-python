@@ -1,4 +1,4 @@
-"""azure-functions-validation package."""
+"""Azure Functions validation package."""
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .decorator import validate_http
