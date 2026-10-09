@@ -38,6 +38,9 @@ response schemas. FastAPI-like developer experience without the web framework.
   custom adapters must be stateless or thread-safe and should subclass
   `AdapterConformanceTests` in their test suite.
 - Response enforcement: mismatches raise `ResponseValidationError` (HTTP 500)
+- Validated response serialization: `response_by_alias`,
+  `response_exclude_none`, and `response_exclude_unset` require `response_model`;
+  direct `HttpResponse` returns bypass them.
 - Per-handler error formatting via `ErrorFormatter` callback
 
 ## Quick Start
