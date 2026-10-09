@@ -117,7 +117,7 @@ app = func.FunctionApp()
 @app.route(route="users", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=CreateUserRequest, response_model=CreateUserResponse)
 def create_user(req: func.HttpRequest, body: CreateUserRequest) -> CreateUserResponse:
-    return CreateUserResponse(message=f"Hello {body.name}")
+    return CreateUserResponse(message=f"Hi {body.name}")
 ```
 
 ## 상태 코드와 제어된 오류
