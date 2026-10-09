@@ -1,4 +1,4 @@
-"""E2E test function app for azure-functions-validation."""
+"""E2E test Function app for azure-functions-validation."""
 
 import json
 import logging
