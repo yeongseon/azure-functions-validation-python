@@ -236,7 +236,30 @@ def custom_status(req: func.HttpRequest) -> func.HttpResponse:
 ```
 
 !!! note "Bypass behavior"
-    Returning `func.HttpResponse` skips response model validation intentionally.
+    Returning `func.HttpResponse` skips response model validation and all
+    response serialization options intentionally.
+
+### Pattern E: validated serialization options
+
+```python
+class UserOut(BaseModel):
+    display_name: str = Field(serialization_alias="displayName")
+    nickname: str | None = None
+
+
+@validate_http(
+    response_model=UserOut,
+    response_by_alias=False,
+    response_exclude_none=True,
+    response_exclude_unset=True,
+)
+def get_user(req: func.HttpRequest) -> UserOut:
+    return UserOut(display_name="Ada")
+```
+
+This emits `{"display_name": "Ada"}` after validating the result. The options
+require `response_model`; `response_exclude_none` and `response_exclude_unset`
+do not remove fields from the endpoint response schema.
 
 ## Error handling strategies
 

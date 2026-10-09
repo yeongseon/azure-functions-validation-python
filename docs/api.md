@@ -29,6 +29,17 @@ from azure_functions_validation import (
 
 ::: azure_functions_validation.validate_http
 
+| Response option | Default | Behavior |
+| --- | --- | --- |
+| `response_by_alias` | `True` | Use serialization aliases in validated response JSON and endpoint response metadata. |
+| `response_exclude_none` | `False` | Omit validated fields whose value is `None`. |
+| `response_exclude_unset` | `False` | Omit validated fields that were not explicitly set. |
+
+The response serialization options require `response_model`. Non-default values
+without a response model raise `ValueError` at decoration time. They do not apply
+when a handler returns `HttpResponse` directly; that path remains a full bypass.
+Exclusion options alter payload presence, not the emitted response schema.
+
 ### Usage example: body + response validation
 
 ```python
