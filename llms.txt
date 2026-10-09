@@ -23,6 +23,7 @@ response schemas. FastAPI-like developer experience without the web framework.
 - `ErrorFormatter` — Custom error formatting callback
 - `ResponseValidationError` — Error raised when response validation fails
 - `SerializationError` — Error raised when serialization fails
+- `AdapterConformanceTests` — Pytest-agnostic custom-adapter contract suite
 
 ## Key Concepts
 
@@ -33,6 +34,9 @@ response schemas. FastAPI-like developer experience without the web framework.
 - Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
   `AdapterValidationError` for validation failures (422); all other exceptions,
   including `ValueError`, are logged and sanitized as 500.
+- Adapter instances are created once at decoration and shared concurrently;
+  custom adapters must be stateless or thread-safe and should subclass
+  `AdapterConformanceTests` in their test suite.
 - Response enforcement: mismatches raise `ResponseValidationError` (HTTP 500)
 - Per-handler error formatting via `ErrorFormatter` callback
 
