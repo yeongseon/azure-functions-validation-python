@@ -11,6 +11,9 @@ in production handlers.
     headers=...,
     request_model=...,
     response_model=...,
+    response_by_alias=True,
+    response_exclude_none=False,
+    response_exclude_unset=False,
     adapter=...,
     error_formatter=...,
     status_code=200,
@@ -28,6 +31,9 @@ Public keyword-only parameters:
 - `headers`
 - `request_model`
 - `response_model`
+- `response_by_alias` (default `True`)
+- `response_exclude_none` (default `False`)
+- `response_exclude_unset` (default `False`)
 - `adapter`
 - `error_formatter`
 - `status_code` (default `200`)
@@ -151,6 +157,19 @@ def health(req: func.HttpRequest) -> dict[str, str]:
 ```
 
 Also supports generic type forms like `list[ResultModel]`.
+
+Validated response serialization can be customized with:
+
+- `response_by_alias=False` to emit Python field names instead of serialization aliases.
+- `response_exclude_none=True` to omit fields whose value is `None`.
+- `response_exclude_unset=True` to omit fields that were not explicitly set.
+
+These options require `response_model`; setting a non-default value without one
+raises `ValueError` when the decorator is created. They apply only after response
+validation. Returning `func.HttpResponse` still bypasses validation and
+serialization, so these options do not modify its body. `response_exclude_none`
+and `response_exclude_unset` affect payload presence only and do not change the
+declared response schema.
 
 Nested Pydantic models inside dataclass return values are serialized too, so a
 dataclass holding a `BaseModel` field renders as plain JSON rather than raising
@@ -283,7 +302,8 @@ def create_custom(req: func.HttpRequest, body: RequestModel) -> ResultModel:
 
 - `adapter` defaults to `PydanticAdapter()`.
 - No `response_model` means output is serialized without response schema validation.
-- Returning `func.HttpResponse` bypasses response serialization/validation.
+- Returning `func.HttpResponse` bypasses response serialization/validation,
+  including all `response_*` serialization options.
 - 500-level internal pipeline errors are sanitized by default when no formatter is set.
 
 !!! tip "Choose explicit response models"

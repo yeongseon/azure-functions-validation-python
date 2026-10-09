@@ -60,6 +60,24 @@ class TestConfigurationErrors:
             validate_http(**options)
 
     @pytest.mark.parametrize(
+        ("option_name", "option_value"),
+        [
+            ("response_by_alias", False),
+            ("response_exclude_none", True),
+            ("response_exclude_unset", True),
+        ],
+    )
+    def test_response_serialization_option_requires_response_model(
+        self, option_name: str, option_value: bool
+    ) -> None:
+        options: dict[str, Any] = {option_name: option_value}
+
+        with pytest.raises(
+            ValueError, match="response serialization options require response_model"
+        ):
+            validate_http(**options)
+
+    @pytest.mark.parametrize(
         "model_option",
         ["body", "query", "path", "headers", "request_model", "response_model"],
     )
