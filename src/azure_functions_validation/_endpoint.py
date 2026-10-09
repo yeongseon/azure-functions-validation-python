@@ -86,10 +86,10 @@ def _is_model_type(model: Any) -> bool:
     return isinstance(model, type) and issubclass(model, BaseModel)
 
 
-def _model_schema(model: type[BaseModel], mode: str) -> dict[str, Any]:
+def _model_schema(model: type[BaseModel], mode: str, *, by_alias: bool = True) -> dict[str, Any]:
     """Generate a model's JSON Schema using the SPEC-pinned canonicalization."""
     return model.model_json_schema(
-        by_alias=True,
+        by_alias=by_alias,
         ref_template=_REF_TEMPLATE,
         mode=mode,  # type: ignore[arg-type]
     )
@@ -173,7 +173,13 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
     response_model = config.response_model
     if _is_model_type(response_model):
         status = str(getattr(config, "success_status_code", 200) or 200)
-        responses[status] = {"schema": _model_schema(response_model, "serialization")}
+        responses[status] = {
+            "schema": _model_schema(
+                response_model,
+                "serialization",
+                by_alias=getattr(config, "response_by_alias", True),
+            )
+        }
     if has_request_model:
         # Document the standardized validation-error contract the runtime emits
         # on invalid input, so consumers (openapi) need not hand-author it.
