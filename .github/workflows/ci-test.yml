@@ -65,23 +65,9 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           SHA: ${{ github.sha }}
         run: |
-          set -euo pipefail
-          fail_safe() {
-            printf 'docs_only=false\ndocs_changed=true\nfull_required=true\n' >> "$GITHUB_OUTPUT"
-          }
-
-          if ! tools/ci_collect_changed_files.sh \
+          tools/ci_classify_workflow_changes.sh \
             "${EVENT_NAME}" "${BASE_SHA}" "${HEAD_SHA}" "${HEAD_REPOSITORY}" \
             "${REPOSITORY}" "${PR_NUMBER}" "${BEFORE_SHA}" "${SHA}" \
-            > changed-files.txt; then
-            fail_safe
-            exit 0
-          fi
-
-          cat changed-files.txt
-          if ! tools/ci_classify_changes.sh < changed-files.txt >> "$GITHUB_OUTPUT"; then
-            fail_safe
-          fi
 
   # Lint and type-check run once on a single pinned interpreter
   # (Python 3.11, matching the ruff/mypy target-version in pyproject). These
