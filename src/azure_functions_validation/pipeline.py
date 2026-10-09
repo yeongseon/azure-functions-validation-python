@@ -21,8 +21,10 @@ from .errors import (
     ErrorFormatter,
     HttpError,
     MalformedRequestError,
+    PayloadTooLargeError,
     RequestBindingError,
     SerializationError,
+    UnsupportedMediaTypeError,
     format_error_response,
 )
 
@@ -54,6 +56,8 @@ class PipelineConfig:
     response_exclude_unset: bool = False
     success_status_code: int = 200
     handler_name: str | None = None
+    max_body_bytes: int | None = None
+    require_json_content_type: bool = False
 
 
 def _format_error(exception: Exception, status_code: int, config: PipelineConfig) -> HttpResponse:
@@ -208,6 +212,42 @@ def _inject_body(
         parsed_inputs["req_model"] = parsed
 
 
+def _header_value(http_request: Any, name: str) -> str | None:
+    headers = http_request.headers or {}
+    target = name.casefold()
+    return next((value for key, value in headers.items() if key.casefold() == target), None)
+
+
+def _is_json_media_type(content_type: str | None) -> bool:
+    if content_type is None:
+        return False
+    media_type = content_type.partition(";")[0].strip().casefold()
+    return media_type == "application/json" or (
+        media_type.startswith("application/") and media_type.endswith("+json")
+    )
+
+
+def _enforce_body_policies(http_request: Any, config: PipelineConfig) -> None:
+    declared_length = _header_value(http_request, "content-length")
+    if config.max_body_bytes is not None and declared_length is not None:
+        try:
+            declared_bytes = int(declared_length)
+        except ValueError:
+            declared_bytes = 0
+        if declared_bytes > config.max_body_bytes:
+            raise PayloadTooLargeError
+
+    body = http_request.get_body()
+    if config.max_body_bytes is not None and len(body) > config.max_body_bytes:
+        raise PayloadTooLargeError
+    if (
+        body
+        and config.require_json_content_type
+        and not _is_json_media_type(_header_value(http_request, "content-type"))
+    ):
+        raise UnsupportedMediaTypeError
+
+
 def _parse_inputs(
     http_request: Any,
     config: PipelineConfig,
@@ -236,7 +276,13 @@ def _parse_inputs(
             continue
         # Always validate the configured input, even if the handler ignores it.
         try:
+            if name == "body":
+                _enforce_body_policies(http_request, config)
             parsed = parse(http_request, model)
+        except PayloadTooLargeError as e:
+            return _format_error(e, 413, config)
+        except UnsupportedMediaTypeError as e:
+            return _format_error(e, 415, config)
         except AdapterValidationError as e:
             return _format_error(e, 422, config)
         except MalformedRequestError as e:

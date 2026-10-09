@@ -15,7 +15,9 @@ from azure_functions_validation import (
     HttpError,
     InternalServerError,
     MalformedRequestError,
+    PayloadTooLargeError,
     ResponseValidationError,
+    UnsupportedMediaTypeError,
     validate_http,
 )
 
@@ -39,6 +41,8 @@ class TestAPISurface:
             "HttpError",
             "InternalServerError",
             "MalformedRequestError",
+            "PayloadTooLargeError",
+            "UnsupportedMediaTypeError",
             "AdapterValidationError",
             "AdapterConformanceTests",
         }
@@ -63,6 +67,10 @@ class TestAPISurface:
     def test_malformed_request_error_is_plain_exception(self) -> None:
         assert issubclass(MalformedRequestError, Exception)
         assert not issubclass(MalformedRequestError, ValueError)
+
+    def test_body_policy_errors_are_public_exceptions(self) -> None:
+        assert issubclass(PayloadTooLargeError, Exception)
+        assert issubclass(UnsupportedMediaTypeError, Exception)
 
     def test_adapter_contract_exports_are_public(self) -> None:
         assert issubclass(AdapterValidationError, Exception)

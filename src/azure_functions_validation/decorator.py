@@ -42,6 +42,8 @@ def validate_http(
     response_by_alias: bool = True,
     response_exclude_none: bool = False,
     response_exclude_unset: bool = False,
+    max_body_bytes: int | None = None,
+    require_json_content_type: bool = False,
 ) -> Callable[..., Any]:
     """Decorator for validating HTTP request inputs and response outputs.
 
@@ -69,12 +71,22 @@ def validate_http(
             validated responses.
         response_exclude_unset: Exclude fields that were not explicitly set from
             validated responses.
+        max_body_bytes: Maximum accepted request-body size in bytes. Disabled by default.
+        require_json_content_type: Require a JSON media type for non-empty configured bodies.
 
     Returns:
         A decorator that wraps the handler with validation logic.
     """
     if not isinstance(expose_internal_errors, bool):
         raise TypeError("expose_internal_errors must be a bool")
+    if max_body_bytes is not None and (
+        isinstance(max_body_bytes, bool)
+        or not isinstance(max_body_bytes, int)
+        or max_body_bytes <= 0
+    ):
+        raise ValueError("max_body_bytes must be a positive integer")
+    if not isinstance(require_json_content_type, bool):
+        raise TypeError("require_json_content_type must be a bool")
 
     if response_model is None and (
         not response_by_alias or response_exclude_none or response_exclude_unset
@@ -163,6 +175,8 @@ def validate_http(
             response_exclude_unset=response_exclude_unset,
             success_status_code=status_code,
             handler_name=getattr(func, "__qualname__", None) or getattr(func, "__name__", None),
+            max_body_bytes=max_body_bytes,
+            require_json_content_type=require_json_content_type,
         )
 
         wrapper = _make_wrapper(func, config, is_async=is_async)
