@@ -1,6 +1,26 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.15.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.14.0...v0.15.0) (2026-10-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **pipeline:** classify binding and adapter failures as server errors ([#513](https://github.com/yeongseon/azure-functions-validation-python/issues/513))
+* **errors:** sanitize exceptions passed to custom 5xx formatters ([#512](https://github.com/yeongseon/azure-functions-validation-python/issues/512))
+
+### Features
+
+* **adapter:** publish a validation adapter conformance contract ([#514](https://github.com/yeongseon/azure-functions-validation-python/issues/514)) ([ccc66c0](https://github.com/yeongseon/azure-functions-validation-python/commit/ccc66c0032182404262ff1cf028d472461b8109d))
+* **body:** add opt-in body size and media-type policies ([#516](https://github.com/yeongseon/azure-functions-validation-python/issues/516)) ([fcba78e](https://github.com/yeongseon/azure-functions-validation-python/commit/fcba78ee89127c18dcbbce0c2f8f21a6d75e9aef))
+* **response:** expose validated serialization options ([#515](https://github.com/yeongseon/azure-functions-validation-python/issues/515)) ([be9da39](https://github.com/yeongseon/azure-functions-validation-python/commit/be9da39f04aeed9cf30c397248d003663ae65076))
+
+
+### Bug Fixes
+
+* **errors:** sanitize exceptions passed to custom 5xx formatters ([#512](https://github.com/yeongseon/azure-functions-validation-python/issues/512)) ([b811d95](https://github.com/yeongseon/azure-functions-validation-python/commit/b811d95f1adf820c4399b6941e202d3efbf4d0f3)), closes [#503](https://github.com/yeongseon/azure-functions-validation-python/issues/503)
+* **pipeline:** classify binding and adapter failures as server errors ([#513](https://github.com/yeongseon/azure-functions-validation-python/issues/513)) ([7806cd4](https://github.com/yeongseon/azure-functions-validation-python/commit/7806cd40d2cb92f7cb0870dea438544f2c596dba)), closes [#504](https://github.com/yeongseon/azure-functions-validation-python/issues/504)
+
 ## [0.14.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.13.4...v0.14.0) (2026-10-06)
 
 
