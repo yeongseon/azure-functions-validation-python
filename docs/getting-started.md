@@ -66,6 +66,12 @@ def signup(req: func.HttpRequest, body: SignupBody) -> SignupResponse:
 - `response_model=SignupResponse` validates output before serialization.
 - The handler receives a typed `body` object.
 
+Pydantic's plain `BaseModel` defaults use lax coercion and ignore unknown
+fields. Public JSON APIs commonly need a closed boundary instead. Read
+[Strict API boundary models](strict-models.md) for a reusable
+`ConfigDict(strict=True, extra="forbid")` base and the separate policy needed
+for query, path, and header strings.
+
 !!! note "Decorator order"
     Place `@validate_http(...)` closest to the function definition,
     below `@app.route(...)`.
@@ -192,6 +198,7 @@ For deeper fixes, go to [Troubleshooting](troubleshooting.md).
 
 ## Next steps
 
+- Choose a boundary policy in [Strict API boundary models](strict-models.md).
 - Read [Configuration](configuration.md) to tune each parameter.
 - Read [Usage](usage.md) for advanced patterns.
 - Explore [Basic Validation Example](examples/basic_validation.md).
