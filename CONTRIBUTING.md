@@ -2,6 +2,33 @@
 
 We welcome contributions to the `azure-functions-validation` project.
 
+## Local development quickstart
+
+The package supports Python 3.11, 3.12, 3.13, and 3.14. Local development
+requires Python 3.11 because the default Hatch environment is pinned to that
+interpreter. No repository-specific services or infrastructure are required
+for the standard checks.
+
+Clone the repository, enter it, and let the Makefile create a local virtual
+environment and install Hatch:
+
+```bash
+git clone https://github.com/yeongseon/azure-functions-validation-python.git
+cd azure-functions-validation-python
+make install
+```
+
+Run the standard verification commands before opening a pull request:
+
+```bash
+make test
+make lint
+make typecheck
+make build
+```
+
+`make check-all` runs the complete local quality gate used for contributions.
+
 ## Branch Strategy
 
 Use GitHub Flow and branch from `main`.
