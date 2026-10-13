@@ -4,6 +4,7 @@ from .adapter import PydanticAdapter, ValidationAdapter
 from .decorator import validate_http
 from .errors import (
     AdapterValidationError,
+    AggregatedValidationError,
     ErrorFormatter,
     HttpError,
     InternalServerError,
@@ -29,6 +30,7 @@ __all__ = [
     "PayloadTooLargeError",
     "UnsupportedMediaTypeError",
     "AdapterValidationError",
+    "AggregatedValidationError",
     "AdapterConformanceTests",
 ]
 

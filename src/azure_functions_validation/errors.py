@@ -145,6 +145,13 @@ class AdapterValidationError(Exception):
         self.errors: list[dict[str, Any]] = errors
 
 
+class AggregatedValidationError(AdapterValidationError):
+    """Combined normalized errors from multiple request input sources."""
+
+    def __init__(self, errors: list[dict[str, Any]]) -> None:
+        super().__init__("Request validation failed", errors)
+
+
 def format_error_response(
     exception: Exception,
     status_code: int,
