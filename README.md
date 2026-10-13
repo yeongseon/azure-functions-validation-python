@@ -164,7 +164,8 @@ $ curl -s -X POST http://localhost:7071/api/users \
       "msg": "Field required",
       "type": "missing"
     }
-  ]
+  ],
+  "error_format_version": 1
 }
 ```
 
@@ -179,7 +180,7 @@ $ curl -s -X POST http://localhost:7071/api/users \
 ```
 
 ```json
-{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}], "error_format_version": 1}
 ```
 
 > HTTP 400
@@ -345,7 +346,7 @@ curl -s http://localhost:7071/api/users \
 ```
 
 ```json
-{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}], "error_format_version": 1}
 ```
 
 > HTTP 400
@@ -359,7 +360,7 @@ curl -s "https://<your-app>.azurewebsites.net/api/users" \
 ```
 
 ```json
-{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}]}
+{"detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}], "error_format_version": 1}
 ```
 
 > HTTP 400
