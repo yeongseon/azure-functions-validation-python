@@ -320,6 +320,27 @@ Without custom formatting, parsing/validation errors are emitted as:
 }
 ```
 
+### Opt-in aggregation across request sources
+
+By default, validation returns the first failing source. Opt in when clients
+should receive all independently actionable request errors at once:
+
+```python
+@validate_http(
+    body=CreateUserBody,
+    query=PagingQuery,
+    headers=RequestHeaders,
+    aggregate_validation_errors=True,
+)
+def create_user(req: func.HttpRequest) -> dict[str, str]:
+    return {"status": "created"}
+```
+
+One 422 contains errors in body, query, path, then headers order. Existing
+source-prefixed locations, custom formatters, and the envelope version are
+unchanged. Invalid JSON remains an immediate 400 rather than being combined
+with validation errors.
+
 ### Custom strategy: per-handler `error_formatter`
 
 ```python
