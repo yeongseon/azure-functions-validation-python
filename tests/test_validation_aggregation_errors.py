@@ -9,7 +9,7 @@ from azure_functions_validation import (
     AdapterValidationError,
     AggregatedValidationError,
     MalformedRequestError,
-    PydanticAdapter,
+    ValidationAdapter,
     validate_http,
 )
 
@@ -24,7 +24,7 @@ class QueryInput(BaseModel):
     query_value: int
 
 
-class CustomAdapter(PydanticAdapter):
+class CustomAdapter(ValidationAdapter):
     def parse_body(self, req: HttpRequest, model: Any) -> Any:
         raise AdapterValidationError(
             "body failed",
@@ -36,6 +36,31 @@ class CustomAdapter(PydanticAdapter):
             "query failed",
             [{"loc": ["query", "custom"], "msg": "invalid", "type": "custom"}],
         )
+
+    def parse_path(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        return model.model_validate(req.route_params)
+
+    def parse_headers(self, req: HttpRequest, model: type[BaseModel]) -> Any:
+        return model.model_validate(dict(req.headers))
+
+    def validate_response(self, obj: Any, model: Any, *, type_adapter: Any = None) -> Any:
+        return obj
+
+    def serialize(self, obj: Any) -> tuple[str | bytes, str]:
+        return json.dumps(obj), "application/json"
+
+    def format_error(self, exc: Exception) -> dict[str, Any]:
+        if isinstance(exc, AdapterValidationError):
+            return {"detail": exc.errors}
+        return {
+            "detail": [
+                {
+                    "loc": ["body"] if isinstance(exc, MalformedRequestError) else [],
+                    "msg": str(exc),
+                    "type": "value_error",
+                }
+            ]
+        }
 
 
 class MalformedAfterValidationAdapter(CustomAdapter):
@@ -76,6 +101,33 @@ def test_custom_adapter_errors_are_aggregated_through_protocol(
     assert response.status_code == 422
     assert isinstance(seen_exception, AggregatedValidationError)
     assert len(json.loads(response.get_body())["detail"]) == 2
+
+
+class EmptyErrorAdapter(CustomAdapter):
+    def parse_body(self, req: HttpRequest, model: Any) -> Any:
+        raise AdapterValidationError("body failed", [])
+
+
+def test_empty_adapter_error_list_still_blocks_handler(
+    mock_request_factory: RequestFactory,
+) -> None:
+    calls = 0
+
+    @validate_http(
+        body=BodyInput,
+        adapter=EmptyErrorAdapter(),
+        aggregate_validation_errors=True,
+    )
+    def handler(req: HttpRequest) -> dict[str, bool]:
+        nonlocal calls
+        calls += 1
+        return {"called": True}
+
+    response = handler(mock_request_factory())
+
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["detail"] == []
+    assert calls == 0
 
 
 def test_malformed_input_discards_collected_validation_errors(

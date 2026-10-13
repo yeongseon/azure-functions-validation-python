@@ -257,6 +257,7 @@ def _parse_inputs(
     """Parse and validate all configured request inputs."""
     parsed_inputs: dict[str, Any] = {}
     validation_errors: list[dict[str, Any]] = []
+    validation_failed = False
 
     # (name, configured model, adapter parse method, injection strategy)
     parse_specs: tuple[
@@ -289,6 +290,7 @@ def _parse_inputs(
         except AdapterValidationError as e:
             if not config.aggregate_validation_errors:
                 return _format_error(e, 422, config)
+            validation_failed = True
             validation_errors.extend(e.errors)
             continue
         except MalformedRequestError as e:
@@ -302,7 +304,7 @@ def _parse_inputs(
             return _format_logged_error(e, 500, config)
         inject(name, parsed, config, parsed_inputs)
 
-    if validation_errors:
+    if validation_failed:
         return _format_error(AggregatedValidationError(validation_errors), 422, config)
 
     # Add original HttpRequest if requested
