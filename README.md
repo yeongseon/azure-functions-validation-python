@@ -164,7 +164,8 @@ $ curl -s -X POST http://localhost:7071/api/users \
       "msg": "Field required",
       "type": "missing"
     }
-  ]
+  ],
+  "error_format_version": 1
 }
 ```
 
