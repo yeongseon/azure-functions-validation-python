@@ -1,40 +1,30 @@
-from pydantic import BaseModel
-
 from azure_functions_validation._metadata import (
     METADATA_ATTR,
-    VALIDATION_METADATA_VERSION,
     ValidationMetadata,
-    read_validation_metadata,
     set_validation_metadata,
 )
 
 
-class RequestModel(BaseModel):
-    name: str
+def test_set_validation_metadata_replaces_stale_validation_namespace() -> None:
+    def source_handler() -> None:
+        pass
 
+    def wrapped_handler() -> None:
+        pass
 
-class ResponseModel(BaseModel):
-    message: str
-
-
-def source_handler() -> None:
-    pass
-
-
-def wrapped_handler() -> None:
-    pass
-
-
-def test_set_validation_metadata_preserves_other_namespaces() -> None:
+    existing = {
+        "openapi": {"operation_id": "createUser"},
+        "validation": {"version": 0, "body": "stale"},
+    }
     payload = ValidationMetadata(
-        version=VALIDATION_METADATA_VERSION,
-        body=RequestModel,
+        version=1,
+        body=None,
         query=None,
         path=None,
         headers=None,
-        response_model=ResponseModel,
+        response_model=None,
     )
-    setattr(source_handler, METADATA_ATTR, {"openapi": {"operation_id": "createUser"}})
+    setattr(source_handler, METADATA_ATTR, existing)
 
     set_validation_metadata(wrapped_handler, source_handler, payload)
 
@@ -44,25 +34,24 @@ def test_set_validation_metadata_preserves_other_namespaces() -> None:
     }
 
 
-def test_read_validation_metadata_returns_exact_attached_payload() -> None:
+def test_set_validation_metadata_does_not_mutate_source_mapping() -> None:
+    def source_handler() -> None:
+        pass
+
+    def wrapped_handler() -> None:
+        pass
+
+    existing = {"openapi": {"operation_id": "createUser"}}
     payload = ValidationMetadata(
-        version=VALIDATION_METADATA_VERSION,
-        body=RequestModel,
+        version=1,
+        body=None,
         query=None,
         path=None,
         headers=None,
-        response_model=ResponseModel,
+        response_model=None,
     )
-    setattr(wrapped_handler, METADATA_ATTR, {"validation": payload})
+    setattr(source_handler, METADATA_ATTR, existing)
 
-    result = read_validation_metadata(wrapped_handler)
+    set_validation_metadata(wrapped_handler, source_handler, payload)
 
-    assert result == payload
-
-
-def test_read_validation_metadata_rejects_non_mapping_namespace() -> None:
-    setattr(wrapped_handler, METADATA_ATTR, {"validation": "invalid"})
-
-    result = read_validation_metadata(wrapped_handler)
-
-    assert result is None
+    assert existing == {"openapi": {"operation_id": "createUser"}}
