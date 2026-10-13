@@ -431,11 +431,18 @@ class PydanticAdapter:
             Tuple of (content, content_type)
 
         Raises:
-            SerializationError: If object type is not supported
+            SerializationError: If object type is not supported or the value
+                cannot be serialized (for example a reference cycle or nesting
+                deeper than pydantic-core allows)
         """
         for predicate, serializer in _SERIALIZERS:
             if predicate(obj):
-                return serializer(obj)
+                try:
+                    return serializer(obj)
+                except (RecursionError, ValueError) as exc:
+                    # pydantic-core reports cycles and its nesting limit as ValueError,
+                    # and PydanticSerializationError is a ValueError subclass.
+                    raise SerializationError(type(obj).__name__) from exc
         raise SerializationError(type(obj).__name__)
 
     def format_error(self, exc: Exception) -> dict[str, Any]:

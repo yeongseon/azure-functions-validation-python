@@ -1370,6 +1370,17 @@ class TestDataclassReturn:
         assert data == {"x": 1, "y": 2}
 
 
+def _nested_dict(depth: int) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for _ in range(depth):
+        value = {"child": value}
+    return value
+
+
+def _server_error_formatter(exc: Exception, status_code: int) -> dict[str, object]:
+    return {"status": status_code}
+
+
 # ---------------------------------------------------------------------------
 # Error path normalization (Issue #99)
 # ---------------------------------------------------------------------------
@@ -1430,6 +1441,35 @@ class TestErrorPathNormalization:
         assert response.status_code == 500
         data = json.loads(response.get_body().decode())
         assert "detail" in data
+
+    def test_too_deep_response_without_response_model_uses_error_formatter(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        """A value nested past pydantic-core's limit returns the formatter's 500."""
+
+        @validate_http(error_formatter=_server_error_formatter)
+        def handler(req: HttpRequest) -> dict[str, object]:
+            return _nested_dict(100_000)
+
+        response = handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert json.loads(response.get_body().decode()) == {"status": 500}
+
+    @pytest.mark.anyio
+    async def test_async_too_deep_response_without_response_model_uses_error_formatter(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        @validate_http(error_formatter=_server_error_formatter)
+        async def handler(req: HttpRequest) -> dict[str, object]:
+            return _nested_dict(100_000)
+
+        response = await handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert json.loads(response.get_body().decode()) == {"status": 500}
 
 
 # ---------------------------------------------------------------------------

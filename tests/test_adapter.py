@@ -1,5 +1,6 @@
 """Tests for validation adapter."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
 from typing import TYPE_CHECKING, Any, cast
@@ -41,6 +42,34 @@ class HeaderModel(BaseModel):
 
     request_id: str = Field(alias="X-Request-Id")
     values: list[str] = Field(alias="X-Values")
+
+
+class PayloadModel(BaseModel):
+    data: dict[str, Any]
+
+
+@dataclass
+class RecursiveDataclass:
+    child: "RecursiveDataclass | None" = None
+
+
+def _self_referencing_dataclass() -> RecursiveDataclass:
+    value = RecursiveDataclass()
+    value.child = value
+    return value
+
+
+def _nested_dict(depth: int) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for _ in range(depth):
+        value = {"child": value}
+    return value
+
+
+def _self_referencing_dict() -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    value["self"] = value
+    return value
 
 
 # Fixtures
@@ -523,6 +552,26 @@ class TestSerialize:
         assert json.loads(content, parse_constant=lambda token: pytest.fail(token)) == (
             {"nested": None} if isinstance(value, dict) else None
         )
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            pytest.param(_nested_dict(100_000), id="nested-dict"),
+            pytest.param([_nested_dict(100_000)], id="nested-list"),
+            pytest.param(_self_referencing_dict(), id="self-reference"),
+            pytest.param(PayloadModel(data=_nested_dict(300)), id="model"),
+            pytest.param(_self_referencing_dataclass(), id="recursive-dataclass"),
+        ],
+    )
+    def test_serialize_unserializable_value_raises_serialization_error(
+        self, adapter: PydanticAdapter, value: object
+    ) -> None:
+        from azure_functions_validation.errors import SerializationError
+
+        with pytest.raises(SerializationError) as exc_info:
+            adapter.serialize(value)
+
+        assert isinstance(exc_info.value.__cause__, ValueError | RecursionError)
 
 
 # Test format_error
