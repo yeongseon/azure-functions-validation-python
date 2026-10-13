@@ -20,6 +20,7 @@ in production handlers.
     legacy_loc=False,
     max_body_bytes=None,
     require_json_content_type=False,
+    aggregate_validation_errors=False,
 )
 ```
 
@@ -42,6 +43,7 @@ Public keyword-only parameters:
 - `legacy_loc` (default `False`)
 - `max_body_bytes` (default `None`)
 - `require_json_content_type` (default `False`)
+- `aggregate_validation_errors` (default `False`)
 
 !!! note "Keyword-only API"
     `validate_http` parameters are keyword-only. Prefer explicit names for
@@ -103,6 +105,18 @@ Empty bodies without `Content-Type` continue to the existing `422` missing-body
 path. A non-empty body without `Content-Type` receives `415`. The default
 `False` preserves the existing behavior of attempting JSON parsing regardless
 of the header.
+
+### `aggregate_validation_errors`
+
+The default `False` preserves fail-fast validation: the first invalid configured
+source returns a 422. Set `aggregate_validation_errors=True` to validate every
+configured source and return body, query, path, and header errors together in
+that deterministic order. Errors keep their source-prefixed `loc` values and
+the existing `error_format_version`.
+
+Malformed input still returns 400 immediately, and body policy or unexpected
+adapter failures still return their existing immediate error response. The
+handler is never called when any validation error was collected.
 
 ### `query`
 

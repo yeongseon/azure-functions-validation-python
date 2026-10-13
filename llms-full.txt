@@ -54,6 +54,7 @@ def validate_http(
     response_exclude_unset: bool = False,
     max_body_bytes: int | None = None,
     require_json_content_type: bool = False,
+    aggregate_validation_errors: bool = False,
 ) -> Callable[..., Any]:
     """Decorator for validating HTTP request inputs and response outputs.
     
@@ -74,6 +75,7 @@ def validate_http(
         response_exclude_unset: Omit fields not explicitly set from validated response JSON.
         max_body_bytes: Optional positive application-level body byte limit (HTTP 413).
         require_json_content_type: Require JSON media types for non-empty bodies (HTTP 415).
+        aggregate_validation_errors: Collect all configured request-source validation errors in one 422.
     
     Returns:
         A decorator that wraps the handler with validation logic.

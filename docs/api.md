@@ -6,6 +6,7 @@ This page documents the public API exported from `azure_functions_validation`.
 from azure_functions_validation import (
     AdapterConformanceTests,
     AdapterValidationError,
+    AggregatedValidationError,
     ErrorFormatter,
     HttpError,
     MalformedRequestError,
@@ -23,7 +24,7 @@ from azure_functions_validation import (
     The package exports (`__all__`): `validate_http`, `ResponseValidationError`,
     `SerializationError`, `MalformedRequestError`, `PayloadTooLargeError`,
     `UnsupportedMediaTypeError`, `ErrorFormatter`,
-    `AdapterValidationError`, `ValidationAdapter`, `PydanticAdapter`,
+    `AdapterValidationError`, `AggregatedValidationError`, `ValidationAdapter`, `PydanticAdapter`,
     `AdapterConformanceTests`, and `HttpError`. Pipeline internals
     (`PipelineConfig`, `run_pipeline`) are not
     public contracts.
@@ -39,6 +40,13 @@ from azure_functions_validation import (
 | `response_exclude_unset` | `False` | Omit validated fields that were not explicitly set. |
 | `max_body_bytes` | `None` | Reject a configured body above this byte count with `413`. |
 | `require_json_content_type` | `False` | Require `application/json` or `application/*+json` for non-empty configured bodies; otherwise return `415`. |
+| `aggregate_validation_errors` | `False` | Collect normalized body/query/path/header validation failures into one `422`; fail fast by default. |
+
+In aggregation mode, custom adapters continue to raise
+`AdapterValidationError`. The pipeline combines their normalized `errors` in
+source order and supplies an `AggregatedValidationError` to the configured
+formatter. Its `errors` attribute is the complete detail list. Malformed input
+and server-side failures are never aggregated.
 
 The response serialization options require `response_model`. Non-default values
 without a response model raise `ValueError` at decoration time. They do not apply

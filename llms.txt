@@ -39,6 +39,8 @@ response schemas. FastAPI-like developer experience without the web framework.
   `ConfigDict(strict=True, extra="forbid")` for closed JSON body contracts;
   query, path, and header values arrive as strings and usually need coercion.
 - Automatic responses: 400/422 with `{"detail": [...]}` envelope on validation errors
+- `aggregate_validation_errors=True` collects body/query/path/header validation
+  failures into one 422; default behavior remains fail-fast.
 - Custom adapters raise `MalformedRequestError` for malformed syntax (400) and
   `AdapterValidationError` for validation failures (422); all other exceptions,
   including `ValueError`, are logged and sanitized as 500.

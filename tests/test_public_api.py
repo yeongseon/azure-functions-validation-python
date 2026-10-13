@@ -44,6 +44,7 @@ class TestAPISurface:
             "PayloadTooLargeError",
             "UnsupportedMediaTypeError",
             "AdapterValidationError",
+            "AggregatedValidationError",
             "AdapterConformanceTests",
         }
 
