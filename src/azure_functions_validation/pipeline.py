@@ -18,6 +18,7 @@ from azure.functions import HttpResponse
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
     AdapterValidationError,
+    AggregatedValidationError,
     ErrorFormatter,
     HttpError,
     MalformedRequestError,
@@ -58,6 +59,7 @@ class PipelineConfig:
     handler_name: str | None = None
     max_body_bytes: int | None = None
     require_json_content_type: bool = False
+    aggregate_validation_errors: bool = False
 
 
 def _format_error(exception: Exception, status_code: int, config: PipelineConfig) -> HttpResponse:
@@ -254,6 +256,7 @@ def _parse_inputs(
 ) -> dict[str, Any] | HttpResponse:
     """Parse and validate all configured request inputs."""
     parsed_inputs: dict[str, Any] = {}
+    validation_errors: list[dict[str, Any]] = []
 
     # (name, configured model, adapter parse method, injection strategy)
     parse_specs: tuple[
@@ -284,7 +287,10 @@ def _parse_inputs(
         except UnsupportedMediaTypeError as e:
             return _format_error(e, 415, config)
         except AdapterValidationError as e:
-            return _format_error(e, 422, config)
+            if not config.aggregate_validation_errors:
+                return _format_error(e, 422, config)
+            validation_errors.extend(e.errors)
+            continue
         except MalformedRequestError as e:
             return _format_error(e, 400, config)
         except Exception as e:
@@ -295,6 +301,9 @@ def _parse_inputs(
             )
             return _format_logged_error(e, 500, config)
         inject(name, parsed, config, parsed_inputs)
+
+    if validation_errors:
+        return _format_error(AggregatedValidationError(validation_errors), 422, config)
 
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":

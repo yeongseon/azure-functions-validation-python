@@ -51,6 +51,11 @@ class LegacyModel(BaseModelV1):
 
 
 class TestConfigurationErrors:
+    def test_aggregate_validation_errors_requires_bool(self) -> None:
+        invalid_option: Any = 1
+        with pytest.raises(TypeError, match="aggregate_validation_errors must be a bool"):
+            validate_http(aggregate_validation_errors=invalid_option)
+
     """Tests for decorator configuration errors."""
 
     @pytest.mark.parametrize("value", [None, 0, 1, "false"])
