@@ -4,9 +4,10 @@ We welcome contributions to the `azure-functions-validation` project.
 
 ## Local development quickstart
 
-Local development requires Python 3.11, 3.12, 3.13, or 3.14. No
-repository-specific services or infrastructure are required for the standard
-checks.
+The package supports Python 3.11, 3.12, 3.13, and 3.14. Local development
+requires Python 3.11 because the default Hatch environment is pinned to that
+interpreter. No repository-specific services or infrastructure are required
+for the standard checks.
 
 Clone the repository, enter it, and let the Makefile create a local virtual
 environment and install Hatch:
