@@ -1,6 +1,30 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.16.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.15.0...v0.16.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **response:** Non-string dict keys such as `{None: 1}` now serialize as `{"null": 1}` (previously `{"None": 1}`). Sufficiently deep plain structures can now succeed where they previously produced a formatted 500.
+* **deps:** The supported Pydantic floor is raised from 2.0 to 2.11 because `TypeAdapter.dump_python(..., fallback=...)` requires it. Consumers pinned below 2.11 must upgrade before installing the next release.
+
+### Features
+
+* **validation:** aggregate request-source errors on opt-in ([#535](https://github.com/yeongseon/azure-functions-validation-python/issues/535)) ([6572975](https://github.com/yeongseon/azure-functions-validation-python/commit/6572975e8751246f3f901f0f475d369977260d31))
+
+
+### Bug Fixes
+
+* **deps:** require pydantic 2.11 for response serialization ([c972c84](https://github.com/yeongseon/azure-functions-validation-python/commit/c972c8403258f55032938f0d5d1b4cd95bc155db)), closes [#521](https://github.com/yeongseon/azure-functions-validation-python/issues/521)
+* **response:** handle cycle and depth errors in direct responses ([696a9ff](https://github.com/yeongseon/azure-functions-validation-python/commit/696a9ffbf5be35f42510ed6f14f108822dec1ee0))
+* **response:** serialize nested models by alias in direct responses ([70097f2](https://github.com/yeongseon/azure-functions-validation-python/commit/70097f2256371a539609bd604d5c84daf3c50588))
+
+
+### Performance
+
+* **response:** encode plain JSON responses in one pass ([cf79aa0](https://github.com/yeongseon/azure-functions-validation-python/commit/cf79aa0347556680e7962b80fe83c7badf0b5f2a)), closes [#527](https://github.com/yeongseon/azure-functions-validation-python/issues/527)
+
 ## [0.15.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.14.0...v0.15.0) (2026-10-11)
 
 
