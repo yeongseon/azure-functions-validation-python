@@ -49,6 +49,18 @@ class CustomAdapter(ValidationAdapter):
     def serialize(self, obj: Any) -> tuple[str | bytes, str]:
         return json.dumps(obj), "application/json"
 
+    def serialize_response(
+        self,
+        obj: Any,
+        model: Any,
+        *,
+        type_adapter: Any = None,
+        by_alias: bool = True,
+        exclude_none: bool = False,
+        exclude_unset: bool = False,
+    ) -> tuple[str | bytes, str]:
+        return self.serialize(obj)
+
     def format_error(self, exc: Exception) -> dict[str, Any]:
         if isinstance(exc, AdapterValidationError):
             return {"detail": exc.errors}

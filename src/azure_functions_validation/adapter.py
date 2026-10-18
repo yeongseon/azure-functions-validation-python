@@ -199,6 +199,54 @@ class ValidationAdapter(Protocol):
         """
         ...
 
+    def serialize_response(
+        self,
+        obj: Any,
+        model: Any,
+        *,
+        type_adapter: TypeAdapter[Any] | None = None,
+        by_alias: bool = True,
+        exclude_none: bool = False,
+        exclude_unset: bool = False,
+    ) -> tuple[str | bytes, str]:
+        """Serialize an already-validated response against its DECLARED model.
+
+        Called instead of :meth:`serialize` whenever ``response_model=`` is
+        configured, with the object :meth:`validate_response` already
+        returned (#539). This distinction matters: ``obj`` may be an
+        instance of a *subclass* of ``model`` carrying extra fields (e.g. a
+        database row model extending a public response model), and
+        serializing by ``obj``'s own runtime type -- as :meth:`serialize`
+        does -- would leak those extra fields. A conforming implementation
+        MUST serialize strictly according to ``model`` (excluding
+        subclass-only fields) and MUST honor *by_alias*/*exclude_none*/
+        *exclude_unset* consistently with the generated ``endpoint`` response
+        schema (see #463, which this method's contract exists to preserve).
+
+        Args:
+            obj: The value :meth:`validate_response` returned (already
+                validated against ``model``).
+            model: The declared response model/type passed to
+                :meth:`validate_response`.
+            type_adapter: Optional pre-built ``TypeAdapter`` for ``model``,
+                reused to avoid per-request allocation. ``None`` when ``model``
+                could not be turned into one at decoration time (e.g. a
+                non-Pydantic model for a custom backend) -- implementations
+                that do not need it may ignore this hint entirely.
+            by_alias: Serialize field names using their configured alias.
+            exclude_none: Omit fields whose value is ``None``.
+            exclude_unset: Omit fields that were never explicitly set.
+
+        Returns:
+            Tuple of content (``str`` or ``bytes``) and a non-empty HTTP
+            content-type string. ``None`` is handled as 204 before this method.
+
+        Raises:
+            SerializationError: If the object cannot be serialized.
+            Exception: Any other failure is an adapter fault (HTTP 500).
+        """
+        ...
+
     def format_error(self, exc: Exception) -> dict[str, Any]:
         """Format exception into standardized error response.
 
@@ -444,6 +492,36 @@ class PydanticAdapter:
                     # and PydanticSerializationError is a ValueError subclass.
                     raise SerializationError(type(obj).__name__) from exc
         raise SerializationError(type(obj).__name__)
+
+    def serialize_response(
+        self,
+        obj: Any,
+        model: Any,
+        *,
+        type_adapter: TypeAdapter[Any] | None = None,
+        by_alias: bool = True,
+        exclude_none: bool = False,
+        exclude_unset: bool = False,
+    ) -> tuple[str | bytes, str]:
+        """Serialize strictly according to the declared response model (#463, #539).
+
+        Dumps through ``type_adapter`` (or a freshly built one for ``model``
+        when not provided) rather than ``obj``'s own runtime type, so an
+        ``obj`` that happens to be a subclass instance with extra fields
+        never leaks them -- the same protection :meth:`serialize` cannot
+        offer since it dispatches purely on ``obj``'s runtime type.
+        """
+        ta = type_adapter if type_adapter is not None else TypeAdapter(model)
+        try:
+            content = ta.dump_json(
+                obj,
+                by_alias=by_alias,
+                exclude_none=exclude_none,
+                exclude_unset=exclude_unset,
+            )
+        except (RecursionError, ValueError) as exc:
+            raise SerializationError(type(obj).__name__) from exc
+        return content, "application/json"
 
     def format_error(self, exc: Exception) -> dict[str, Any]:
         """Format exception into standardized error response.

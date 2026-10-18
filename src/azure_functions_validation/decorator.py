@@ -159,8 +159,22 @@ def validate_http(
         request_param_name = _find_request_param(func, func_params)
         _validate_no_conflicts(func, request_param_name, body, query, path, headers, request_model)
 
-        # Pre-build TypeAdapter for response_model at decoration time (#97)
-        response_type_adapter = TypeAdapter(response_model) if response_model is not None else None
+        # Pre-build TypeAdapter for response_model at decoration time (#97).
+        # Construction is itself Pydantic-specific and must not be unconditional:
+        # a custom ValidationAdapter backend may be configured with a
+        # response_model it validates and serializes on its own terms (e.g. a
+        # plain class with no pydantic-core schema at all), which would
+        # otherwise fail construction here before that backend ever runs
+        # (#539). A failure here only means "no pre-built hint is available";
+        # it is never a decoration-time error on its own -- the configured
+        # adapter's own validate_response()/serialize_response() decide
+        # whether the response_model it was actually given is usable.
+        response_type_adapter: TypeAdapter[Any] | None = None
+        if response_model is not None:
+            try:
+                response_type_adapter = TypeAdapter(response_model)
+            except Exception:
+                response_type_adapter = None
 
         config = PipelineConfig(
             body=body,
