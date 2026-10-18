@@ -155,6 +155,41 @@ class TestParseBody:
             adapter.parse_body(mock_request(b""), UserModel)
         assert len(exc_info.value.errors) == 1
 
+    def test_missing_body_loc_list_identity_is_isolated_per_call(
+        self, adapter: PydanticAdapter, mock_request: type
+    ) -> None:
+        """Regression (#543): each error entry's own ``loc`` LIST must also
+        be a fresh object per call, not just the outer errors list. A
+        ``dict(entry)`` shallow copy preserves the dict wrapper but still
+        shares the SAME nested ``loc`` list value across every call -- a
+        caller that mutates it in place (e.g. a custom ``error_formatter``
+        inserting a path-prefix element, exactly as the issue's own
+        reproduction does) corrupts the cached template for every
+        subsequent request, including requests to an entirely different
+        handler/adapter instance.
+        """
+        with pytest.raises(AdapterValidationError) as first:
+            adapter.parse_body(mock_request(b""), UserModel)
+        with pytest.raises(AdapterValidationError) as second:
+            adapter.parse_body(mock_request(b""), UserModel)
+
+        first_loc = first.value.errors[0]["loc"]
+        second_loc = second.value.errors[0]["loc"]
+        assert first_loc == second_loc == ["body"]
+        assert first_loc is not second_loc
+
+        # Mutate the first call's loc list in place, exactly like a custom
+        # error_formatter inserting a prefix element would.
+        first_loc.insert(0, "request")
+        assert first.value.errors[0]["loc"] == ["request", "body"]
+
+        # A later call -- even against a brand-new adapter instance -- must
+        # still start from the pristine, unmutated template.
+        fresh_adapter = PydanticAdapter()
+        with pytest.raises(AdapterValidationError) as third:
+            fresh_adapter.parse_body(mock_request(b""), UserModel)
+        assert third.value.errors[0]["loc"] == ["body"]
+
     def test_invalid_json(self, adapter: PydanticAdapter, mock_request: type) -> None:
         req = mock_request(b"{invalid json}")
 
