@@ -190,7 +190,7 @@ jobs:
             --query "{state:state,runtime:siteConfig.linuxFxVersion}" -o json || true
           echo "=== App Settings ==="
           az functionapp config appsettings list --name "$APP" --resource-group "$RG" \
-            --query "[].{name:name,value:value}" -o table 2>/dev/null || true
+            -o json 2>/dev/null | python3 scripts/print_safe_app_settings.py || true
           echo "=== Registered functions (admin API) ==="
           MASTER_KEY=$(az functionapp keys list --name "$APP" --resource-group "$RG" \
             --query 'masterKey' -o tsv 2>/dev/null || echo '')
