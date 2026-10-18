@@ -219,6 +219,17 @@ class AdapterConformanceTests:
             "response",
         )
 
+    def test_serialize_response_for_declared_model(self) -> None:
+        """``serialize_response`` must handle the validated declared-model value (#539)."""
+        adapter = self.make_adapter()
+        validated = adapter.validate_response(self.valid_response(), self.response_model())
+
+        content, content_type = adapter.serialize_response(validated, self.response_model())
+
+        assert isinstance(content, (bytes, str))  # nosec B101
+        assert isinstance(content_type, str)  # nosec B101
+        assert content_type  # nosec B101
+
     def test_serialize_supported_values(self) -> None:
         adapter = self.make_adapter()
         values = (

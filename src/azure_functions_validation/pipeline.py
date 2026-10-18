@@ -352,19 +352,23 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             return HttpResponse(status_code=204)
 
         try:
-            content = config.response_type_adapter.dump_json(
+            content, content_type = config.adapter.serialize_response(
                 validated_result,
+                config.response_model,
+                type_adapter=config.response_type_adapter,
                 by_alias=config.response_by_alias,
                 exclude_none=config.response_exclude_none,
                 exclude_unset=config.response_exclude_unset,
             )
         except (SerializationError, TypeError, ValueError) as e:
             return _format_error(e, 500, config)
+        except Exception as e:
+            return _format_error(e, 500, config)
 
         return HttpResponse(
             body=content,
             status_code=config.success_status_code,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": content_type},
         )
 
     # No response model, serialize directly
