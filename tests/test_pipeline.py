@@ -523,6 +523,53 @@ class TestSuccessfulValidation:
         assert repeated.status_code == 200
         assert json.loads(repeated.get_body())["message"] == "one,two"
 
+    def test_validation_alias_query_and_header_through_real_sdk_request(self) -> None:
+        """Public-decorator regression (#541) using REAL
+        ``azure.functions.HttpRequest`` objects (not the mock factory), so
+        the SDK's own header-key lowercasing is actually exercised -- a
+        mixed-case ``validation_alias`` like ``"X-Token"`` must still match
+        after the SDK normalizes the incoming header to ``"x-token"``.
+        """
+
+        class AliasedQuery(BaseModel):
+            tags: list[str] = Field(validation_alias="tag")
+
+        class AliasedHeaders(BaseModel):
+            token: str = Field(validation_alias="X-Token")
+
+        @validate_http(query=AliasedQuery)
+        def query_handler(req: HttpRequest, query: AliasedQuery) -> ResponseModel:
+            return ResponseModel(message=",".join(query.tags))
+
+        @validate_http(headers=AliasedHeaders)
+        def header_handler(req: HttpRequest, headers: AliasedHeaders) -> ResponseModel:
+            return ResponseModel(message=headers.token)
+
+        singleton_request = HttpRequest(
+            method="GET",
+            url="http://localhost/api/probe?tag=one",
+            headers={},
+            params={"tag": "one"},
+            body=b"",
+        )
+        singleton_response = query_handler(singleton_request)
+        assert singleton_response.status_code == 200
+        assert json.loads(singleton_response.get_body())["message"] == "one"
+
+        header_request = HttpRequest(
+            method="GET",
+            url="http://localhost/api/probe",
+            headers={"X-Token": "synthetic-value"},
+            params={},
+            body=b"",
+        )
+        # The real SDK lowercases header keys -- confirm that actually happened,
+        # so this regression exercises the real defect, not an assumption.
+        assert dict(header_request.headers) == {"x-token": "synthetic-value"}
+        header_response = header_handler(header_request)
+        assert header_response.status_code == 200
+        assert json.loads(header_response.get_body())["message"] == "synthetic-value"
+
 
 # ---------------------------------------------------------------------------
 # Validation errors

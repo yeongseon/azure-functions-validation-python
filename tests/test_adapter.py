@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 import azure.functions as func
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 import pytest
 
 from azure_functions_validation import adapter as adapter_module
@@ -463,6 +463,101 @@ class TestRequestParsing:
         # into a single-element list.
         assert result.tags == 5
 
+    def test_parse_query_listifies_singleton_for_string_validation_alias(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Regression (#541): query normalization only checked ``field.alias``,
+        never ``field.validation_alias`` -- a field declared with
+        ``Field(validation_alias=...)`` and no plain ``alias=`` therefore
+        never matched its own accepted wire name during list coercion.
+        """
+
+        class ValidationAliasQueryModel(BaseModel):
+            tags: list[str] = Field(validation_alias="tag")
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tag=one",
+            body=b"",
+            params={"tag": "one"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, ValidationAliasQueryModel)
+
+        assert result.tags == ["one"]
+
+    def test_parse_query_preserves_repeated_values_for_validation_alias(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class ValidationAliasQueryModel(BaseModel):
+            tags: list[str] = Field(validation_alias="tag")
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tag=one&tag=two",
+            body=b"",
+            params={"tag": "two"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, ValidationAliasQueryModel)
+
+        assert result.tags == ["one", "two"]
+
+    def test_parse_query_listifies_singleton_for_alias_choices(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Each string ``AliasChoices`` alternative must independently
+        trigger singleton-list normalization, in Pydantic's own precedence
+        order.
+        """
+
+        class AliasChoicesQueryModel(BaseModel):
+            tags: list[str] = Field(validation_alias=AliasChoices("tag", "tags_alt"))
+
+        primary = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tag=one",
+            body=b"",
+            params={"tag": "one"},
+            headers={},
+        )
+        assert adapter.parse_query(primary, AliasChoicesQueryModel).tags == ["one"]
+
+        secondary = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags_alt=x",
+            body=b"",
+            params={"tags_alt": "x"},
+            headers={},
+        )
+        assert adapter.parse_query(secondary, AliasChoicesQueryModel).tags == ["x"]
+
+    def test_parse_query_still_supports_populate_by_name_with_validation_alias(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Regression guard: ``populate_by_name=True`` still lets the plain
+        field name be used alongside ``validation_alias``.
+        """
+
+        class PopulateByNameQueryModel(BaseModel):
+            model_config = ConfigDict(populate_by_name=True)
+
+            tags: list[str] = Field(validation_alias="tag")
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=one",
+            body=b"",
+            params={"tags": "one"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, PopulateByNameQueryModel)
+
+        assert result.tags == ["one"]
+
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
         """Azure Functions params dict returns scalar values."""
 
@@ -513,6 +608,51 @@ class TestRequestParsing:
         result = adapter.parse_headers(request, AliasedHeaderModel)
 
         assert result.x_user_id == "user-1"
+
+    @pytest.mark.parametrize("header_name", ["X-Token", "x-token"])
+    def test_parse_headers_matches_string_validation_alias_case_insensitively(
+        self, adapter: PydanticAdapter, header_name: str
+    ) -> None:
+        """Regression (#541): header normalization only checked ``field.alias``
+        (built from ``(name, field.alias)`` candidates), never
+        ``field.validation_alias`` -- a mixed-case ``validation_alias`` never
+        matched the Azure SDK's own lowercased header keys.
+        """
+
+        class ValidationAliasHeaderModel(BaseModel):
+            token: str = Field(validation_alias="X-Token")
+
+        request = func.HttpRequest(
+            method="GET",
+            url="/api/probe",
+            body=b"",
+            params={},
+            headers={header_name: "synthetic-value"},
+        )
+
+        result = adapter.parse_headers(request, ValidationAliasHeaderModel)
+
+        assert result.token == "synthetic-value"
+
+    def test_parse_headers_matches_alias_choices_with_precedence(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class AliasChoicesHeaderModel(BaseModel):
+            token: str = Field(validation_alias=AliasChoices("X-Token", "X-Auth-Token"))
+
+        primary = func.HttpRequest(
+            method="GET", url="/api/probe", body=b"", params={}, headers={"X-Token": "v1"}
+        )
+        assert adapter.parse_headers(primary, AliasChoicesHeaderModel).token == "v1"
+
+        secondary = func.HttpRequest(
+            method="GET",
+            url="/api/probe",
+            body=b"",
+            params={},
+            headers={"x-auth-token": "v2"},
+        )
+        assert adapter.parse_headers(secondary, AliasChoicesHeaderModel).token == "v2"
 
     def test_parse_path_uses_route_params(self, adapter: PydanticAdapter) -> None:
         class PathModel(BaseModel):
