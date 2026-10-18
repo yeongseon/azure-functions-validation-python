@@ -8,7 +8,7 @@ import requests
 
 BASE_URL = os.environ.get("E2E_BASE_URL", "").rstrip("/")
 SKIP_REASON = "E2E_BASE_URL not set — skipping real-Azure e2e tests"
-pytestmark = pytest.mark.skipif(not BASE_URL, reason=SKIP_REASON)
+pytestmark = [pytest.mark.e2e, pytest.mark.skipif(not BASE_URL, reason=SKIP_REASON)]
 
 SANITIZED_500 = {
     "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}],

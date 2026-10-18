@@ -218,7 +218,7 @@ jobs:
           echo "=== Live logstream (20s) ==="
           timeout 20 az webapp log tail --name "$APP" --resource-group "$RG" 2>&1 | head -200 || true
       - name: Run e2e tests
-        run: pytest tests/e2e -v --no-cov --html=e2e-report/report.html --self-contained-html
+        run: pytest -v -m e2e tests/e2e/ --no-cov --html=e2e-report/report.html --self-contained-html
         env:
           E2E_BASE_URL: https://${{ steps.names.outputs.app }}.azurewebsites.net
 
