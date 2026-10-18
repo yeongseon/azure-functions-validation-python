@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from ._metadata import _merge_namespace
 from .schemas import ENDPOINT_METADATA_VERSION, _contains_ref
@@ -86,6 +86,65 @@ def _is_model_type(model: Any) -> bool:
     return isinstance(model, type) and issubclass(model, BaseModel)
 
 
+def _annotation_schema(
+    annotation: Any, mode: str, *, by_alias: bool = True
+) -> dict[str, Any] | None:
+    """Best-effort JSON Schema for any Pydantic-constructible annotation.
+
+    The runtime validates and serializes ``body``/``response_model`` through
+    ``TypeAdapter`` unconditionally (see ``adapter.py`` / ``decorator.py``),
+    so it already accepts far more than direct ``BaseModel`` subclasses --
+    ``list[Model]``, ``Optional[Model]``, ``Union[...]``, and ``Annotated``
+    forms all work at request time (#452). ``TypeAdapter(X).json_schema(...)``
+    produces byte-identical output to ``X.model_json_schema(...)`` for a
+    direct ``BaseModel`` subclass, so this generalizes ``_model_schema``
+    without changing existing output.
+
+    Returns ``None`` when *annotation* is ``None`` (not configured) or when
+    no schema can be derived at all -- a custom ``ValidationAdapter`` backend
+    may pass a non-Pydantic marker through ``body``/``query``/``path``/
+    ``headers`` that only that backend understands (#537), and this must stay
+    silently absent from the metadata exactly as before, not raise.
+    """
+    if annotation is None:
+        return None
+    try:
+        return TypeAdapter(annotation).json_schema(
+            by_alias=by_alias,
+            ref_template=_REF_TEMPLATE,
+            mode=mode,  # type: ignore[arg-type]
+        )
+    except Exception:
+        return None
+
+
+def _split_nullable_schema(schema: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Split a response schema into its non-null variant and nullability.
+
+    A nullable response annotation (e.g. ``Optional[Model]``) produces a
+    top-level ``anyOf`` with a ``{"type": "null"}`` member. The runtime's own
+    response handling makes the identical split: a validated ``None`` result
+    short-circuits to an empty ``204`` response instead of ever serializing a
+    ``null`` body under the success status (``pipeline._build_response``).
+    Mirroring that here keeps the documented success-status schema truthful
+    (it never actually carries a ``null`` body) while still recording the
+    real ``204`` outcome (#537).
+
+    Returns the schema unchanged with ``False`` when there is no top-level
+    nullable branch to split out.
+    """
+    any_of = schema.get("anyOf")
+    if not isinstance(any_of, list):
+        return schema, False
+    non_null = [m for m in any_of if not (isinstance(m, dict) and m.get("type") == "null")]
+    if len(non_null) == len(any_of):
+        return schema, False
+    other_keys = {k: v for k, v in schema.items() if k != "anyOf"}
+    if len(non_null) == 1:
+        return {**other_keys, **non_null[0]}, True
+    return {**other_keys, "anyOf": non_null}, True
+
+
 def _model_schema(model: type[BaseModel], mode: str, *, by_alias: bool = True) -> dict[str, Any]:
     """Generate a model's JSON Schema using the SPEC-pinned canonicalization."""
     return model.model_json_schema(
@@ -142,8 +201,8 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
     ``response_model``, and ``success_status_code``.
     """
     body = config.body
-    if _is_model_type(body):
-        request_body: dict[str, Any] | None = _model_schema(body, "validation")
+    request_body = _annotation_schema(body, "validation")
+    if request_body is not None:
         # The runtime adapter unconditionally rejects an empty body (422) whenever
         # a body model is configured, regardless of individual field optionality,
         # so the metadata must report the body as required to stay truthful to
@@ -152,7 +211,6 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
         # durable design note: docs/design/optional-body-347.md.
         request_body_required = True
     else:
-        request_body = None
         request_body_required = False
 
     parameters: list[dict[str, Any]] = []
@@ -167,19 +225,22 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
             parameters.extend(_build_parameters(model, location))
 
     # A request body model also makes request validation (and thus a 422) possible.
-    has_request_model = has_request_model or _is_model_type(body)
+    has_request_model = has_request_model or request_body is not None
 
     responses: dict[str, dict[str, Any]] = {}
     response_model = config.response_model
-    if _is_model_type(response_model):
+    response_schema = _annotation_schema(
+        response_model, "serialization", by_alias=getattr(config, "response_by_alias", True)
+    )
+    if response_schema is not None:
         status = str(getattr(config, "success_status_code", 200) or 200)
-        responses[status] = {
-            "schema": _model_schema(
-                response_model,
-                "serialization",
-                by_alias=getattr(config, "response_by_alias", True),
-            )
-        }
+        non_null_schema, is_nullable = _split_nullable_schema(response_schema)
+        responses[status] = {"schema": non_null_schema}
+        if is_nullable:
+            # A validated None result short-circuits to an empty 204, never a
+            # 200-with-null-body (pipeline._build_response) -- document the
+            # real outcome alongside the non-null success schema (#537).
+            responses["204"] = {}
     if has_request_model:
         # Document the standardized validation-error contract the runtime emits
         # on invalid input, so consumers (openapi) need not hand-author it.

@@ -205,6 +205,32 @@ schemas**. The `422` validation-error response schema is produced directly
 `response_exclude_none` and `response_exclude_unset` affect runtime payload
 presence but do not change the response schema.
 
+### Supported `body`/`response_model` annotations (validation-specific)
+
+The runtime accepts any annotation `pydantic.TypeAdapter` can validate
+(or serialize) for `body=` and `response_model=` — not only a direct
+`BaseModel` subclass. `build_endpoint_metadata` mirrors that same contract, so
+a working typed endpoint is never silently under-documented. Supported forms
+include direct models, `list[Model]` and other generic collections,
+`Optional[Model]` / `Model | None`, `Union[...]` of several models, and
+`Annotated[Model, ...]`. Each is reduced to the same canonicalization rules
+above (validation mode for `request_body`, serialization mode plus
+`response_by_alias` for `responses`), with every referenced model's `$defs`
+collected the same way.
+
+A **nullable** `response_model` (e.g. `Model | None`) is additionally split in
+`responses`: the success status carries only the non-null schema — this
+producer never actually serializes a `null` body under that status — and a
+separate `"204"` entry (with no `schema`) documents the real outcome when a
+validated result is `None`, matching `_build_response`'s own behavior in
+`pipeline.py`.
+
+A `body`/`response_model` value this package cannot turn into a schema at
+all — for example, a marker type meaningful only to a custom
+`ValidationAdapter` passed via `adapter=` — is silently omitted from
+`request_body`/`responses` exactly as if nothing were configured, rather than
+raising. This preserves existing custom-backend usage unchanged.
+
 ### Structural rule: `$defs` if `$ref`
 
 Any embedded schema that contains a `$ref` **anywhere** MUST carry a top-level
