@@ -41,6 +41,7 @@ nav:
       - Release Process: release_process.md
       - Guidelines: contributing.md
       - Agent Playbook: agent-playbook.md
+      - Review Evidence Policy: review-evidence-policy.md
       - azure-functions 2.0 Readiness: azure-functions-2.0-readiness.md
       - Design Notes:
           - Optional Body (#347): design/optional-body-347.md
