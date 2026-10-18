@@ -335,6 +335,134 @@ class TestRequestParsing:
         assert result.empty == ""
         assert result.text == "한글"
 
+    def test_parse_query_listifies_singleton_for_nullable_list_with_union_type(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Regression (#540): ``list[str] | None`` has a Union origin, not
+        ``list`` -- #465 only fixed the direct ``list[str]`` case, so a
+        nullable list field fell through unnormalized and rejected a
+        singleton query value.
+        """
+
+        class NullableListModel(BaseModel):
+            tags: list[str] | None = None
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first",
+            body=b"",
+            params={"tags": "first"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, NullableListModel)
+
+        assert result.tags == ["first"]
+
+    def test_parse_query_listifies_singleton_for_optional_list_typing_union(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Same fix, but through ``typing.Optional``/``typing.Union`` rather
+        than the ``X | None`` syntax -- both produce a Union origin.
+        """
+        from typing import Optional
+
+        class OptionalListModel(BaseModel):
+            tags: Optional[list[str]] = None  # noqa: UP045 - exercising typing.Union explicitly
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first",
+            body=b"",
+            params={"tags": "first"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, OptionalListModel)
+
+        assert result.tags == ["first"]
+
+    def test_parse_query_preserves_none_when_nullable_list_key_absent(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class NullableListModel(BaseModel):
+            tags: list[str] | None = None
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items",
+            body=b"",
+            params={},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, NullableListModel)
+
+        assert result.tags is None
+
+    def test_parse_query_preserves_repeated_values_for_nullable_list(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        class NullableListModel(BaseModel):
+            tags: list[str] | None = None
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first&tags=second",
+            body=b"",
+            params={"tags": "second"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, NullableListModel)
+
+        assert result.tags == ["first", "second"]
+
+    def test_parse_query_listifies_singleton_for_annotated_nullable_list(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Annotated-wrapped nullable list forms must also be recognized."""
+        from typing import Annotated
+
+        class AnnotatedListModel(BaseModel):
+            tags: Annotated[list[str] | None, Field(description="tags")] = None
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=first",
+            body=b"",
+            params={"tags": "first"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, AnnotatedListModel)
+
+        assert result.tags == ["first"]
+
+    def test_parse_query_does_not_coerce_genuine_scalar_or_list_union(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """A scalar-or-list union (more than one non-None branch) must be
+        left alone -- query-string coercion cannot safely disambiguate it.
+        """
+
+        class AmbiguousUnionModel(BaseModel):
+            tags: list[str] | int | None = None
+
+        request = func.HttpRequest(
+            method="GET",
+            url="https://example.test/api/items?tags=5",
+            body=b"",
+            params={"tags": "5"},
+            headers={},
+        )
+
+        result = adapter.parse_query(request, AmbiguousUnionModel)
+
+        # The scalar (int) branch matches "5" as-is; it must not be wrapped
+        # into a single-element list.
+        assert result.tags == 5
+
     def test_parse_query_handles_scalar_values(self, adapter: PydanticAdapter) -> None:
         """Azure Functions params dict returns scalar values."""
 
