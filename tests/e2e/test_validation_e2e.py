@@ -14,6 +14,7 @@ import requests
 
 BASE_URL = os.environ.get("E2E_BASE_URL", "").rstrip("/")
 SKIP_REASON = "E2E_BASE_URL not set — skipping real-Azure e2e tests"
+pytestmark = pytest.mark.e2e
 
 
 def _post(path: str, body: object) -> requests.Response:
