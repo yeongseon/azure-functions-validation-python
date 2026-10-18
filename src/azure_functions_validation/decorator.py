@@ -323,12 +323,15 @@ def _passthrough_params(config: Any) -> list[tuple[str, inspect.Parameter]]:
     """Return handler params the worker must still see and bind (issue #297).
 
     Passthrough params are the extra input/output binding params a handler may
-    declare alongside ``req`` -- e.g. ``@app.durable_client_input`` (``client``)
-    or ``@app.cosmos_db_output`` (``order_doc``). The worker indexer matches
-    these to their registered bindings BY NAME, so they must appear in the
-    exposed signature. Excluded are: the HTTP request param (exposed as ``req``),
-    the validation-injected params and any ``*args``/``**kwargs`` catch-alls.
-    Worker-injected ``context`` remains visible so the worker knows to supply it.
+    declare alongside the request param -- e.g. ``@app.durable_client_input``
+    (``client``) or ``@app.cosmos_db_output`` (``order_doc``). The worker
+    indexer matches these to their registered bindings BY NAME, so they must
+    appear in the exposed signature. Excluded are: the HTTP request param
+    itself (exposed under its own name -- ``config.request_param_name`` --
+    not a hardcoded ``req``, so a custom ``trigger_arg_name`` is preserved;
+    see #538), the validation-injected params, and any ``*args``/``**kwargs``
+    catch-alls. Worker-injected ``context`` remains visible so the worker
+    knows to supply it.
     """
     hidden = _validation_injected_names(config) | {config.request_param_name}
     variadic = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
@@ -365,7 +368,8 @@ class WorkerCompat:
         self._copy_safe_metadata(wrapper, func)
         passthrough = _passthrough_params(config)
         annotations = self._resolve_passthrough_annotations(func, passthrough)
-        self._override_signature(wrapper, passthrough, annotations)
+        request_param_name = config.request_param_name or "req"
+        self._override_signature(wrapper, request_param_name, passthrough, annotations)
         self._set_annotations(wrapper, annotations)
 
     def _copy_safe_metadata(self, wrapper: Callable[..., Any], func: Callable[..., Any]) -> None:
@@ -436,17 +440,30 @@ class WorkerCompat:
     def _override_signature(
         self,
         wrapper: Callable[..., Any],
+        request_param_name: str,
         passthrough: list[tuple[str, inspect.Parameter]],
         annotations: Mapping[str, Any],
     ) -> None:
-        """Expose ``req`` plus any passthrough binding params, hiding ``**_kw``.
+        """Expose the request param plus any passthrough binding params, hiding ``**_kw``.
 
         Prevents ``FunctionLoadError: 'the following parameters are declared in
         Python but not in the function definition: {'_kw'}'`` at load time, while
         still surfacing extra-binding params (``client``, ``order_doc``, ...) so
         the worker can bind them by name (issue #297).
+
+        The exposed name MUST match the handler's actual request parameter name
+        (``config.request_param_name``, e.g. ``"request"`` for
+        ``@app.route(trigger_arg_name="request")``), not a hardcoded ``"req"``:
+        the worker's ``validate_function_params()`` rejects a callable whose
+        Python signature names disagree with its SDK binding names, so a custom
+        ``trigger_arg_name`` handler would fail to index entirely (#538). The
+        wrapper's own real parameter is still literally named ``req`` in its
+        closure (see ``_make_wrapper``), which is irrelevant here: Python
+        resolves a call by the callee's actual parameter names regardless of
+        ``__signature__``, and ``_make_wrapper``'s own ``_kw.pop(orig_name, req)``
+        already recovers the value correctly whichever name the worker used.
         """
-        params = [inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+        params = [inspect.Parameter(request_param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
         for name, param in passthrough:
             params.append(
                 inspect.Parameter(
@@ -465,11 +482,12 @@ class WorkerCompat:
     ) -> None:
         """Set ``__annotations__`` to only the passthrough binding types.
 
-        ``req`` is intentionally left unannotated: with ``req: typing.Any`` the
-        worker raises ``binding req has invalid non-type annotation``; with no
-        annotation it falls back to ``HttpRequest`` type inference. Passthrough
-        binding params keep their (resolved) annotations so the worker can
-        validate output bindings such as ``func.Out[...]``.
+        The request parameter is intentionally left unannotated: with an
+        explicit ``typing.Any`` annotation the worker raises ``binding <name>
+        has invalid non-type annotation``; with no annotation it falls back to
+        ``HttpRequest`` type inference. Passthrough binding params keep their
+        (resolved) annotations so the worker can validate output bindings such
+        as ``func.Out[...]``.
         """
         wrapper.__annotations__ = dict(annotations)
 
