@@ -228,7 +228,12 @@ def format_error_response(
         # Sanitize server errors — never leak internal details to the client
         error_response = json.loads(_SANITIZED_500_BODY)
     else:
-        error_response = adapter.format_error(exception)
+        try:
+            error_response = adapter.format_error(exception)
+        except Exception:
+            logger.exception("adapter.format_error raised an unexpected exception")
+            response_status_code = 500
+            error_response = json.loads(_SANITIZED_500_BODY)
 
     # Stamp the stability marker on every default envelope, but never mutate a
     # successful custom formatter's output — callers own that shape entirely.

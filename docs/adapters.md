@@ -57,7 +57,12 @@ bytes use `application/octet-stream`. `None` is handled by the pipeline as a
 
 Any exception outside this taxonomy is an adapter fault. The pipeline logs it
 with traceback and returns a sanitized `500`. In particular, do not use plain
-`ValueError` for malformed client input.
+`ValueError` for malformed client input. This boundary covers every adapter
+entry point, including `serialize()`/`serialize_response()` when no custom
+`error_formatter` is configured and `adapter.format_error()` itself: a fault
+in either falls back to the built-in sanitized `500` envelope rather than
+propagating out of the decorated handler or recursing into the same failing
+adapter again.
 
 ## Error and formatter ordering
 
