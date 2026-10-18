@@ -487,6 +487,42 @@ class TestSuccessfulValidation:
         data = json.loads(response.get_body().decode())
         assert data["message"] == "Rae:7"
 
+    def test_nullable_list_query_field_accepts_absent_singleton_and_repeated(
+        self, mock_request_factory: RequestFactory
+    ) -> None:
+        """Public-decorator regression (#540) for all three request forms of
+        a ``list[str] | None`` query field: absent (preserves ``None``),
+        singleton (wraps into a one-element list), and a repeated key
+        (already a list via the real URL parser).
+        """
+
+        class NullableListQuery(BaseModel):
+            tags: list[str] | None = None
+
+        @validate_http(query=NullableListQuery)
+        def handler(req: HttpRequest, query: NullableListQuery) -> ResponseModel:
+            return ResponseModel(message=",".join(query.tags) if query.tags else "none")
+
+        absent = handler(mock_request_factory(url="http://example.com/api/probe"))
+        assert absent.status_code == 200
+        assert json.loads(absent.get_body())["message"] == "none"
+
+        singleton = handler(
+            mock_request_factory(
+                url="http://example.com/api/probe?tags=one", params={"tags": "one"}
+            )
+        )
+        assert singleton.status_code == 200
+        assert json.loads(singleton.get_body())["message"] == "one"
+
+        repeated = handler(
+            mock_request_factory(
+                url="http://example.com/api/probe?tags=one&tags=two", params={"tags": "two"}
+            )
+        )
+        assert repeated.status_code == 200
+        assert json.loads(repeated.get_body())["message"] == "one,two"
+
 
 # ---------------------------------------------------------------------------
 # Validation errors

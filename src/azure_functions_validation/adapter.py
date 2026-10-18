@@ -4,7 +4,8 @@ from collections.abc import Callable
 import contextlib
 import dataclasses
 import json
-from typing import Any, Protocol, get_origin
+import types
+from typing import Annotated, Any, Protocol, Union, get_args, get_origin
 from urllib.parse import parse_qs, urlsplit
 
 from azure.functions import HttpRequest
@@ -30,6 +31,29 @@ def _prefix_loc(source: str | None, loc: list[Any], *, legacy_loc: bool) -> list
 
 def _is_dataclass_instance(obj: Any) -> bool:
     return dataclasses.is_dataclass(obj) and not isinstance(obj, type)
+
+
+def _is_unambiguous_list_annotation(annotation: Any) -> bool:
+    """Return ``True`` if *annotation* denotes a list and nothing else.
+
+    Recognizes a direct ``list[T]``, the same wrapped in ``Annotated[...]``,
+    and a nullable form (``list[T] | None`` / ``Optional[list[T]]``) -- #465
+    fixed singleton-vs-repeated-key normalization for the direct case only;
+    a nullable list has a ``Union`` origin, not ``list``, and fell through
+    unnormalized (#540). A genuine scalar-or-list union (e.g. ``list[T] | int``)
+    is deliberately left alone: query-string coercion cannot safely guess
+    which branch a bare key/value pair was meant for.
+    """
+    origin = get_origin(annotation)
+    if origin is list:
+        return True
+    if origin is Annotated:
+        return _is_unambiguous_list_annotation(get_args(annotation)[0])
+    if origin is Union or origin is types.UnionType:
+        non_none_args = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if len(non_none_args) == 1:
+            return _is_unambiguous_list_annotation(non_none_args[0])
+    return False
 
 
 _JSON_TYPE_ADAPTER = TypeAdapter(Any, config=ConfigDict(ser_json_inf_nan="null"))
@@ -372,7 +396,7 @@ class PydanticAdapter:
         query_data.update({key: values for key, values in url_values.items() if len(values) > 1})
         for name, field in model.model_fields.items():
             key = field.alias or name
-            if get_origin(field.annotation) is list and key in query_data:
+            if _is_unambiguous_list_annotation(field.annotation) and key in query_data:
                 value = query_data[key]
                 if not isinstance(value, list):
                     query_data[key] = [value]
