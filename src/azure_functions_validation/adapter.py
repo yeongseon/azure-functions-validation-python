@@ -364,9 +364,18 @@ class PydanticAdapter:
     def _missing_body_validation_error() -> AdapterValidationError:
         # The underlying Pydantic model and its validation error are built once
         # at import time (see ``_MISSING_BODY_ERROR`` below).  A fresh exception
-        # is returned per call so callers never share mutable error state.
+        # is returned per call so callers never share mutable error state --
+        # including each entry's own "loc" list. ``dict(entry)`` alone is a
+        # SHALLOW copy: the nested "loc" list value is still the same shared
+        # object across every call, so a caller mutating it in place (e.g. a
+        # custom error_formatter inserting a path-prefix element) corrupts the
+        # cached template for every subsequent request and adapter instance
+        # (#543). Copy "loc" explicitly alongside the shallow dict copy.
         message, detail = _MISSING_BODY_ERROR
-        return AdapterValidationError(message, [dict(entry) for entry in detail])
+        return AdapterValidationError(
+            message,
+            [{**entry, "loc": list(entry["loc"])} for entry in detail],
+        )
 
     def parse_body(self, req: HttpRequest, model: Any) -> Any:
         """Parse and validate request body from JSON.
