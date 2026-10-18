@@ -9,8 +9,9 @@ from typing import Annotated, Any, Protocol, Union, get_args, get_origin
 from urllib.parse import parse_qs, urlsplit
 
 from azure.functions import HttpRequest
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import AliasChoices, BaseModel, ConfigDict, TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
+from pydantic.fields import FieldInfo
 from pydantic_core import PydanticSerializationError
 
 from .errors import AdapterValidationError, MalformedRequestError, SerializationError
@@ -54,6 +55,36 @@ def _is_unambiguous_list_annotation(annotation: Any) -> bool:
         if len(non_none_args) == 1:
             return _is_unambiguous_list_annotation(non_none_args[0])
     return False
+
+
+def _inbound_candidates(field: FieldInfo, name: str) -> list[str]:
+    """Return every wire-format name Pydantic will accept as inbound data
+    for *field*, in Pydantic's own precedence order.
+
+    ``validation_alias`` (a string, or each string member of an
+    ``AliasChoices`` in the order Pydantic tries them) takes precedence --
+    when both ``alias`` and ``validation_alias`` are set, Pydantic validates
+    against ``validation_alias`` only, never the serialization-only
+    ``alias``. ``alias`` (which Pydantic also uses for validation when
+    ``validation_alias`` is not set separately) and the plain Python field
+    name are included as further fallbacks, since request normalization
+    cannot know this model's ``populate_by_name``/``validate_by_name``
+    configuration without a prohibitively invasive lookup, and including an
+    extra candidate that happens not to validate is harmless (#541).
+    ``AliasPath`` entries are skipped: expanding a nested path into the flat
+    HTTP query/header namespace is out of scope.
+    """
+    candidates: list[str] = []
+    validation_alias = field.validation_alias
+    if isinstance(validation_alias, str):
+        candidates.append(validation_alias)
+    elif isinstance(validation_alias, AliasChoices):
+        candidates.extend(choice for choice in validation_alias.choices if isinstance(choice, str))
+    if isinstance(field.alias, str) and field.alias not in candidates:
+        candidates.append(field.alias)
+    if name not in candidates:
+        candidates.append(name)
+    return candidates
 
 
 _JSON_TYPE_ADAPTER = TypeAdapter(Any, config=ConfigDict(ser_json_inf_nan="null"))
@@ -395,11 +426,13 @@ class PydanticAdapter:
         url_values = parse_qs(urlsplit(getattr(req, "url", "")).query, keep_blank_values=True)
         query_data.update({key: values for key, values in url_values.items() if len(values) > 1})
         for name, field in model.model_fields.items():
-            key = field.alias or name
-            if _is_unambiguous_list_annotation(field.annotation) and key in query_data:
-                value = query_data[key]
-                if not isinstance(value, list):
-                    query_data[key] = [value]
+            if not _is_unambiguous_list_annotation(field.annotation):
+                continue
+            for key in _inbound_candidates(field, name):
+                if key in query_data:
+                    value = query_data[key]
+                    if not isinstance(value, list):
+                        query_data[key] = [value]
 
         # Validate with Pydantic
         try:
@@ -445,12 +478,12 @@ class PydanticAdapter:
         # Parse headers
         headers = req.headers or {}
 
-        field_keys = {
-            candidate.casefold(): field.alias or name
-            for name, field in model.model_fields.items()
-            for candidate in (name, field.alias)
-            if isinstance(candidate, str)
-        }
+        field_keys: dict[str, str] = {}
+        for name, field in model.model_fields.items():
+            candidates = _inbound_candidates(field, name)
+            canonical = candidates[0]
+            for candidate in candidates:
+                field_keys[candidate.casefold()] = canonical
         header_data = {field_keys.get(key.casefold(), key): value for key, value in headers.items()}
 
         # Validate with Pydantic
