@@ -981,6 +981,32 @@ class TestAsyncHandlers:
         assert records[0].exc_info is not None
 
     @pytest.mark.anyio
+    async def test_async_unexpected_serializer_fault_without_response_model_returns_500(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        """Async counterpart of the sync regression (#542): the same
+        unguarded serializer fault must be contained identically for an
+        async handler.
+        """
+        adapter = Mock()
+        adapter.serialize.side_effect = RuntimeError("synthetic serializer failure")
+        calls: list[tuple[str, int]] = []
+
+        def formatter(exc: Exception, status: int) -> dict[str, object]:
+            calls.append((type(exc).__name__, status))
+            return {"error": str(exc)}
+
+        @validate_http(adapter=adapter, error_formatter=formatter)
+        async def handler(req: HttpRequest) -> dict[str, bool]:
+            return {"ok": True}
+
+        response = await handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert calls == [("InternalServerError", 500)]
+
+    @pytest.mark.anyio
     @pytest.mark.parametrize("payload", [b"invalid json", b"\x80\x81\x82"])
     async def test_malformed_body_returns_400(
         self, mock_request_factory: RequestFactory, payload: bytes
@@ -1510,7 +1536,7 @@ class TestErrorPathNormalization:
         """Test serialization failure after validation returns structured 500."""
         adapter = Mock()
         adapter.validate_response.return_value = object()
-        adapter.serialize.side_effect = TypeError(
+        adapter.serialize_response.side_effect = TypeError(
             "Cannot serialize type object",
         )
 
@@ -1524,6 +1550,34 @@ class TestErrorPathNormalization:
         assert response.status_code == 500
         data = json.loads(response.get_body().decode())
         assert "detail" in data
+
+    def test_unexpected_serializer_fault_without_response_model_returns_500(
+        self,
+        mock_request_factory: RequestFactory,
+    ) -> None:
+        """Regression (#542): _build_response()'s "no response_model"
+        serialize() guard only caught (SerializationError, TypeError) --
+        a RuntimeError (or any other unexpected adapter defect) escaped the
+        pipeline entirely instead of producing a sanitized 500. The handler
+        formatter must still be invoked exactly once with the sanitized
+        InternalServerError, not the raw exception.
+        """
+        adapter = Mock()
+        adapter.serialize.side_effect = RuntimeError("synthetic serializer failure")
+        calls: list[tuple[str, int]] = []
+
+        def formatter(exc: Exception, status: int) -> dict[str, object]:
+            calls.append((type(exc).__name__, status))
+            return {"error": str(exc)}
+
+        @validate_http(adapter=adapter, error_formatter=formatter)
+        def handler(req: HttpRequest) -> dict[str, bool]:
+            return {"ok": True}
+
+        response = handler(mock_request_factory())
+
+        assert response.status_code == 500
+        assert calls == [("InternalServerError", 500)]
 
     def test_too_deep_response_without_response_model_uses_error_formatter(
         self,

@@ -376,6 +376,8 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
         content, content_type = config.adapter.serialize(result)
     except (SerializationError, TypeError) as e:
         return _format_error(e, 500, config)
+    except Exception as e:
+        return _format_error(e, 500, config)
 
     return HttpResponse(
         body=content,

@@ -208,6 +208,31 @@ class TestFormatErrorResponse:
         assert "error_formatter raised an unexpected exception" in caplog.text
         assert caplog.records[0].levelname == "ERROR"
 
+    def test_adapter_format_error_exception_returns_sanitized_500(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Regression (#542): adapter.format_error() was called unguarded --
+        an exception from a broken default formatter (no custom
+        error_formatter configured) escaped the pipeline entirely instead of
+        falling back to the sanitized 500, and could never recurse into the
+        same failing adapter again.
+        """
+        adapter = Mock()
+        adapter.format_error.side_effect = RuntimeError("adapter formatter failed")
+
+        resp = format_error_response(ValueError("bad input"), 422, adapter)
+
+        assert resp.status_code == 500
+        data = json.loads(resp.get_body().decode())
+        assert data == {
+            "detail": [{"loc": [], "msg": "Internal Server Error", "type": "server_error"}],
+            "error_format_version": 1,
+        }
+        adapter.format_error.assert_called_once()
+        assert "adapter.format_error raised an unexpected exception" in caplog.text
+        assert caplog.records[-1].levelname == "ERROR"
+
     def test_default_envelope_carries_format_version(self) -> None:
         """Every default envelope is stamped with the stability marker."""
         adapter = Mock()
