@@ -33,7 +33,6 @@ SAFE_SETTING_NAMES: frozenset[str] = frozenset(
         "FUNCTIONS_EXTENSION_VERSION",
         "FUNCTIONS_WORKER_RUNTIME",
         "FUNCTIONS_WORKER_RUNTIME_VERSION",
-        "WEBSITE_RUN_FROM_PACKAGE",
         "WEBSITE_NODE_DEFAULT_VERSION",
         "SCM_DO_BUILD_DURING_DEPLOYMENT",
         "ENABLE_ORYX_BUILD",
@@ -41,6 +40,14 @@ SAFE_SETTING_NAMES: frozenset[str] = frozenset(
         "PYTHON_ISOLATE_WORKER_DEPENDENCIES",
     }
 )
+
+#: Known-safe sentinel values for ``WEBSITE_RUN_FROM_PACKAGE`` -- "run from
+#: the zip deployed alongside the app". Any other value (notably a package
+#: blob URL, which can carry a SAS token) is a secret shape and must render
+#: as hidden (#564): this setting is not unconditionally safe like the
+#: names in ``SAFE_SETTING_NAMES`` above, so it is intentionally excluded
+#: from that set and checked separately.
+_WEBSITE_RUN_FROM_PACKAGE_SAFE_VALUES: frozenset[str] = frozenset({"0", "1"})
 
 _HIDDEN_PLACEHOLDER = "<hidden>"
 
@@ -54,10 +61,12 @@ def render_safe_app_settings(settings: list[dict[str, Any]]) -> str:
     lines: list[str] = []
     for setting in settings:
         name = str(setting.get("name", "<unnamed>"))
-        if name in SAFE_SETTING_NAMES:
-            lines.append(f"{name} = {setting.get('value', '')}")
+        value = str(setting.get("value", ""))
+        if name == "WEBSITE_RUN_FROM_PACKAGE":
+            is_safe = value in _WEBSITE_RUN_FROM_PACKAGE_SAFE_VALUES
         else:
-            lines.append(f"{name} = {_HIDDEN_PLACEHOLDER}")
+            is_safe = name in SAFE_SETTING_NAMES
+        lines.append(f"{name} = {value}" if is_safe else f"{name} = {_HIDDEN_PLACEHOLDER}")
     return "\n".join(lines)
 
 

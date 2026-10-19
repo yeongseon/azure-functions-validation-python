@@ -78,6 +78,31 @@ class TestRenderSafeAppSettings:
     def test_empty_settings_list_renders_empty_output(self) -> None:
         assert render_safe_app_settings([]) == ""
 
+    def test_website_run_from_package_sentinel_value_is_rendered(self) -> None:
+        """WEBSITE_RUN_FROM_PACKAGE=1 is the safe "run from the deployed
+        zip" sentinel and must keep rendering for troubleshooting (#564)."""
+        settings = _settings(WEBSITE_RUN_FROM_PACKAGE="1")
+
+        output = render_safe_app_settings(settings)
+
+        assert "WEBSITE_RUN_FROM_PACKAGE = 1" in output
+
+    def test_website_run_from_package_url_with_sas_token_is_hidden(self) -> None:
+        """Regression (#564): WEBSITE_RUN_FROM_PACKAGE can also be a package
+        blob URL carrying a SAS token, not just the safe "1" sentinel. That
+        shape must never be rendered verbatim."""
+        sas_url = (
+            "https://fakestorage.blob.core.windows.net/releases/pkg.zip"
+            f"?sv=2023-01-01&sig={_DUMMY_SECRET}"
+        )
+        settings = _settings(WEBSITE_RUN_FROM_PACKAGE=sas_url)
+
+        output = render_safe_app_settings(settings)
+
+        assert _DUMMY_SECRET not in output
+        assert sas_url not in output
+        assert "WEBSITE_RUN_FROM_PACKAGE = <hidden>" in output
+
 
 class TestSafeSettingNamesAllowlist:
     def test_known_secret_bearing_names_are_not_on_the_allowlist(self) -> None:
