@@ -689,6 +689,27 @@ class TestRequestParsing:
         )
         assert adapter.parse_headers(secondary, AliasChoicesHeaderModel).token == "v2"
 
+    def test_parse_headers_alias_choices_precedence_when_both_present(
+        self, adapter: PydanticAdapter
+    ) -> None:
+        """Regression (#562): when both accepted aliases are present at once,
+        the header resolved by ``AliasChoices`` precedence order must win --
+        not whichever header happens to be last in the incoming dict's
+        iteration order.
+        """
+
+        class AliasChoicesHeaderModel(BaseModel):
+            token: str = Field(validation_alias=AliasChoices("X-Token", "X-Auth-Token"))
+
+        both_present = func.HttpRequest(
+            method="GET",
+            url="/api/probe",
+            body=b"",
+            params={},
+            headers={"X-Token": "primary", "X-Auth-Token": "secondary"},
+        )
+        assert adapter.parse_headers(both_present, AliasChoicesHeaderModel).token == "primary"
+
     def test_parse_path_uses_route_params(self, adapter: PydanticAdapter) -> None:
         class PathModel(BaseModel):
             user_id: int

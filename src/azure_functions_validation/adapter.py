@@ -486,14 +486,34 @@ class PydanticAdapter:
         """
         # Parse headers
         headers = req.headers or {}
+        # Case-insensitive lookup of the raw header name, keyed by casefolded
+        # name. First-seen wins so this stays well-defined even if the caller
+        # sent the same header name with two different casings.
+        raw_key_by_casefold: dict[str, str] = {}
+        for key in headers:
+            raw_key_by_casefold.setdefault(key.casefold(), key)
 
-        field_keys: dict[str, str] = {}
+        header_data: dict[str, Any] = dict(headers)
         for name, field in model.model_fields.items():
             candidates = _inbound_candidates(field, name)
             canonical = candidates[0]
-            for candidate in candidates:
-                field_keys[candidate.casefold()] = canonical
-        header_data = {field_keys.get(key.casefold(), key): value for key, value in headers.items()}
+            # Walk candidates in Pydantic's own precedence order (#562) and
+            # stop at the first one actually present -- a dict comprehension
+            # over the *incoming* headers would instead let whichever alias
+            # is last in iteration order silently win.
+            matched_raw_key = next(
+                (
+                    raw_key_by_casefold[candidate.casefold()]
+                    for candidate in candidates
+                    if candidate.casefold() in raw_key_by_casefold
+                ),
+                None,
+            )
+            if matched_raw_key is None:
+                continue
+            header_data[canonical] = headers[matched_raw_key]
+            if matched_raw_key != canonical:
+                header_data.pop(matched_raw_key, None)
 
         # Validate with Pydantic
         try:
