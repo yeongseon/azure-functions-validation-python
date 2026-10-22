@@ -61,9 +61,14 @@ jobs:
           python -c "import azure.functions as f; print('azure-functions', f.__version__)"
 
       - name: Run WorkerCompat suite against pre-release worker library
-        run: |
-          python -m pytest tests/test_decorator.py tests/test_integration.py \
-            -v --no-header -p no:cacheprovider --no-cov
+        run: python -m tools.verification worker-compat -v --no-header -p no:cacheprovider
+
+      - name: Upload pre-release worker evidence (not Azure certification)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: worker-prerelease-py${{ matrix.python-version }}
+          path: test-results/**
 
       - name: Explain a WorkerCompat break
         if: failure()
