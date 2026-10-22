@@ -409,7 +409,7 @@ class PydanticAdapter:
 
         try:
             data = json.loads(body_str)
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, RecursionError) as e:
             raise MalformedRequestError("Invalid JSON") from e
 
         # Validate with Pydantic
