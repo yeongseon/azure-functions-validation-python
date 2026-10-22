@@ -1,5 +1,10 @@
 # Examples
 
+These are local-only demonstrations, not production security templates. Anonymous
+routes, in-memory stores and custom formatter output need explicit production
+authentication, limits and redaction. The E2E app is ephemeral public certification
+infrastructure using synthetic data only. See [SECURITY.md](../SECURITY.md).
+
 `azure-functions-validation` keeps a growing set of smoke-tested examples:
 
 | Role | Path | Description |

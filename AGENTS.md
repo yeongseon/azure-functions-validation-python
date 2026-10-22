@@ -16,6 +16,8 @@
 
 ## Working Rules
 
+Security gates, evidence redaction and expiring exceptions: see [SECURITY.md](SECURITY.md).
+
 ### Test Coverage
 - Maintain test coverage at **95% or above** for committed changes and PRs.
 - Run `hatch run pytest --cov --cov-report=term-missing -q` to verify before submitting changes.

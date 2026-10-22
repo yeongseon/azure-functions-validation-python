@@ -298,13 +298,25 @@ def handler_custom(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
 
 The formatter receives the original exception for 4xx responses. For 5xx
 responses it receives a public `InternalServerError` containing only
-`"Internal Server Error"`; the original is logged once with traceback.
+`"Internal Server Error"`; logs retain fixed diagnostics without exception data or tracebacks.
 
 ### `expose_internal_errors`
 
 `expose_internal_errors` defaults to `False`. Setting it to `True` passes the
 original 5xx exception to `error_formatter`, restoring the old behavior. This
-is unsafe because a formatter can expose internal details to clients.
+is unsafe for production because a formatter can expose internal details to clients.
+Formatter output is **not** automatically redacted: supply an explicitly redacting
+formatter. A formatter that raises or produces unserializable output still gets
+a sanitized 500 fallback. Custom 4xx formatters receive original exceptions, which
+can contain Pydantic input values; do not render `str(exc)` in production.
+
+Authentication is Azure Functions host-owned: validation does not check function
+keys or bearer tokens, or establish an authenticated principal. Configure route
+`auth_level` and platform authentication explicitly. Direct test calls bypass the
+host. For public input, configure `max_body_bytes`, JSON media-type enforcement
+and constrained models. There is no implicit JSON depth or error-count cap;
+duplicate JSON keys use last-value-wins semantics, and model configuration controls
+non-finite numbers. See the root SECURITY.md for these production boundaries.
 
 ### `status_code`
 
