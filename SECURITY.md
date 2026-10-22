@@ -54,8 +54,10 @@ Authentication is host-owned. Validation preserves route auth levels, rejects th
 unsupported above-route decorator order, and never authenticates direct requests.
 Configure platform authentication and route auth explicitly. Body-size and JSON
 content-type enforcement are opt-in. Use `max_body_bytes` and constrained models
-for public input. No implicit error-count/response-size cap or JSON-depth limit
-exists: nested invalid arrays can amplify errors. Duplicate JSON keys are
+for public input. The default Pydantic adapter rejects JSON bodies deeper than
+512 object/array levels with a sanitized 400, consistently across Python versions.
+Brackets inside strings do not count. No implicit error-count/response-size cap
+exists: nested invalid arrays below that ceiling can amplify errors. Duplicate JSON keys are
 last-value-wins; non-finite numbers require model constraints. These are follow-up
 hardening topics, not demonstrated credential leaks. Schema/wheel verification
 rejects drift and never rewrites pins.
