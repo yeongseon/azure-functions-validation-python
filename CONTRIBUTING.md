@@ -6,11 +6,12 @@ We welcome contributions to the `azure-functions-validation` project.
 
 The package supports Python 3.11, 3.12, 3.13, and 3.14. Local development
 requires Python 3.11 because the default Hatch environment is pinned to that
-interpreter. No repository-specific services or infrastructure are required
-for the standard checks.
+interpreter. Offline tests and quality checks need no services. Full local
+verification additionally requires Functions Core Tools (`func`) and Azurite.
 
-Clone the repository, enter it, and let the Makefile create a local virtual
-environment and install Hatch:
+Install Hatch once in an isolated tool environment, then clone the repository
+and create the development environment. Routine checks never upgrade pip or
+reinstall Hatch, and never change the global interpreter:
 
 ```bash
 git clone https://github.com/yeongseon/azure-functions-validation-python.git
@@ -22,12 +23,13 @@ Run the standard verification commands before opening a pull request:
 
 ```bash
 make test
-make lint
-make typecheck
-make build
+make check
+make verify
 ```
 
-`make check-all` runs the complete local quality gate used for contributions.
+`make check-all` is an exact backward-compatible alias of `make verify`.
+CI uses `make install-ci PYTHON=python` on the explicitly selected matrix
+interpreter, not Hatch's pinned Python 3.11 environment.
 
 ## Branch Strategy
 
@@ -61,17 +63,66 @@ Recommended branch prefixes:
 
 ## Project Commands
 
-```bash
-make format      # Format code with ruff
-make lint        # Lint with ruff
-make typecheck   # Type check with mypy
-make test        # Run tests
-make cov         # Run tests with coverage
-make check-all   # Run the full local gate
+| Command | Contract |
+| --- | --- |
+| `make install` | Create isolated Hatch dev/docs environment and install local hooks |
+| `make install-ci` | Install extras into CI's selected `PYTHON`, preserving the matrix cell |
+| `make doctor` | Read-only prerequisite check; fail for missing required tools |
+| `make format` / `make format-check` | Mutating format action / non-mutating check |
+| `make check` | Ruff lint/format, strict mypy once, Bandit, workflow policy and pinned metadata/schema contracts |
+| `make test` | Offline unit/mock suite only, existing 95% coverage floor |
+| `make integration` | Required worker signatures/registration plus managed real host and private Azurite |
+| `make verify` | Always check + test + integration + wheel/schema install smoke + strict docs |
+| `make e2e-azure` | Separate real Azure run against explicit `E2E_BASE_URL`; never provisions resources |
+| `make report` | Render saved results without rerunning tests |
+| `make clean` | Remove generated artifacts only; preserve environments/shared emulator storage |
+
+`make check-all` means exactly `make verify`. `make clean-all` retains its historical
+deep-clean meaning: artifacts, bytecode and the project-local `.venv`.
+Focused/partial targets remain: `style`, `lint`, `typecheck`, `security`, `cov`,
+`lint-workflows`, `check-schema-hash`, `contracts`, `worker-compat`, `sdk-compat`,
+`build`, `wheel-smoke`, `docs`, screenshot checks and maintenance commands.
+`sdk-compat` requires `AZFUNC_2X_SPIKE=1` and tests an installed wheel without source
+path injection; it is a compatibility spike, never general Azure certification.
+`e2e-local` targets an already-running local app and is not Azure certification.
+
+### Verification evidence
+
+Generated evidence is gitignored:
+
+```text
+test-results/
+  test/{junit.xml,coverage.xml,summary.json,environment.json,logs/}
+  worker-compat/{junit.xml,summary.json,environment.json,logs/}
+  host-smoke/{junit/junit.xml,summary.json,environment.json,logs/}
+  integration/{summary.json,environment.json,lanes.json}
+  verify/{summary.json,environment.json,lanes.json,logs/}
+  azure-e2e/{junit.xml,summary.json,environment.json,logs/}
 ```
 
-Before opening a PR, run `make format-check` to check `src` and `tests` without
-changing files. Run `make format` to fix those trees. CI also checks every
+Each summary has a schema version, lane/command, selected/passed/failed/skipped
+counts, exit status and supporting paths. Actual Python/runtime/SDK versions are
+recorded; credentials, connection strings, authorization headers, SAS and tokens
+are redacted. Console and Actions Job Summary use the same saved fields; CI uploads
+`test-results/**` with `if: always()`.
+
+- **PASS** requires actual execution and successful required checks.
+- **FAIL** means a process/check/test failed or timed out.
+- **INCOMPLETE** means missing prerequisites, missing/invalid JUnit, zero tests,
+  all skipped, or a skipped required live/worker test. These exit non-zero.
+- **NOT_APPLICABLE** is reserved for explicitly unsupported lanes, never missing tools.
+
+Host smoke uses temporary storage, unique ephemeral ports and bounded readiness;
+it stops only processes it owns, including on interruption. Core Tools may need
+its extension bundle cached. Worker signature evidence and host evidence stay
+separate. Local verification never implies real Azure certification. Azure release
+certification keeps the existing exact-ref/source-version record; this repository's
+live endpoint does not currently expose a deployed package-version assertion.
+Schema/hash checks never rewrite pinned metadata. Wheel smoke verifies packaged
+schema bytes and installed imports outside the checkout, separately from source tests.
+
+Before opening a PR, run `make format-check` to check `src`, `tests` and verification
+helpers without changing files. Run `make format` to fix those trees. CI also checks every
 changed Python file, including files outside `src` and `tests`.
 
 ## GitHub Actions Pinning
