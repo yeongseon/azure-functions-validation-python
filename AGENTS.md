@@ -18,7 +18,7 @@
 
 ### Test Coverage
 - Maintain test coverage at **95% or above** for committed changes and PRs.
-- Run `hatch run pytest --cov --cov-report=term-missing -q` to verify before submitting changes.
+- Run `make test` to verify the offline suite and coverage before submitting changes.
 - Any PR that drops coverage below 95% must include additional tests to compensate.
 - Runtime code must remain compatible with Python 3.11-3.14 (`requires-python = ">=3.11,<3.15"`).
 - Public APIs must be fully typed.
@@ -106,10 +106,11 @@ This repository is **issue-based, not milestone-based**. Track and group work us
 - Before adding any organizational structure, check whether the repository already has an established convention. A category being empty or unused (zero milestones, no `epic:*` labels) is evidence to follow the existing pattern, not to introduce a new one.
 
 ## Validation
-- `make test`
-- `make lint`
-- `make typecheck`
-- `make build`
+- `make doctor` (read-only prerequisites, actual interpreter)
+- `make check` (complete non-mutating quality and schema/metadata contracts)
+- `make test` (offline, coverage >=95%)
+- `make integration` (worker signatures and real host/private Azurite)
+- `make verify` (`make check-all` is an exact alias)
 
 ## Release Process
 
@@ -186,22 +187,31 @@ Use Makefile entry points only. Do not bypass the Makefile in CI or contributor 
 | Purpose | Command |
 | --- | --- |
 | Environment setup | `make install` |
+| CI-selected interpreter setup | `make install-ci` |
+| Read-only prerequisite diagnostics | `make doctor` |
 | Format code | `make format` |
 | Check formatting (`src`, `tests`) | `make format-check` |
-| Lint | `make lint` |
-| Type check | `make typecheck` |
-| Tests | `make test` |
-| Coverage | `make cov` |
-| Full validation | `make check-all` |
-| Docs build | `make docs` |
-| Package build | `make build` |
+| Complete non-mutating quality/contracts | `make check` |
+| Offline tests, coverage >=95% | `make test` |
+| Managed worker/host/emulator lanes | `make integration` |
+| Full local validation | `make verify` (`make check-all` exact alias) |
+| Configured real Azure certification | `make e2e-azure` |
+| Render saved evidence only | `make report` |
+| Generated artifacts only | `make clean` |
+| Partial/focused lint/types/coverage | `make lint`, `make typecheck`, `make cov` |
+| Partial/focused docs/package/wheel | `make docs`, `make build`, `make wheel-smoke` |
+
+See CONTRIBUTING.md for evidence/status semantics. Required worker and host lanes
+have separate summaries under gitignored `test-results/`. SDK spikes are not Azure
+certification. Verification must never rewrite schema/hash pins. `clean-all` is
+maintenance-only deep cleanup, including bytecode and the project-local `.venv`.
 
 ## Testing Rules
 
 - Public APIs require tests.
 - Bug fixes require regression tests.
 - Representative and complex examples must remain smoke-tested.
-- `make check-all` is the minimum merge gate.
+- `make verify` is the minimum local merge gate; `make check-all` aliases it exactly.
 
 ## Commit Rules
 
