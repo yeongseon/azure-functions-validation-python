@@ -14,6 +14,7 @@ from pydantic import ValidationError as PydanticValidationError
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticSerializationError
 
+from ._json_body import parse_json_body
 from .errors import AdapterValidationError, MalformedRequestError, SerializationError
 
 
@@ -407,10 +408,7 @@ class PydanticAdapter:
             # Empty JSON string - this is a missing body, not invalid JSON
             raise self._missing_body_validation_error()
 
-        try:
-            data = json.loads(body_str)
-        except (json.JSONDecodeError, RecursionError) as e:
-            raise MalformedRequestError("Invalid JSON") from e
+        data = parse_json_body(body_str)
 
         # Validate with Pydantic
         try:

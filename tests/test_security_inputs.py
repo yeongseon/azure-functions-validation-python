@@ -103,15 +103,44 @@ def test_nested_expansion_has_no_implicit_error_count_cap() -> None:
     assert "CANARY_SECRET_input" not in response.get_body().decode()
 
 
-def test_parser_recursion_limit_is_a_client_error() -> None:
-    # Given valid JSON nesting beyond the interpreter parser's recursion limit.
-    @validate_http(body=BoundaryModel, max_body_bytes=8192)
+@pytest.mark.parametrize("depth", [513, 900, 1000, 1500, 2000, 10000])
+@pytest.mark.parametrize("container", ["array", "object"])
+def test_parser_recursion_limit_is_a_client_error(depth: int, container: str) -> None:
+    # Given valid JSON beyond the portable nesting ceiling, within the byte limit.
+    opening, closing = (b"[", b"]") if container == "array" else (b'{"x":', b"}")
+    payload = opening * depth + b'"CANARY_SECRET_input"' + closing * depth
+
+    @validate_http(body=BoundaryModel, max_body_bytes=65536)
     def handler(req: HttpRequest) -> None:
         pytest.fail("deep nesting reached handler")
 
     # When parsed; Then client-controlled depth is malformed input, not a server fault.
-    response = handler(MockHttpRequest(body=b"[" * 2000 + b"0" + b"]" * 2000))
+    response = handler(MockHttpRequest(body=payload))
     assert response.status_code == 400
     assert json.loads(response.get_body())["detail"] == [
         {"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}
     ]
+    assert "CANARY_SECRET_input" not in response.get_body().decode()
+
+
+@pytest.mark.parametrize("depth", [1, 40, 511, 512])
+def test_json_nesting_at_or_below_ceiling_preserves_model_validation(depth: int) -> None:
+    # Given a list contract accepting arbitrary nested JSON values.
+    @validate_http(body=list)
+    def handler(req: HttpRequest) -> None:
+        return None
+
+    # When parsed; Then allowed nesting still reaches the handler.
+    response = handler(MockHttpRequest(body=b"[" * depth + b"0" + b"]" * depth))
+    assert response.status_code == 204
+
+
+def test_brackets_in_json_strings_do_not_count_as_nesting() -> None:
+    # Given escaped quotes and brackets inside a valid field, not JSON containers.
+    @validate_http(body=BoundaryModel)
+    def handler(req: HttpRequest) -> None:
+        return None
+
+    # When parsed; Then string contents do not trigger depth rejection.
+    response = handler(MockHttpRequest(json={"value": 1, "text": '\\"[' * 2000 + "]" * 2000}))
+    assert response.status_code == 204
