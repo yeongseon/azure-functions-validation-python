@@ -19,6 +19,7 @@ htmlcov/
 # Build artifacts
 build/
 dist/
+security-results/
 *.egg-info/
 
 # IDE
