@@ -79,7 +79,7 @@ The project uses `pytest` as its primary testing framework. You can run the test
 The simplest way to run tests is using the provided `Makefile` targets:
 
 ```bash
-# Run all tests
+# Run offline unit/mock tests (no Azure, host or emulator)
 make test
 
 # Run tests and generate a coverage report
@@ -87,6 +87,15 @@ make cov
 ```
 
 The `make cov` command generates a terminal report, an XML report for CI integration, and a detailed HTML report in the `htmlcov/` directory.
+
+`make integration` separately runs required worker signature/registration checks
+and the real validation handler on a managed Functions host with private Azurite.
+Each lane has its own `test-results/` summary. `make verify` (exact alias:
+`make check-all`) always adds quality/schema/metadata contracts, offline coverage,
+integration, installed wheel/schema smoke and strict docs. `make report` reads saved
+evidence only. Missing prerequisites, zero execution and skipped required lanes fail
+closed; local success and opt-in SDK compatibility never certify real Azure.
+See [Development Guide](development.md#makefile-targets) for the full contract.
 
 ### Direct Commands
 
