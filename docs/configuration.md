@@ -298,7 +298,7 @@ def handler_custom(req: func.HttpRequest, body: RequestModel) -> dict[str, str]:
 
 The formatter receives the original exception for 4xx responses. For 5xx
 responses it receives a public `InternalServerError` containing only
-`"Internal Server Error"`; logs retain fixed diagnostics without exception data or tracebacks.
+`"Internal Server Error"`; the original is logged once with traceback.
 
 ### `expose_internal_errors`
 

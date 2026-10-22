@@ -112,7 +112,7 @@ Error shaping policy:
 - request binding failures are internal pipeline errors and map to a logged,
   sanitized 500
 - custom formatters receive original exceptions for 4xx errors
-- 500-level failures are logged without exception data or traceback, while custom formatters
+- 500-level originals are logged once with traceback, while custom formatters
   receive a sanitized `InternalServerError` by default
 - `expose_internal_errors=True` is an unsafe compatibility opt-in
 

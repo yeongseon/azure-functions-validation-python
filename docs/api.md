@@ -308,7 +308,7 @@ def custom_error(req: func.HttpRequest, body: InputModel) -> dict[str, int]:
 
 For 4xx responses, the formatter receives the original exception. For 5xx
 responses, it receives `InternalServerError("Internal Server Error")` by default,
-while fixed diagnostics are logged without original exception data or traceback. The unsafe
+while the original is logged server-side with traceback. The unsafe
 `expose_internal_errors=True` option restores original-exception passthrough.
 
 ## `HttpError`
@@ -410,7 +410,7 @@ formatter ordering, protocol versioning policy, and conformance-suite usage.
 Each `parse_body`, `parse_query`, `parse_path`, and `parse_headers` method must
 raise `MalformedRequestError` only for syntactically malformed client input
 (`400`) and `AdapterValidationError` for validation failures (`422`). Every
-other exception is treated as an adapter or server fault, logged without exception data,
+other exception is treated as an adapter or server fault, logged with traceback,
 and returned as a sanitized `500`. This is intentionally breaking: a custom
 adapter's plain `ValueError` is no longer classified as a client error.
 

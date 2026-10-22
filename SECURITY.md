@@ -37,11 +37,12 @@ If you prefer email, contact: yeongseon.choe@gmail.com
 ## Production trust boundaries
 
 Default 5xx responses and failed formatters contain a fixed public envelope.
-Pipeline logs contain fixed diagnostics and handler/source identifiers, not original
-exceptions, traceback chains, Pydantic inputs or request bodies. This covers
-library-owned logs, not logs emitted by application code, adapters, formatters,
-the host or Azure. Handlers returning `HttpResponse` and successful custom
-formatters own their content.
+Server-side logs intentionally keep the original exception with traceback (`exc_info`)
+so operators can diagnose 5xx failures in Application Insights; they are an
+operator-facing channel, not part of the HTTP response. Exception messages, Pydantic
+input values and application-supplied data can therefore reach your log sink: do not
+put secrets into exception messages, and restrict access to logs. Handlers returning
+`HttpResponse` and successful custom formatters own their content.
 
 `expose_internal_errors=False` is the default. Enabling it passes original 5xx
 exceptions to formatters and is **unsafe for production** without application
@@ -137,7 +138,7 @@ private endpoints, explicit SCM/app TLS and removing deployment outputs need
 real-Azure certification. This work changes no IaC identity/auth settings.
 
 Azure failure diagnostics print Application Insights exceptions/traces and raw
-app logs. Library logs are sanitized and the settings printer hides unclassified
-values/package SAS URLs, but host/app logs remain outside that guarantee. Use
+app logs. The settings printer hides unclassified values/package SAS URLs, but
+library exception logs, host logs and app logs remain outside that guarantee. Use
 synthetic data only; replace raw dumps with allow-listed diagnostics in an
 Azure-verified follow-up. Never send real credentials/user data to certification.
