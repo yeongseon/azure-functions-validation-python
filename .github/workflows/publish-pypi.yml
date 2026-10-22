@@ -108,11 +108,18 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Hatch
-        run: pip install hatch
+      - name: Install test dependencies on the selected interpreter
+        run: make install-ci
 
       - name: Run test suite
-        run: hatch run test
+        run: python -m tools.verification test
+
+      - name: Upload release library evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-library-evidence
+          path: test-results/**
 
   cookbook-smoke:
     name: Cookbook dogfood smoke (candidate wheel)
