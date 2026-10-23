@@ -10,7 +10,10 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
+from zipfile import BadZipFile
 
+from tools.dependency_inventory import installed_inventory, normalize, wheel_identity
 from tools.security_exceptions import parse_exceptions
 from tools.security_report import (
     Check,
@@ -88,45 +91,77 @@ def classify_audit(raw: str, exit_status: int, *, policy_raw: str, today: date) 
         return replace(result, message="Invalid audit/tool/policy evidence; release blocked.")
 
 
-def run_audit(site_packages: Path, policy: Path) -> Check:
+def run_audit(site_packages: Path, policy: Path, candidate: tuple[str, str]) -> Check:
     try:
-        if not site_packages.is_dir() or not list(site_packages.glob("*.dist-info")):
-            return Check(
-                "pip-audit",
-                ("resolved-runtime-wheel",),
-                Status.INCOMPLETE,
-                None,
-                message="Candidate installation inventory missing.",
-            )
-        process = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pip_audit",
-                "--path",
-                str(site_packages),
-                "--format",
-                "json",
-                "--desc",
-                "off",
-                "--progress-spinner",
-                "off",
-                "--timeout",
-                "30",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=300,
+        inventory = installed_inventory(site_packages, candidate)
+    except (OSError, ValueError, TypeError, KeyError):
+        return Check(
+            "pip-audit",
+            ("resolved-runtime-wheel",),
+            Status.INCOMPLETE,
+            None,
+            message="Candidate identity mismatch or missing third-party inventory.",
         )
+    try:
+        with tempfile.TemporaryDirectory(prefix="candidate-audit-") as temporary:
+            requirements = Path(temporary) / "requirements.txt"
+            requirements.write_text(
+                "".join(f"{name}=={resolved}\n" for name, resolved in sorted(inventory.items()))
+            )
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip_audit",
+                    "--requirement",
+                    str(requirements),
+                    "--no-deps",
+                    "--disable-pip",
+                    "--format",
+                    "json",
+                    "--desc",
+                    "off",
+                    "--progress-spinner",
+                    "off",
+                    "--timeout",
+                    "30",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=300,
+            )
         result = classify_audit(
             process.stdout,
             process.returncode,
             policy_raw=policy.read_text(encoding="utf-8"),
             today=date.today(),
         )
+        if result.status in {Status.PASS, Status.FAIL}:
+            observed: dict[str, str] = {}
+            for entry in sequence(load(process.stdout)["dependencies"]):
+                item = mapping(entry)
+                name, resolved = normalize(text(item["name"])), text(item["version"])
+                if name in observed:
+                    raise EvidenceError("duplicate audit dependency")
+                observed[name] = resolved
+            candidate_name, candidate_version = candidate
+            if normalize(candidate_name) in observed:
+                if observed.pop(normalize(candidate_name)) != candidate_version:
+                    raise EvidenceError("audit candidate identity mismatch")
+            if observed != inventory:
+                result = replace(
+                    result, status=Status.INCOMPLETE, message="Audit inventory mismatch."
+                )
         return replace(result, tool_versions={"pip-audit": version("pip-audit")})
-    except (OSError, subprocess.TimeoutExpired, PackageNotFoundError):
+    except (
+        OSError,
+        subprocess.TimeoutExpired,
+        PackageNotFoundError,
+        ValueError,
+        KeyError,
+        TypeError,
+    ):
         return Check(
             "pip-audit",
             ("resolved-runtime-wheel",),
@@ -144,8 +179,26 @@ def main() -> int:
     )
     parser.add_argument("--output", type=Path, default=Path("security-results"))
     parser.add_argument("--development", action="store_true")
+    parser.add_argument("--candidate-wheel", type=Path)
+    parser.add_argument("--candidate-name")
+    parser.add_argument("--candidate-version")
     args = parser.parse_args()
-    check = run_audit(args.site_packages, args.policy)
+    try:
+        if args.candidate_wheel:
+            candidate = wheel_identity(args.candidate_wheel)
+        elif args.candidate_name and args.candidate_version:
+            candidate = (args.candidate_name, args.candidate_version)
+        else:
+            raise EvidenceError("candidate identity required")
+        check = run_audit(args.site_packages, args.policy, candidate)
+    except (OSError, ValueError, BadZipFile):
+        check = Check(
+            "pip-audit",
+            ("resolved-runtime-wheel",),
+            Status.INCOMPLETE,
+            None,
+            message="Candidate wheel identity unavailable.",
+        )
     if args.development:
         check = replace(check, name="pip-audit-development", scope=("runtime-and-development",))
     return write_report([check], args.output)

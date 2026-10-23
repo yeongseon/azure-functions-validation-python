@@ -122,14 +122,20 @@ def test_audit_runner_targets_only_candidate_installation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     # Given an isolated installed inventory; When audited; Then tools use only its path.
-    (tmp_path / "example.dist-info").mkdir()
+    for name, resolved in (("candidate", "1"), ("pydantic", "2.0")):
+        directory = tmp_path / f"{name}-{resolved}.dist-info"
+        directory.mkdir()
+        (directory / "METADATA").write_text(f"Name: {name}\nVersion: {resolved}\n")
     policy = tmp_path / "policy.json"
     policy.write_text(POLICY)
 
     def complete(command: list[str], **kwargs: str) -> subprocess.CompletedProcess[str]:
-        assert command[command.index("--path") + 1] == str(tmp_path)
+        assert "--requirement" in command
         return subprocess.CompletedProcess(command, 0, stdout=payload(), stderr="CANARY_SECRET")
 
     monkeypatch.setattr(subprocess, "run", complete)
     monkeypatch.setattr(dependency_audit_policy, "version", lambda name: "2.10.1")
-    assert dependency_audit_policy.run_audit(tmp_path, policy).status == Status.PASS
+    assert (
+        dependency_audit_policy.run_audit(tmp_path, policy, ("candidate", "1")).status
+        == Status.PASS
+    )
