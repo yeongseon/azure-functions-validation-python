@@ -17,6 +17,8 @@
 ## Working Rules
 
 Security gates, evidence redaction and expiring exceptions: see [SECURITY.md](SECURITY.md).
+Use `make security` for expanded inventory scanning and the `security-*` Makefile
+entry points documented there for evidence and audit policy.
 
 ### Test Coverage
 - Maintain test coverage at **95% or above** for committed changes and PRs.

@@ -81,7 +81,7 @@ Branch-protection requirements remain repository settings, not workflow assertio
 
 ## Static scope and exceptions
 
-`hatch run python -m tools.security_evidence bandit` scans every Python file under
+`make security` (also `make security-inventory` / `make security-bandit`) scans every Python file under
 `src/`, `examples/` (including deployed `e2e_app`), `scripts/`, and `tools/`, with
 no per-file exclusions. Tests/fixtures are excluded; shipped `conformance.py` is
 included. `infra/` contains Bicep, not Python, and requires configuration review.
@@ -92,8 +92,8 @@ Bandit uses `--ignore-nosec`: existing conformance assertion markers cannot hide
 findings. Every inline marker must match exact ID/file/line policy; unlisted or
 blanket skips produce INCOMPLETE. Baseline exceptions cover test-only assertions,
 shell-free tooling subprocesses and the literal TOOL_ERROR enum false positive.
-No blanket rule skips or new inline suppressions replace review. `make security`
-retains its src-only local behavior; CI uses the expanded helper.
+No blanket rule skips or new inline suppressions replace review. Local full validation
+and CI use this same expanded inventory. `make security-types` checks the helpers.
 
 Both policies require exact identifiers, reason, owner, added and expiry dates,
 with a positive lifetime at most 90 days. Static exceptions use `reviewed-static`
@@ -107,14 +107,24 @@ Maintainers review evidence before accepting exceptions. Runtime policy starts e
 Every known runtime advisory blocks, regardless of severity; missing severity is
 UNKNOWN, never assumed low. Each supported interpreter is audited because markers
 change dependency closures. The candidate venv is created without pip and contains
-only the wheel/runtime dependencies; pip-audit runs outside it with `--path`.
+only the wheel/runtime dependencies. `make security-runtime-audit
+SITE_PACKAGES=<candidate-site-packages> CANDIDATE_WHEEL=<exact-wheel>` reads wheel
+METADATA and requires exactly matching installed name/version before excluding only
+that first-party candidate. It freezes the entire installed third-party closure to
+temporary `name==version` requirements, audited outside the venv with `--no-deps
+--disable-pip`. Unpublished candidates therefore do not require PyPI publication;
+missing/mismatched candidate identity, empty inventories, third-party skips and
+missing/changed audit inventory remain blocking. `make security-audit-report` uses
+the same policy for reporting jobs; `AUDIT_ARGS=--development` labels development scope.
 
 Exit statuses: PASS=0; FAIL=1 (findings/expired exceptions); TOOL_ERROR=2
 (crash, timeout, malformed evidence, policy/tool/DB failure); INCOMPLETE=3
 (empty/missing scope, skipped dependencies, inventory gaps/unlisted suppressions).
-Every non-PASS blocks release. Semgrep exposes only action outcome: success PASS,
+Every non-PASS blocks release. Semgrep exposes only action outcome: success INCOMPLETE
+("action outcome only"),
 failure conservatively TOOL_ERROR (unknown finding count), skipped/cancelled
-INCOMPLETE. Its original failing step remains blocking.
+INCOMPLETE. `make security-semgrep` tolerates exactly evidence exit 3 without claiming
+PASS; its original SHA-pinned action remains the gate and a failing action stays red.
 
 Advisory DB outages can delay releases: a deliberate availability tradeoff for
 fail-closed evidence. Never bypass it. Retry an unchanged tag with
