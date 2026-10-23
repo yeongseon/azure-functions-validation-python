@@ -40,7 +40,7 @@ def test_make_contract_is_install_free_on_routine_runs(target: str) -> None:
 
 def test_check_runs_types_once_and_read_only_contract_checks() -> None:
     # Given the complete quality command, when expanding its recipe.
-    result = subprocess.run(["make", "-n", "check"], cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(["make", "-n", "check-steps"], cwd=ROOT, capture_output=True, text=True)
     # Then types run once and pinned contracts are checked, never regenerated.
     assert result.returncode == 0
     assert result.stdout.count("-m mypy") == 1
@@ -89,3 +89,23 @@ def test_unconfigured_azure_saves_incomplete(tmp_path: Path) -> None:
     data = json.loads((tmp_path / "test-results/azure-e2e/summary.json").read_text())
     assert data["status"] == "INCOMPLETE"
     assert data["selected"] == 0
+
+
+def test_make_check_retains_failed_prerequisite_evidence(tmp_path: Path) -> None:
+    # Given a failing lint prerequisite in a checkout-shaped Makefile.
+    makefile = (ROOT / "Makefile").read_text()
+    (tmp_path / "Makefile").write_text(makefile + "\nstyle:\n\t@echo password=CANARY; exit 7\n")
+    environment = dict(os.environ, CI="1", PYTHONPATH=str(ROOT))
+    # When invoking the actual public quality entry point.
+    result = subprocess.run(
+        ["make", "check", f"PYTHON={sys.executable}"],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    # Then Make fails and the shared runner retains redacted failure evidence.
+    assert result.returncode != 0
+    data = json.loads((tmp_path / "test-results/check/summary.json").read_text())
+    assert data["lane"] == "check" and data["status"] == "FAIL"
+    assert "CANARY" not in (tmp_path / "test-results/check/logs/runner.log").read_text()

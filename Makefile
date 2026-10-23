@@ -6,6 +6,7 @@ RUN := $(HATCH) run python
 else
 RUN := $(PYTHON)
 endif
+MAINTENANCE_PYTHON ?= $(shell for p in "$$VIRTUAL_ENV/bin/python" "$(VENV_DIR)/bin/python" python3.11 python3 python; do if "$$p" -c 'import sys; sys.exit(not (3,11) <= sys.version_info[:2] < (3,15))' 2>/dev/null; then command -v "$$p"; break; fi; done)
 
 .PHONY: bootstrap ensure-hatch
 bootstrap ensure-hatch:
@@ -50,12 +51,17 @@ lint-workflows:
 	@$(RUN) tools/lint_release_workflows.py
 	@$(RUN) tools/lint_workflow_pins.py
 	@$(RUN) tools/lint_hatch_matrix.py
-check: style typecheck security lint-workflows check-schema-hash contracts
+.PHONY: check-steps
+check:
+	@$(RUN) -m tools.verification check
+check-steps: style typecheck security lint-workflows check-schema-hash contracts
 check-all: verify
 
 .PHONY: test integration worker-compat sdk-compat verify report wheel-smoke
-test integration worker-compat sdk-compat verify report:
+test integration worker-compat sdk-compat verify:
 	@$(RUN) -m tools.verification $@
+report:
+	@$(MAINTENANCE_PYTHON) -m tools.verification report
 wheel-smoke:
 	@$(RUN) -m tools.verification focused wheel-smoke -m tools.verification_wheel
 
@@ -89,9 +95,9 @@ version: ensure-hatch
 
 .PHONY: doctor clean clean-all help
 doctor:
-	@$(RUN) -m tools.verification doctor
+	@$(MAINTENANCE_PYTHON) -m tools.verification doctor
 clean:
-	@$(RUN) -m tools.verification clean
+	@$(MAINTENANCE_PYTHON) -m tools.verification clean
 # Historical deep cleanup is intentionally separate from artifact-only clean.
 clean-all: clean
 	@find . -type d -name "__pycache__" -not -path "./.git/*" -exec rm -rf {} +

@@ -171,7 +171,7 @@ def verify() -> int:
         path = Path("test-results") / target / "summary.json"
         path.unlink(missing_ok=True)
         code = run(["make", target], directory / "logs" / f"{target}.log", 1200)
-        if target in {"test", "integration", "wheel-smoke", "docs"} and path.exists():
+        if path.exists():
             summary = Summary(**json.loads(path.read_text()))
             if code and summary.status == "PASS":
                 summary = replace(summary, status="FAIL", exit_code=code)
@@ -219,6 +219,7 @@ def main() -> int:
         "lane",
         choices=(
             "test",
+            "check",
             "integration",
             "worker-compat",
             "host-smoke",
@@ -246,6 +247,8 @@ def main() -> int:
             return 0
         case "verify":
             return verify()
+        case "check":
+            return focused("check", ["make", "check-steps"])
         case "integration":
             return integration()
         case "focused":

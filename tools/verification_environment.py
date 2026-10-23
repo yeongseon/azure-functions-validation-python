@@ -15,6 +15,8 @@ def doctor(live: bool = True) -> int:
         found = importlib.util.find_spec(module) is not None
         print(f"{module} REQUIRED: {'found' if found else 'MISSING'}")
         healthy = healthy and found
+    if not healthy:
+        print("development environment not created: run make install")
     for tool in ("func", "azurite"):
         path = shutil.which(tool)
         print(f"{tool} REQUIRED for integration/verify: {path or 'MISSING'}")
