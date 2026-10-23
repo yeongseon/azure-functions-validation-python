@@ -61,7 +61,13 @@ We maintain strict quality standards to ensure the reliability of the validation
 Tool versions are pinned in the `dev` dependency group of `pyproject.toml` — that
 file is the single source of truth, so this guide does not restate the numbers.
 
-Run `make check-all` to execute all these tools locally before pushing your changes.
+Run `make verify` (exact alias: `make check-all`) before pushing. It always includes
+quality/contracts, offline tests, worker signature/registration, managed real host
+and private Azurite, wheel/schema install smoke and strict docs. Core Tools and
+Azurite are required for the full gate; `make check` and `make test` stay offline.
+Other targets such as `lint`, `typecheck`, `security`, `cov`, `build` and `docs` are
+focused/partial. `make report` renders saved redacted `test-results/`; see
+[Development Guide](development.md#makefile-targets) for commands and status semantics.
 
 ## Testing Requirements
 

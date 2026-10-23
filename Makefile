@@ -1,177 +1,111 @@
 VENV_DIR := .venv
-PYTHON := $(VENV_DIR)/bin/python
-PIP := $(VENV_DIR)/bin/pip
-HATCH := $(VENV_DIR)/bin/hatch
+PYTHON ?= python
+HATCH ?= hatch
+ifeq ($(CI),)
+RUN := $(HATCH) run python
+else
+RUN := $(PYTHON)
+endif
+MAINTENANCE_PYTHON ?= $(shell for p in "$$VIRTUAL_ENV/bin/python" "$(VENV_DIR)/bin/python" python3.11 python3 python; do if "$$p" -c 'import sys; sys.exit(not (3,11) <= sys.version_info[:2] < (3,15))' 2>/dev/null; then command -v "$$p"; break; fi; done)
 
-.PHONY: bootstrap
-bootstrap:
-	@if [ ! -d "$(VENV_DIR)" ]; then \
-		echo "Creating virtual environment..."; \
-		python3 -m venv $(VENV_DIR); \
-	fi
-	@echo "Ensuring Hatch is installed in virtual environment..."
-	@$(PIP) install --upgrade pip > /dev/null
-	@$(PIP) install hatch > /dev/null
-	@echo "Hatch installed at $(HATCH)"
-
-.PHONY: ensure-hatch
-ensure-hatch: bootstrap
+.PHONY: bootstrap ensure-hatch
+bootstrap ensure-hatch:
+	@command -v $(HATCH) >/dev/null || { echo "Install Hatch in an isolated tool environment first"; exit 1; }
 
 .PHONY: install
 install: ensure-hatch
 	@$(HATCH) env create
-	@if [ -n "$$CI" ]; then \
-		echo "CI detected: skipping pre-commit hook installation"; \
-	else \
-		$(MAKE) precommit-install; \
-	fi
+	@if [ -z "$$CI" ]; then $(MAKE) precommit-install; fi
 
-.PHONY: shell
+.PHONY: install-ci
+install-ci:
+	@$(PYTHON) -c 'import sys; assert (3, 11) <= sys.version_info[:2] < (3, 15), sys.version'
+	@$(PYTHON) -m pip install -e ".[dev,docs]"
+
+.PHONY: shell reset hatch-clean
 shell: ensure-hatch
 	@$(HATCH) shell
-
-.PHONY: reset
 reset: clean-all install
-	@echo "Project reset complete."
-
-.PHONY: hatch-clean
 hatch-clean: ensure-hatch
-	@$(HATCH) env remove || echo "No hatch environment to remove"
+	@$(HATCH) env remove
 
-.PHONY: format
-format: ensure-hatch
-	@$(HATCH) run format
+.PHONY: format format-check style typecheck lint security
+format:
+	@$(RUN) -m ruff format src tests tools/verification*.py
+format-check:
+	@$(RUN) -m ruff format --check src tests tools/verification*.py
+style: format-check
+	@$(RUN) -m ruff check src tests tools/verification*.py
+typecheck:
+	@$(RUN) -m mypy src tests tools/verification*.py
+lint: style typecheck
+security:
+	@$(RUN) -m bandit -r src
 
-.PHONY: format-check
-format-check: ensure-hatch
-	@$(HATCH) run format-check
+.PHONY: check-schema-hash contracts lint-workflows check check-all
+check-schema-hash:
+	@$(RUN) -m tools.verification_contracts schema-hash
+contracts:
+	@$(RUN) -m tools.verification contracts
+lint-workflows:
+	@$(RUN) tools/lint_release_workflows.py
+	@$(RUN) tools/lint_workflow_pins.py
+	@$(RUN) tools/lint_hatch_matrix.py
+.PHONY: check-steps
+check:
+	@$(RUN) -m tools.verification check
+check-steps: style typecheck security lint-workflows check-schema-hash contracts
+check-all: verify
 
-.PHONY: style
-style: ensure-hatch
-	@$(HATCH) run style
+.PHONY: test integration worker-compat sdk-compat verify report wheel-smoke
+test integration worker-compat sdk-compat verify:
+	@$(RUN) -m tools.verification $@
+report:
+	@$(MAINTENANCE_PYTHON) -m tools.verification report
+wheel-smoke:
+	@$(RUN) -m tools.verification focused wheel-smoke -m tools.verification_wheel
 
-.PHONY: typecheck
-typecheck: ensure-hatch
-	@$(HATCH) run typecheck
+.PHONY: cov e2e-local e2e-azure build docs docs-serve
+cov:
+	@$(RUN) -m tools.verification test --cov-report=html
+e2e-local:
+	@E2E_BASE_URL=$${E2E_BASE_URL:-http://localhost:7071} $(RUN) -m tools.verification local-e2e
+e2e-azure:
+	@$(RUN) -m tools.verification azure-e2e
+build:
+	@$(RUN) -m tools.verification focused build -m build --no-isolation
+docs:
+	@$(RUN) -m tools.verification focused docs -m mkdocs build --strict
+docs-serve:
+	@$(RUN) -m mkdocs serve
 
-.PHONY: lint
-lint: ensure-hatch
-	@$(HATCH) run lint
-
-.PHONY: security
-security: ensure-hatch
-	@$(HATCH) run security
-
-.PHONY: check-schema-hash
-check-schema-hash: ensure-hatch
-	@$(HATCH) run python -c "import hashlib, pathlib, sys; d = pathlib.Path('src/azure_functions_validation/schemas'); expected = (d / 'endpoint.schema.sha256').read_text().split()[0]; actual = hashlib.sha256((d / 'endpoint.schema.json').read_bytes()).hexdigest(); print('endpoint.schema.json digest matches pin.') if expected == actual else sys.exit('endpoint.schema.json digest drift:\n  pinned:  ' + expected + '\n  actual:  ' + actual + '\nUpdate endpoint.schema.sha256 if this change is intentional.')"
-
-.PHONY: lint-workflows
-lint-workflows: ensure-hatch
-	@$(HATCH) run python tools/lint_release_workflows.py
-	@$(HATCH) run python tools/lint_workflow_pins.py
-	@$(HATCH) run python tools/lint_hatch_matrix.py
-
-.PHONY: check
-check: ensure-hatch
-	@$(MAKE) lint
-	@$(MAKE) typecheck
-	@echo "Lint and type check passed."
-
-.PHONY: check-all
-check-all: ensure-hatch
-	@$(MAKE) check-schema-hash
-	@$(MAKE) lint-workflows
-	@$(MAKE) check
-	@$(MAKE) test
-	@$(MAKE) security
-	@echo "All checks passed including tests and security scan."
-
-.PHONY: screenshots-check
-screenshots-check: ensure-hatch
-	@$(HATCH) run python scripts/check_screenshots.py --strict
-
-.PHONY: screenshots-update
-screenshots-update: ensure-hatch
-	@$(HATCH) run python scripts/check_screenshots.py --update
-
-.PHONY: precommit
+.PHONY: screenshots-check screenshots-update precommit precommit-install publish-test version
+screenshots-check:
+	@$(RUN) scripts/check_screenshots.py --strict
+screenshots-update:
+	@$(RUN) scripts/check_screenshots.py --update
 precommit: ensure-hatch
 	@$(HATCH) run precommit
-
-.PHONY: precommit-install
 precommit-install: ensure-hatch
 	@$(HATCH) run precommit-install
-
-.PHONY: test
-test: ensure-hatch
-	@echo "Running tests..."
-	@$(HATCH) run test
-
-.PHONY: cov
-cov: ensure-hatch
-	@$(HATCH) run cov
-	@echo "Open htmlcov/index.html in your browser to view the coverage report."
-	@echo "coverage.xml generated for Codecov upload."
-
-.PHONY: e2e-local
-e2e-local: ensure-hatch
-	@echo "Running e2e tests against local Azurite (E2E_BASE_URL=http://localhost:7071)..."
-	@E2E_BASE_URL=http://localhost:7071 $(HATCH) run e2e-azure
-
-.PHONY: e2e-azure
-e2e-azure: ensure-hatch
-	@echo "Running e2e tests against Azure (E2E_BASE_URL must be set)..."
-	@$(HATCH) run e2e-azure
-
-.PHONY: build
-build: ensure-hatch
-	@$(HATCH) build
-
-.PHONY: publish-test
 publish-test: ensure-hatch
 	@$(HATCH) publish --repo test
-
-.PHONY: version
 version: ensure-hatch
-	@echo "Current version:"
 	@$(HATCH) version
 
-.PHONY: docs
-docs:
-	@if [ -n "$$CI" ]; then \
-		echo "CI detected: running MkDocs directly"; \
-		python -m pip install --upgrade pip > /dev/null 2>&1 || true; \
-		pip install "mkdocs<2.0" "mkdocs-material<10.0" "mkdocstrings[python]<1.0" > /dev/null 2>&1; \
-		mkdocs build; \
-	else \
-		$(MAKE) ensure-hatch > /dev/null; \
-		$(HATCH) run mkdocs build; \
-	fi
-
-.PHONY: docs-serve
-docs-serve: ensure-hatch
-	@$(HATCH) run docs
-
-.PHONY: doctor
+.PHONY: doctor clean clean-all help
 doctor:
-	@echo "Python version:" && $(PYTHON) --version
-	@echo "Installed packages:" && $(HATCH) env run pip list || echo "No hatch environment found"
-	@echo "Azure Function Core Tools version:" && func --version || echo "func not found"
-	@echo "Pre-commit hook installed:"
-	@if [ -f .git/hooks/pre-commit ]; then echo yes; else echo no; fi
-
-.PHONY: clean
+	@$(MAINTENANCE_PYTHON) -m tools.verification doctor
 clean:
-	@rm -rf *.egg-info dist build __pycache__ .pytest_cache
-
-.PHONY: clean-all
+	@$(MAINTENANCE_PYTHON) -m tools.verification clean
+# Historical deep cleanup is intentionally separate from artifact-only clean.
 clean-all: clean
-	@find . -type d -name "__pycache__" -exec rm -rf {} +
-	@find . -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
-	@rm -rf .mypy_cache .ruff_cache .pytest_cache .coverage coverage.xml htmlcov .DS_Store $(VENV_DIR) site
-
-.PHONY: help
+	@find . -type d -name "__pycache__" -not -path "./.git/*" -exec rm -rf {} +
+	@find . -type f \( -name "*.pyc" -o -name "*.pyo" \) -not -path "./.git/*" -delete
+	@rm -rf .DS_Store $(VENV_DIR)
 help:
-	@echo "Available commands:" && \
-	grep -E '^\.PHONY: ' Makefile | cut -d ':' -f2 | xargs -n1 echo "  - make"
+	@echo "Canonical: install install-ci doctor format format-check check test integration verify e2e-azure report clean"
+	@echo "check-all: exact backward-compatible alias of verify (requires func and Azurite)"
+	@echo "Partial/focused: style lint typecheck security check-schema-hash contracts lint-workflows cov worker-compat sdk-compat build wheel-smoke docs docs-serve screenshots-check screenshots-update"
+	@echo "Local only, not Azure certification: e2e-local; SDK spike only: sdk-compat"
+	@echo "Maintenance: bootstrap ensure-hatch shell reset hatch-clean clean-all precommit precommit-install publish-test version"

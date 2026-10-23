@@ -50,7 +50,7 @@ its own local conformance tests against the versioned dict convention.
   own their own local conformance tests against the same versioned dict
   convention (same philosophy as the vendored `_metadata_helpers.py`).
 - Local drift is caught mechanically: `endpoint.schema.sha256` pins the file
-  digest and `make check-schema-hash` (wired into `make check-all`) fails on
+digest and `make check-schema-hash` (wired into `make check` and therefore `make verify` / `make check-all`) fails on
   any change. When you intentionally change the schema, update the pin and
   bump the `version` field if the change is breaking.
 

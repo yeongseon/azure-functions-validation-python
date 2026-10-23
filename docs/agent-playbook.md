@@ -32,8 +32,13 @@ advisory, not a required check — it does not change the zero-native-approval m
 required CI contexts in `AGENTS.md`.
 
 ## Validation
-- `make test`
-- `make lint`
-- `make typecheck`
-- `make security`
-- `make build`
+- `make doctor`: read-only prerequisites and actual Python interpreter.
+- `make check`: complete non-mutating quality/schema/metadata contracts.
+- `make test`: offline unit/mock suite with 95% coverage.
+- `make integration`: separate worker signatures and managed host/Azurite evidence.
+- `make verify`: full local gate; `make check-all` is an exact alias.
+- `make e2e-azure`: separately configured Azure certification, never provisioning.
+- `make report`: render saved `test-results/` without rerunning tests.
+- `make clean`: generated artifacts only; `clean-all` also removes local `.venv`.
+
+Other useful targets are focused/partial. See [Development Guide](development.md#makefile-targets).

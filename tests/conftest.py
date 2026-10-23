@@ -8,6 +8,7 @@ DX Toolkit repositories (langgraph, durable-graph, db).
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from unittest.mock import Mock
 
 from azure.functions import HttpRequest
@@ -42,3 +43,11 @@ def mock_request_factory() -> Callable[..., HttpRequest]:
         return mock_req
 
     return _create_request
+
+
+@pytest.fixture(autouse=True)
+def isolate_verification_summary(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    if request.module.__name__.split(".")[-1].startswith("test_verification"):
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path / "job-summary"))
