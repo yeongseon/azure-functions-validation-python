@@ -112,7 +112,7 @@ def test_static_policy_matches_exact_location_and_expires() -> None:
 @pytest.mark.parametrize(
     "outcome,status",
     [
-        ("success", Status.PASS),
+        ("success", Status.INCOMPLETE),
         ("failure", Status.TOOL_ERROR),
         ("skipped", Status.INCOMPLETE),
     ],
@@ -145,14 +145,20 @@ def test_bandit_runner_compares_full_inventory(monkeypatch: pytest.MonkeyPatch) 
 def test_tool_execution_failures_never_pass(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: OSError | subprocess.TimeoutExpired
 ) -> None:
-    (tmp_path / "example.dist-info").mkdir()
+    for name in ("candidate", "dependency"):
+        directory = tmp_path / f"{name}-1.dist-info"
+        directory.mkdir()
+        (directory / "METADATA").write_text(f"Name: {name}\nVersion: 1\n")
 
     def fail(*args: str, **kwargs: str) -> subprocess.CompletedProcess[str]:
         raise failure
 
     monkeypatch.setattr(subprocess, "run", fail)
     assert security_evidence.run_bandit().status == Status.TOOL_ERROR
-    assert dependency_audit_policy.run_audit(tmp_path, tmp_path).status == Status.TOOL_ERROR
+    assert (
+        dependency_audit_policy.run_audit(tmp_path, tmp_path, ("candidate", "1")).status
+        == Status.TOOL_ERROR
+    )
 
 
 def test_evidence_cli_runs_without_runtime_dependencies(tmp_path: Path) -> None:
@@ -171,7 +177,7 @@ def test_evidence_cli_runs_without_runtime_dependencies(tmp_path: Path) -> None:
         capture_output=True,
         check=False,
     )
-    assert result.returncode == 0
+    assert result.returncode == 3
     assert json.loads((tmp_path / "summary.json").read_text())["schema_version"] == 1
 
 
