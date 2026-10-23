@@ -54,7 +54,7 @@ dev = [
     "pytest",
     "pytest-anyio",
     "pytest-cov",
-    "ruff==0.16.10",
+    "ruff==0.17.1",
     "jsonschema",
     "requests",
     "types-requests",
