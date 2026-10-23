@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import yaml
 
@@ -23,7 +26,8 @@ def test_release_audit_is_blocking_and_uses_candidate_artifact() -> None:
     commands = "\n".join(s.get("run", "") for s in gate["steps"])
     assert "pip-audit==2.10.1" in commands
     assert "--without-pip" in commands
-    assert "tools.dependency_audit_policy" in commands
+    assert "make security-runtime-audit" in commands
+    assert 'CANDIDATE_WHEEL="${wheels[0]}"' in commands
 
 
 def test_evidence_uploads_run_on_failure_and_keep_permissions_narrow() -> None:
@@ -55,7 +59,35 @@ def test_worker_variants_include_offline_security_proofs() -> None:
 def test_reporting_lane_reuses_policy_without_weakening_release() -> None:
     workflow = yaml.safe_load((ROOT / ".github/workflows/dependency-audit.yml").read_text())
     steps = workflow["jobs"]["pip-audit"]["steps"]
-    audits = [s for s in steps if "tools.dependency_audit_policy" in s.get("run", "")]
+    audits = [s for s in steps if "make security-audit-report" in s.get("run", "")]
     assert len(audits) == 2
     assert all(s["continue-on-error"] for s in audits)
     assert any("--development" in s["run"] for s in audits)
+
+
+def test_collectors_run_even_after_scanner_failure() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/security.yml").read_text())
+    for job in ("bandit", "semgrep"):
+        collectors = [
+            s for s in workflow["jobs"][job]["steps"] if f"make security-{job}" in s.get("run", "")
+        ]
+        assert len(collectors) == 1
+        assert collectors[0]["if"] == "always()"
+
+
+def test_semgrep_make_tolerates_only_incomplete_evidence(tmp_path: Path) -> None:
+    for outcome, succeeds in (("success", True), ("failure", False)):
+        result = subprocess.run(
+            [
+                "make",
+                "security-semgrep",
+                f"SECURITY_PYTHON={sys.executable}",
+                f"SECURITY_OUTPUT={tmp_path / outcome}",
+            ],
+            cwd=ROOT,
+            env=dict(os.environ, SCAN_OUTCOME=outcome),
+            capture_output=True,
+            text=True,
+        )
+        assert (result.returncode == 0) == succeeds
+        assert "action outcome only" in result.stdout

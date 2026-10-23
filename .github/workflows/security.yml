@@ -30,10 +30,11 @@ jobs:
           make install
 
       - name: Run Bandit
-        run: hatch run python -m tools.security_evidence bandit
+        if: always()
+        run: make security-bandit SECURITY_PYTHON='hatch run python'
 
       - name: Type check security tools
-        run: hatch run mypy --explicit-package-bases tools/security_report.py tools/security_exceptions.py tools/security_evidence.py tools/dependency_audit_policy.py
+        run: make security-types SECURITY_PYTHON='hatch run python'
 
       - name: Upload redacted security evidence
         if: always()
@@ -65,7 +66,7 @@ jobs:
         if: always()
         env:
           SCAN_OUTCOME: ${{ steps.scan.outcome }}
-        run: python -m tools.security_evidence semgrep --outcome "$SCAN_OUTCOME"
+        run: make security-semgrep
 
       - name: Upload redacted security evidence
         if: always()
