@@ -58,9 +58,26 @@ typecheck: ensure-hatch
 lint: ensure-hatch
 	@$(HATCH) run lint
 
+# Bandit exits 0 for an empty, missing or unparsable scope, so scripts/check_bandit_report.py
+# also reads each JSON report; the reports are deleted first so a stale one can never pass.
+# -q: Bandit 1.9.4 prints a progress bar to stdout above 50 files.
+# The helpers run git, ruff and pip with argument lists, so B404/B603/B607 are skipped for
+# them only (B602 shell=True stays on). Suppress anything else inline: `# nosec Bxxx - reason`.
+BANDIT_DIR := test-results/bandit
+BANDIT_STRICT := src examples
+BANDIT_HELPERS := scripts tools
+BANDIT := $(HATCH) run python -m bandit -q -f json
+BANDIT_CHECK := $(HATCH) run python scripts/check_bandit_report.py
+
 .PHONY: security
 security: ensure-hatch
-	@$(HATCH) run security
+	@rm -rf $(BANDIT_DIR) && mkdir -p $(BANDIT_DIR)
+	@status=0; \
+	$(BANDIT) -o $(BANDIT_DIR)/strict.json -r $(BANDIT_STRICT) || status=1; \
+	$(BANDIT_CHECK) $(BANDIT_DIR)/strict.json $(BANDIT_STRICT) || status=1; \
+	$(BANDIT) -o $(BANDIT_DIR)/helpers.json -s B404,B603,B607 -r $(BANDIT_HELPERS) || status=1; \
+	$(BANDIT_CHECK) $(BANDIT_DIR)/helpers.json $(BANDIT_HELPERS) || status=1; \
+	exit $$status
 
 .PHONY: check-schema-hash
 check-schema-hash: ensure-hatch

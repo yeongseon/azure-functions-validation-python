@@ -115,7 +115,6 @@ e2e-azure = "pytest -v -m e2e tests/e2e/ --no-cov"
 docs = "mkdocs serve"
 precommit = "pre-commit run --all-files"
 precommit-install = "pre-commit install"
-security = "python -m bandit -r src"
 
 [tool.ruff]
 line-length = 100
