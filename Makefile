@@ -1,18 +1,17 @@
 VENV_DIR := .venv
-PYTHON := $(VENV_DIR)/bin/python
+# The interpreter that creates $(VENV_DIR), which only hosts Hatch. Hatch chooses the interpreter of
+# its own default environment (Python 3.11, see [tool.hatch.envs.default] in pyproject.toml).
+PYTHON ?= python3
 PIP := $(VENV_DIR)/bin/pip
 HATCH := $(VENV_DIR)/bin/hatch
 
+# Idempotent: the virtual environment is created only while it is missing, Hatch is installed only
+# while it is not an executable regular file (`-x` alone also accepts a directory), and pip is
+# never upgraded.
 .PHONY: bootstrap
 bootstrap:
-	@if [ ! -d "$(VENV_DIR)" ]; then \
-		echo "Creating virtual environment..."; \
-		python3 -m venv $(VENV_DIR); \
-	fi
-	@echo "Ensuring Hatch is installed in virtual environment..."
-	@$(PIP) install --upgrade pip > /dev/null
-	@$(PIP) install hatch > /dev/null
-	@echo "Hatch installed at $(HATCH)"
+	@test -d "$(VENV_DIR)" || { echo "Creating virtual environment..."; $(PYTHON) -m venv "$(VENV_DIR)"; }
+	@{ [ -f "$(HATCH)" ] && [ -x "$(HATCH)" ]; } || { echo "Installing Hatch..."; "$(PIP)" install --disable-pip-version-check --quiet hatch; }
 
 .PHONY: ensure-hatch
 ensure-hatch: bootstrap
@@ -86,19 +85,14 @@ lint-workflows: ensure-hatch
 	@$(HATCH) run python tools/lint_workflow_pins.py
 	@$(HATCH) run python tools/lint_hatch_matrix.py
 
+# Every check runs once. `lint` is not listed: `hatch run lint` is `style` followed by `typecheck`,
+# and both are already prerequisites here.
 .PHONY: check
-check: ensure-hatch
-	@$(MAKE) lint
-	@$(MAKE) typecheck
-	@echo "Lint and type check passed."
+check: style typecheck check-schema-hash lint-workflows security
+	@echo "All static checks passed (style, types, schema hash, workflow lints, Bandit)."
 
 .PHONY: check-all
-check-all: ensure-hatch
-	@$(MAKE) check-schema-hash
-	@$(MAKE) lint-workflows
-	@$(MAKE) check
-	@$(MAKE) test
-	@$(MAKE) security
+check-all: check test
 	@echo "All checks passed including tests and security scan."
 
 .PHONY: screenshots-check
@@ -151,33 +145,44 @@ version: ensure-hatch
 	@echo "Current version:"
 	@$(HATCH) version
 
+# Strict, like the CI docs gate: a broken nav entry or link fails the build, and no step of the
+# build may fail silently.
 .PHONY: docs
 docs:
 	@if [ -n "$$CI" ]; then \
 		echo "CI detected: running MkDocs directly"; \
-		python -m pip install --upgrade pip > /dev/null 2>&1 || true; \
-		pip install "mkdocs<2.0" "mkdocs-material<10.0" "mkdocstrings[python]<1.0" > /dev/null 2>&1; \
-		mkdocs build; \
+		pip install --disable-pip-version-check --quiet "mkdocs<2.0" "mkdocs-material<10.0" "mkdocstrings[python]<1.0" && \
+		mkdocs build --strict; \
 	else \
-		$(MAKE) ensure-hatch > /dev/null; \
-		$(HATCH) run mkdocs build; \
+		$(MAKE) ensure-hatch > /dev/null && \
+		$(HATCH) run mkdocs build --strict; \
 	fi
 
 .PHONY: docs-serve
 docs-serve: ensure-hatch
 	@$(HATCH) run docs
 
+# Read-only prerequisite check: it installs and writes nothing, and fails when a required tool is
+# missing. A tool counts only if `command -v` resolves it to an executable regular file, because
+# `command -v` accepts any existing path and `-x` alone also accepts a directory. Python 3.11 is
+# what the default Hatch environment is pinned to, and it is looked up on PATH.
 .PHONY: doctor
 doctor:
-	@echo "Python version:" && $(PYTHON) --version
-	@echo "Installed packages:" && $(HATCH) env run pip list || echo "No hatch environment found"
-	@echo "Azure Function Core Tools version:" && func --version || echo "func not found"
-	@echo "Pre-commit hook installed:"
-	@if [ -f .git/hooks/pre-commit ]; then echo yes; else echo no; fi
+	@missing=0; \
+	have() { p="$$(command -v "$$1")"; [ -f "$$p" ] && [ -x "$$p" ]; }; \
+	for tool in "$(HATCH)" python3.11 git; do \
+		if have "$$tool"; then echo "ok       $$tool"; \
+		else echo "MISSING  $$tool (required)"; missing=1; fi; \
+	done; \
+	for tool in func azurite; do \
+		if have "$$tool"; then echo "ok       $$tool"; \
+		else echo "missing  $$tool (optional: needed only to run a local Functions host)"; fi; \
+	done; \
+	exit $$missing
 
 .PHONY: clean
 clean:
-	@rm -rf *.egg-info dist build __pycache__ .pytest_cache
+	@rm -rf *.egg-info dist build __pycache__ .pytest_cache test-results
 
 .PHONY: clean-all
 clean-all: clean
