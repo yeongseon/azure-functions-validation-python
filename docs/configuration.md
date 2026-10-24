@@ -69,6 +69,7 @@ Behavior:
 
 - Empty body -> `422` (`missing` error)
 - Invalid JSON syntax -> `400`
+- JSON nested deeper than 512 levels -> `400` (details under [`max_body_bytes`](#max_body_bytes))
 - Invalid field values -> `422`
 
 The model's own Pydantic configuration controls coercion and unknown fields.
@@ -93,6 +94,14 @@ def create(req: func.HttpRequest, body: CreateBody) -> dict[str, str]:
 `max_body_bytes` is an application contract, not transport-level DoS
 protection. Configure Azure Functions host and/or API Management request-size
 limits as the outer enforcement boundary.
+
+Independently of the byte limit, the default Pydantic adapter accepts at most
+512 nested JSON object/array levels (the outermost container counts as one).
+Deeper bodies return a sanitized `400 Invalid JSON` before model validation on
+every supported Python version; brackets inside strings do not count. This
+portable ceiling avoids depending on interpreter-specific parser recursion
+limits. Ordinary model-validation failures remain `422`. Custom adapters own
+their parsing limits.
 
 ### `require_json_content_type`
 
