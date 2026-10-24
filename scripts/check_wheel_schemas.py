@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404 # runs only the temp venv's python as argument lists, no shell
 import sys
 import tempfile
 import venv
@@ -68,10 +68,12 @@ print("Installed endpoint schema resources load and match their pin.")
         environment = root / "venv"
         venv.EnvBuilder(with_pip=True).create(environment)
         python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        subprocess.run([python, "-m", "pip", "install", str(wheel)], cwd=root, check=True)
+        subprocess.run(  # nosec B603 # temp-venv python, literal args plus the wheel path, no shell
+            [python, "-m", "pip", "install", str(wheel)], cwd=root, check=True
+        )
         process_environment = os.environ.copy()
         process_environment.pop("PYTHONPATH", None)
-        subprocess.run(
+        subprocess.run(  # nosec B603 # temp-venv python, fixed smoke_code literal, no shell
             [python, "-I", "-c", smoke_code],
             cwd=root,
             env=process_environment,

@@ -49,23 +49,21 @@ We use automated tools to ensure the codebase remains secure and follows best pr
 
 ### Bandit: Static Analysis Security Scanner
 
-Bandit is used for static analysis security scanning of Python code. It is configured to scan the source code while skipping test files to minimize false positives.
+Bandit is used for static analysis security scanning of Python code. `make security` scans `src`, `examples`, `scripts` and `tools` in one run with every Bandit test enabled; no directory has a skip list. Test files are not scanned.
 
-You can run a security scan locally using the following commands:
+Bandit exits 0 for an empty directory, a missing path and a file it cannot parse. `make security` therefore writes Bandit's JSON report to `test-results/bandit/bandit.json`, and `scripts/check_bandit_report.py` fails the target when no code was analysed, a file was skipped, a Python file in scope was left unscanned, or any finding remains.
+
+You can run a security scan locally with:
 
 ```bash
-# Using make
 make security
-
-# Using hatch
-hatch run security
 ```
 
-The underlying command executed is `python -m bandit -r src`.
+Suppress a reviewed finding only inline, on the line Bandit reports, with `# nosec Bxxx # <reason>`. Separate several test IDs with spaces, not commas (Bandit 1.9.4 honours only the last ID of a comma list), and keep the reason behind the second `#`: Bandit warns about every other word after the IDs. There is no skip list, allow-list or baseline file: each subprocess call in `scripts/` and `tools/` (they run `git`, `ruff` and a temporary virtualenv's `python` as argument lists, without a shell) carries its own marker, so a new one is reported until someone reviews it and writes its own.
 
 ### CI/CD Integration
 
-Security scans are integrated into our continuous integration pipeline. Every push and pull request triggers the `security.yml` workflow via GitHub Actions, ensuring that no known security regressions are introduced into the main branch.
+Security scans are integrated into our continuous integration pipeline. Every push and pull request triggers the `security.yml` workflow via GitHub Actions, ensuring that no known security regressions are introduced into the main branch. The Bandit JSON report is uploaded as a workflow artifact.
 
 ### Pre-commit Hook
 

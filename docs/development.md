@@ -79,6 +79,7 @@ single source of truth, so this table does not restate the numbers.
 
 - Only scans `src/` directory
 - Skips `tests/`
+- This is the pre-commit hook; `make security` scans more (see [Security](security.md))
 
 ### Run Hooks Manually
 
@@ -121,7 +122,7 @@ Use these as the **golden commands** for local validation and CI parity. Prefer 
 | `make format` | Format code (ruff) |
 | `make lint` | Run linter (ruff + mypy) |
 | `make typecheck` | Run mypy type checking |
-| `make security` | Run Bandit security scan |
+| `make security` | Run Bandit on `src`, `examples`, `scripts` and `tools`; fail on an empty or partial scan |
 | `make test` | Run pytest |
 | `make cov` | Run tests with coverage |
 | `make check` | Run lint + typecheck |
