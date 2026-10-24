@@ -173,6 +173,11 @@ def test_makefile_never_upgrades_pip() -> None:
     assert "--upgrade" not in (_ROOT / "Makefile").read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize("script", ["format", "format-check", "style", "typecheck"])
+def test_tools_and_scripts_are_inside_the_ruff_and_mypy_scope(script: str) -> None:
+    assert {"tools", "scripts"} <= set(HATCH_SCRIPTS[script].split())
+
+
 def test_bootstrap_runs_once_per_make_invocation() -> None:
     assert plan("check-all").count("-m venv") == 1
 

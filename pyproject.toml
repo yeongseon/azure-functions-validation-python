@@ -104,10 +104,13 @@ python = "3.11"
 features = ["dev", "docs"]
 
 [tool.hatch.envs.default.scripts]
-format = "ruff format src tests"
-format-check = "ruff format --check src tests"
-style = "ruff check src tests && ruff format --check src tests"
-typecheck = "mypy src tests"
+format = "ruff format src tests tools scripts"
+format-check = "ruff format --check src tests tools scripts"
+style = "ruff check src tests tools scripts && ruff format --check src tests tools scripts"
+# `tools scripts` get their own mypy run: tests/ imports scripts.check_bandit_report, so one run
+# over all four names finds that file under two module names. Neither has an __init__.py, so
+# --explicit-package-bases names their files by directory.
+typecheck = "mypy src tests && mypy --explicit-package-bases tools scripts"
 lint = "hatch run style && hatch run typecheck"
 test = "pytest -v tests"
 cov = "pytest --cov-report=term-missing --cov-report=html --cov-report=xml tests/"
