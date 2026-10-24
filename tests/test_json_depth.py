@@ -1,4 +1,6 @@
+import inspect
 import json
+import sys
 
 from azure.functions import HttpRequest
 from pydantic import BaseModel
@@ -90,3 +92,21 @@ def test_nesting_after_strings_with_every_escape_form_still_counts() -> None:
     # When parsed; Then those strings end where JSON ends them and the nesting is rejected.
     response = handler(MockHttpRequest(body=payload))
     assert response.status_code == 400
+
+
+def test_parser_stack_exhaustion_below_the_ceiling_is_not_a_server_error() -> None:
+    # Given a body within the ceiling and a recursion limit with only 100 frames of headroom.
+    @validate_http(body=list)
+    def handler(req: HttpRequest) -> None:
+        return None
+
+    request = MockHttpRequest(body=b"[" * 400 + b"0" + b"]" * 400)
+    limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(len(inspect.stack(0)) + 100)
+    try:
+        # When parsed; Then running out of stack is never a 5xx: CPython 3.11 charges its C
+        # parser's recursion to that limit and answers 400, later versions parse the body.
+        response = handler(request)
+    finally:
+        sys.setrecursionlimit(limit)
+    assert response.status_code in (204, 400)
