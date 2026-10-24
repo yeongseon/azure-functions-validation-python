@@ -120,20 +120,32 @@ Use these as the **golden commands** for local validation and CI parity. Prefer 
 |--------|-------------|
 | `make install` | Create Hatch env and install pre-commit hooks |
 | `make format` | Format code (ruff) |
-| `make lint` | Run linter (ruff + mypy) |
+| `make lint` | Run linter (ruff + mypy) on `src`, `tests`, `tools` and `scripts` |
 | `make typecheck` | Run mypy type checking |
 | `make security` | Run Bandit on `src`, `examples`, `scripts` and `tools`; fail on an empty or partial scan |
 | `make test` | Run pytest |
 | `make cov` | Run tests with coverage |
-| `make check` | Run lint + typecheck |
-| `make check-all` | Run lint + typecheck + test |
+| `make check` | Run style, type check, schema-hash pin, workflow lints and Bandit, each once |
+| `make check-all` | Run `make check`, then the tests |
+| `make docs` | Build the documentation with `mkdocs build --strict` |
 | `make build` | Build package |
 | `make publish-test` | Publish to TestPyPI |
 | `make precommit` | Run all pre-commit hooks |
 | `make precommit-install` | Install pre-commit hooks |
-| `make doctor` | Show environment diagnostic info |
-| `make clean` | Remove build artifacts |
+| `make doctor` | Check the prerequisites (read-only); fails when a required tool is missing |
+| `make clean` | Remove build artifacts and `test-results/` |
 | `make clean-all` | Deep clean (caches, coverage, venv) |
+
+`make install` creates `.venv` only while it is missing and installs Hatch only while `.venv/bin/hatch`
+is missing. No target upgrades pip. `PYTHON` selects the interpreter that creates `.venv` (default
+`python3`, for example `make install PYTHON=python3.12`); Hatch still chooses the interpreter of its
+default environment, Python 3.11.
+
+`make doctor` checks this repository's prerequisites and installs or writes nothing. `.venv/bin/hatch`
+(created by `make install`), `python3.11` on `PATH` and `git` are required: each prints `ok` or
+`MISSING <tool> (required)`, and a missing one makes the target fail. `func` and `azurite` are
+optional, because only a local Functions host needs them. A Python 3.11 that only Hatch manages is not
+on `PATH`, so `doctor` reports it as missing.
 
 ---
 
