@@ -25,6 +25,7 @@ import os
 
 import azure.functions as func
 from azure.functions import HttpRequest, HttpResponse
+from packaging.version import Version
 from pydantic import BaseModel
 import pytest
 
@@ -56,7 +57,7 @@ def _registered_functions(app: func.FunctionApp) -> list[object]:
 def test_spike_reports_installed_version(recwarn: pytest.WarningsRecorder) -> None:
     """Capture the azure-functions version under test (evidence for the cap-lift checklist)."""
     installed = version("azure-functions")
-    assert installed  # non-empty
+    assert Version(installed).major >= 2, f"spike needs azure-functions 2.x, found {installed}"
     print(f"\n[compat2x] azure-functions=={installed}")
 
 
