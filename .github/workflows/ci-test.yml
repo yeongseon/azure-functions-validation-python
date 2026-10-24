@@ -526,8 +526,11 @@ jobs:
         # clears the default marker-exclusion + coverage flags; `-m compat2x`
         # selects only the spike; `-o pythonpath=` clears the repo's src/tests
         # pythonpath so the installed WHEEL is exercised, not the source tree.
+        # FAIL_ON_SKIP=1 (tests/conftest.py) turns any skipped or xfailed test into
+        # a failed step, so this required lane cannot go green without running (#580).
         env:
           AZFUNC_2X_SPIKE: "1"
+          FAIL_ON_SKIP: "1"
         run: |
           pytest -m compat2x -o addopts= -o pythonpath= \
             tests/test_worker_compat_2x_spike.py -v
