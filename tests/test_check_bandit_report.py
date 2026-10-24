@@ -16,8 +16,8 @@ from scripts.check_bandit_report import main
 
 _SHELL_TRUE = "import subprocess\nsubprocess.call('echo', shell=True)\n"
 _SUPPRESSED = (
-    "import subprocess  # nosec B404 - test fixture\n"
-    "subprocess.call('echo', shell=True)  # nosec B602 B607 - test fixture\n"
+    "import subprocess  # nosec B404 # test fixture\n"
+    "subprocess.call('echo', shell=True)  # nosec B602 B607 # test fixture\n"
 )
 _OK = "x = 1\n"
 

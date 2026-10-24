@@ -62,7 +62,7 @@ lint: ensure-hatch
 # also reads each JSON report; the reports are deleted first so a stale one can never pass.
 # -q: Bandit 1.9.4 prints a progress bar to stdout above 50 files.
 # The helpers run git, ruff and pip with argument lists, so B404/B603/B607 are skipped for
-# them only (B602 shell=True stays on). Suppress anything else inline: `# nosec Bxxx - reason`.
+# them only (B602 shell=True stays on). Suppress anything else inline: `# nosec Bxxx # reason`.
 BANDIT_DIR := test-results/bandit
 BANDIT_STRICT := src examples
 BANDIT_HELPERS := scripts tools

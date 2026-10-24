@@ -59,7 +59,7 @@ You can run a security scan locally with:
 make security
 ```
 
-Suppress a reviewed false positive inline with `# nosec Bxxx - <reason>`, naming the test ID and the reason. There is no separate allow-list or baseline file.
+Suppress a reviewed false positive inline with `# nosec Bxxx # <reason>`. Separate several test IDs with spaces, not commas (Bandit 1.9.4 honours only the last ID of a comma list), and keep the reason behind the second `#`: Bandit warns about every other word after the IDs. There is no separate allow-list or baseline file.
 
 ### CI/CD Integration
 
