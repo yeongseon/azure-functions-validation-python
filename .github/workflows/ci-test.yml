@@ -531,3 +531,5 @@ jobs:
         run: |
           pytest -m compat2x -o addopts= -o pythonpath= \
             tests/test_worker_compat_2x_spike.py -v
+          pytest -o addopts= -o pythonpath= tests/test_security_runtime.py \
+            tests/test_security_inputs.py tests/test_security_auth.py -v

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import subprocess
+import sys
 from zipfile import ZipFile
 
 import pytest
@@ -71,3 +73,28 @@ def test_digest_mismatch_fails(tmp_path: Path) -> None:
 
     # Then the checker rejects the drift
     assert result != 0
+
+
+def test_tampered_copy_fails_without_repairing_any_bytes(tmp_path: Path) -> None:
+    # Given real pinned resources copied into a wheel with a tampered schema.
+    root = Path(__file__).resolve().parents[1]
+    resources = root / "src/azure_functions_validation/schemas"
+    original = {
+        name: (resources / name).read_bytes()
+        for name in ("endpoint.schema.json", "endpoint.schema.sha256")
+    }
+    wheel = tmp_path / "tampered.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr(SCHEMA_PATH, original["endpoint.schema.json"] + b" ")
+        archive.writestr(PIN_PATH, original["endpoint.schema.sha256"])
+    before = wheel.read_bytes()
+
+    # When the actual CLI checks the copy; Then drift fails without rewriting copy or pin.
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts/check_wheel_schemas.py"), str(wheel)],
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert wheel.read_bytes() == before
+    assert all((resources / name).read_bytes() == data for name, data in original.items())

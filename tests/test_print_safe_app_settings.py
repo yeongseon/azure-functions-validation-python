@@ -112,6 +112,23 @@ class TestSafeSettingNamesAllowlist:
 
 
 class TestMainCli:
+    def test_cli_redacts_credential_shapes_and_unknown_settings(
+        self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Given synthetic credentials in unknown settings and a package SAS URL.
+        settings = _settings(
+            CUSTOM_BEARER="Bearer CANARY_SECRET_token",
+            AzureWebJobsStorage="DefaultEndpointsProtocol=https;AccountKey=CANARY_SECRET_key",
+            WEBSITE_RUN_FROM_PACKAGE="https://example.test/package.zip?sig=CANARY_SECRET_sas",
+            NEW_SETTING="CANARY_SECRET_future",
+        )
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(settings)))
+        # When the real CLI formatter runs; Then no credential reaches either output stream.
+        assert main([]) == 0
+        captured = capsys.readouterr()
+        assert "CANARY_SECRET" not in captured.out + captured.err
+        assert captured.out.count("<hidden>") == 4
+
     def test_main_reads_stdin_and_prints_safe_output(
         self, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
     ) -> None:

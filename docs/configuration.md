@@ -94,6 +94,14 @@ def create(req: func.HttpRequest, body: CreateBody) -> dict[str, str]:
 protection. Configure Azure Functions host and/or API Management request-size
 limits as the outer enforcement boundary.
 
+Independently of the byte limit, the default Pydantic adapter accepts at most
+512 nested JSON object/array levels (the outermost container counts as one).
+Deeper bodies return a sanitized `400 Invalid JSON` before model validation on
+every supported Python version; brackets inside strings do not count. This
+portable ceiling avoids depending on interpreter-specific parser recursion
+limits. Ordinary model-validation failures remain `422`. Custom adapters own
+their parsing limits.
+
 ### `require_json_content_type`
 
 Set `require_json_content_type=True` with `body=` to reject non-empty bodies
@@ -304,7 +312,20 @@ responses it receives a public `InternalServerError` containing only
 
 `expose_internal_errors` defaults to `False`. Setting it to `True` passes the
 original 5xx exception to `error_formatter`, restoring the old behavior. This
-is unsafe because a formatter can expose internal details to clients.
+is unsafe for production because a formatter can expose internal details to clients.
+Formatter output is **not** automatically redacted: supply an explicitly redacting
+formatter. A formatter that raises or produces unserializable output still gets
+a sanitized 500 fallback. Custom 4xx formatters receive original exceptions, which
+can contain Pydantic input values; do not render `str(exc)` in production.
+
+Authentication is Azure Functions host-owned: validation does not check function
+keys or bearer tokens, or establish an authenticated principal. Configure route
+`auth_level` and platform authentication explicitly. Direct test calls bypass the
+host. For public input, configure `max_body_bytes`, JSON media-type enforcement
+and constrained models. The default adapter caps JSON depth at 512 object/array
+levels; there is no implicit error-count cap.
+duplicate JSON keys use last-value-wins semantics, and model configuration controls
+non-finite numbers. See the root SECURITY.md for these production boundaries.
 
 ### `status_code`
 

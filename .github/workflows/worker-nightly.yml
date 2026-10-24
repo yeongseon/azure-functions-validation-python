@@ -63,6 +63,7 @@ jobs:
       - name: Run WorkerCompat suite against pre-release worker library
         run: |
           python -m pytest tests/test_decorator.py tests/test_integration.py \
+            tests/test_security_runtime.py tests/test_security_inputs.py tests/test_security_auth.py \
             -v --no-header -p no:cacheprovider --no-cov
 
       - name: Explain a WorkerCompat break

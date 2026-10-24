@@ -61,6 +61,7 @@ def validate_http(
         expose_internal_errors: Unsafe opt-in that passes original server-side
             exceptions to *error_formatter*. Defaults to ``False`` so custom
             formatters receive a sanitized ``InternalServerError`` for 5xx errors.
+            Unsafe for production: formatter output is not automatically redacted.
         status_code: HTTP status code for successful responses (default 200).
             Use e.g. ``status_code=201`` for creation endpoints.
         legacy_loc: When ``True``, error ``loc`` values omit the leading

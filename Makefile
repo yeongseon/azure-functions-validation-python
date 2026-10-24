@@ -59,8 +59,7 @@ lint: ensure-hatch
 	@$(HATCH) run lint
 
 .PHONY: security
-security: ensure-hatch
-	@$(HATCH) run security
+security: security-inventory
 
 .PHONY: check-schema-hash
 check-schema-hash: ensure-hatch
@@ -175,3 +174,18 @@ clean-all: clean
 help:
 	@echo "Available commands:" && \
 	grep -E '^\.PHONY: ' Makefile | cut -d ':' -f2 | xargs -n1 echo "  - make"
+
+# Security entry points use the selected CI interpreter without provisioning Hatch.
+SECURITY_PYTHON ?= $(if $(CI),python,hatch run python)
+SECURITY_OUTPUT ?= security-results
+.PHONY: security-inventory security-bandit security-semgrep security-runtime-audit security-audit-report security-types
+security-inventory: security-bandit
+security-bandit:
+	@$(SECURITY_PYTHON) -m tools.security_evidence bandit --output "$(SECURITY_OUTPUT)"
+security-semgrep:
+	@$(SECURITY_PYTHON) -c 'from pathlib import Path; import os; from tools.security_evidence import semgrep_evidence; from tools.security_report import write_report; code = write_report([semgrep_evidence(os.environ.get("SCAN_OUTCOME", ""))], Path("$(SECURITY_OUTPUT)")); raise SystemExit(0 if code == 3 else code)'
+security-runtime-audit:
+	@$(SECURITY_PYTHON) -m tools.dependency_audit_policy --site-packages "$(SITE_PACKAGES)" --candidate-wheel "$(CANDIDATE_WHEEL)" --output "$(SECURITY_OUTPUT)" $(AUDIT_ARGS)
+security-audit-report: security-runtime-audit
+security-types:
+	@$(SECURITY_PYTHON) -m mypy --explicit-package-bases tools/security_report.py tools/security_exceptions.py tools/security_evidence.py tools/dependency_audit_policy.py tools/dependency_inventory.py

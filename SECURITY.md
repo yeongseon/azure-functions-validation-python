@@ -33,3 +33,124 @@ If you prefer email, contact: yeongseon.choe@gmail.com
 | ------- | --------- |
 | Latest release | :white_check_mark: |
 | Older releases | :x: |
+
+## Production trust boundaries
+
+Default 5xx responses and failed formatters contain a fixed public envelope.
+Server-side logs intentionally keep the original exception with traceback (`exc_info`)
+so operators can diagnose 5xx failures in Application Insights; they are an
+operator-facing channel, not part of the HTTP response. Exception messages, Pydantic
+input values and application-supplied data can therefore reach your log sink: do not
+put secrets into exception messages, and restrict access to logs. Handlers returning
+`HttpResponse` and successful custom formatters own their content.
+
+`expose_internal_errors=False` is the default. Enabling it passes original 5xx
+exceptions to formatters and is **unsafe for production** without application
+redaction; it does not automatically recognize/redact secrets. Original 4xx
+exceptions are also available to custom formatters. See
+[configuration safety](docs/configuration.md#expose_internal_errors).
+
+Authentication is host-owned. Validation preserves route auth levels, rejects the
+unsupported above-route decorator order, and never authenticates direct requests.
+Configure platform authentication and route auth explicitly. Body-size and JSON
+content-type enforcement are opt-in. Use `max_body_bytes` and constrained models
+for public input. The default Pydantic adapter rejects JSON bodies deeper than
+512 object/array levels with a sanitized 400, consistently across Python versions.
+Brackets inside strings do not count. No implicit error-count/response-size cap
+exists: nested invalid arrays below that ceiling can amplify errors. Duplicate JSON keys are
+last-value-wins; non-finite numbers require model constraints. These are follow-up
+hardening topics, not demonstrated credential leaks. Schema/wheel verification
+rejects drift and never rewrites pins.
+
+## Automated controls and permissions
+
+| Control | Runs where | Enforcement |
+| --- | --- | --- |
+| Bandit 1.9.4 | PR, main, weekly, dispatch | Existing blocking job; all severities reviewed |
+| SHA-pinned Semgrep `p/python` | Same workflow | Existing blocking job; execution evidence added |
+| CodeQL and SBOM | Existing workflows | Unchanged scanning/reporting controls |
+| Runtime pip-audit 2.10.1 | Exact candidate wheel, Python 3.11–3.14 | Blocking dependency of `publish` |
+| Runtime/development audit | Weekly/dispatch | Reporting-only with shared classifier |
+| Offline trust-boundary tests | Full SDK matrix, 2.x wheel lane, worker nightly | Existing lane enforcement retained |
+
+Security workflows and the new release job use `contents: read` only. Existing
+CodeQL security-events permission, Azure OIDC and PyPI OIDC are unchanged. The new
+gate replaces no runtime/host/Azure certification and never rebuilds the artifact.
+Browser/CDN checks do not apply: this package ships no Swagger UI/browser assets.
+Branch-protection requirements remain repository settings, not workflow assertions.
+
+## Static scope and exceptions
+
+`make security` (also `make security-inventory` / `make security-bandit`) scans every Python file under
+`src/`, `examples/` (including deployed `e2e_app`), `scripts/`, and `tools/`, with
+no per-file exclusions. Tests/fixtures are excluded; shipped `conformance.py` is
+included. `infra/` contains Bicep, not Python, and requires configuration review.
+There is no demo directory. Bytecode/non-Python generated files are not inputs.
+Scanned inventory must equal disk, include at least 30 files and have positive LOC.
+
+Bandit uses `--ignore-nosec`: existing conformance assertion markers cannot hide
+findings. Every inline marker must match exact ID/file/line policy; unlisted or
+blanket skips produce INCOMPLETE. Baseline exceptions cover test-only assertions,
+shell-free tooling subprocesses and the literal TOOL_ERROR enum false positive.
+No blanket rule skips or new inline suppressions replace review. Local full validation
+and CI use this same expanded inventory. `make security-types` checks the helpers.
+
+Both policies require exact identifiers, reason, owner, added and expiry dates,
+with a positive lifetime at most 90 days. Static exceptions use `reviewed-static`
+and exact file/line. Dependencies use exact package/advisory and `not-affected`
+(independent affectedness evidence) or `fix-not-available` (only while no fix is
+listed). Expired exceptions block even when unused; stale exceptions are counted.
+Maintainers review evidence before accepting exceptions. Runtime policy starts empty.
+
+## Runtime policy, failure semantics and recovery
+
+Every known runtime advisory blocks, regardless of severity; missing severity is
+UNKNOWN, never assumed low. Each supported interpreter is audited because markers
+change dependency closures. The candidate venv is created without pip and contains
+only the wheel/runtime dependencies. `make security-runtime-audit
+SITE_PACKAGES=<candidate-site-packages> CANDIDATE_WHEEL=<exact-wheel>` reads wheel
+METADATA and requires exactly matching installed name/version before excluding only
+that first-party candidate. It freezes the entire installed third-party closure to
+temporary `name==version` requirements, audited outside the venv with `--no-deps
+--disable-pip`. Unpublished candidates therefore do not require PyPI publication;
+missing/mismatched candidate identity, empty inventories, third-party skips and
+missing/changed audit inventory remain blocking. `make security-audit-report` uses
+the same policy for reporting jobs; `AUDIT_ARGS=--development` labels development scope.
+
+Exit statuses: PASS=0; FAIL=1 (findings/expired exceptions); TOOL_ERROR=2
+(crash, timeout, malformed evidence, policy/tool/DB failure); INCOMPLETE=3
+(empty/missing scope, skipped dependencies, inventory gaps/unlisted suppressions).
+Every non-PASS blocks release. Semgrep exposes only action outcome: success INCOMPLETE
+("action outcome only"),
+failure conservatively TOOL_ERROR (unknown finding count), skipped/cancelled
+INCOMPLETE. `make security-semgrep` tolerates exactly evidence exit 3 without claiming
+PASS; its original SHA-pinned action remains the gate and a failing action stays red.
+
+Advisory DB outages can delay releases: a deliberate availability tradeoff for
+fail-closed evidence. Never bypass it. Retry an unchanged tag with
+`gh workflow run publish-pypi.yml --ref vX.Y.Z`; changed code/workflows must fix
+forward to a new candidate. Trusted OIDC publishing and exact-wheel reuse remain.
+
+## Evidence and deployment review
+
+Helpers emit versioned `security-results/**/summary.json` with check/scope/status,
+counts, exit status, tool versions, applied exceptions and allow-listed finding
+IDs, relative paths/lines and severities. Markdown summaries go to Job Summary.
+Artifact uploads run `always()` and fail on missing evidence. Raw scanner output,
+source, advisory descriptions, policy reasons, request bodies, authorization headers
+and connection strings are not retained. Generated local evidence is gitignored.
+Findings remain code/config review findings until runtime impact is demonstrated.
+
+Examples and anonymous host-smoke apps are local/synthetic demonstrations, not
+production authentication templates. `examples/e2e_app` and `infra/main.bicep` are
+ephemeral public certification infrastructure. Bicep enforces HTTPS, storage TLS
+1.2 and private blobs, but retains shared-key connection strings, public ingress
+and an Application Insights connection-string output. Managed identity/RBAC,
+private endpoints, explicit SCM/app TLS and removing deployment outputs need
+real-Azure certification. This work changes no IaC identity/auth settings.
+
+Azure failure diagnostics print Application Insights exceptions/traces and raw
+app logs. The settings printer hides unclassified values/package SAS URLs, but
+library exception logs, host logs and app logs remain outside that guarantee. Use
+synthetic data only; replace raw dumps with allow-listed diagnostics in an
+Azure-verified follow-up. Never send real credentials/user data to certification.
