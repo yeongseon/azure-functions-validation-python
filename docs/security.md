@@ -49,23 +49,21 @@ We use automated tools to ensure the codebase remains secure and follows best pr
 
 ### Bandit: Static Analysis Security Scanner
 
-Bandit is used for static analysis security scanning of Python code. It is configured to scan the source code while skipping test files to minimize false positives.
+Bandit is used for static analysis security scanning of Python code. `make security` scans `src` and `examples` with every test enabled, and `scripts` and `tools` with the subprocess tests B404, B603 and B607 skipped (those helpers run `git`, `ruff` and `pip` with argument lists; B602, `shell=True`, stays on). Test files are not scanned.
 
-You can run a security scan locally using the following commands:
+Bandit exits 0 for an empty directory, a missing path and a file it cannot parse. `make security` therefore writes Bandit's JSON reports to `test-results/bandit/`, and `scripts/check_bandit_report.py` fails the target when no code was analysed, a file was skipped, a Python file in scope was left unscanned, or any finding remains.
+
+You can run a security scan locally with:
 
 ```bash
-# Using make
 make security
-
-# Using hatch
-hatch run security
 ```
 
-The underlying command executed is `python -m bandit -r src`.
+Suppress a reviewed false positive inline with `# nosec Bxxx - <reason>`, naming the test ID and the reason. There is no separate allow-list or baseline file.
 
 ### CI/CD Integration
 
-Security scans are integrated into our continuous integration pipeline. Every push and pull request triggers the `security.yml` workflow via GitHub Actions, ensuring that no known security regressions are introduced into the main branch.
+Security scans are integrated into our continuous integration pipeline. Every push and pull request triggers the `security.yml` workflow via GitHub Actions, ensuring that no known security regressions are introduced into the main branch. The Bandit JSON reports are uploaded as a workflow artifact.
 
 ### Pre-commit Hook
 
