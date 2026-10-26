@@ -105,6 +105,17 @@ their parsing limits.
 
 ### `require_json_content_type`
 
+**Recommended for new public JSON endpoints:** set this option explicitly to
+`True`. Existing applications keep the relaxed `False` default for compatibility;
+it parses valid JSON regardless of the header, including `text/plain` or an absent
+header. The relaxed default alone is not evidence of an exploitable vulnerability.
+
+Migration: first update clients to send `application/json` (or a supported
+`application/*+json` type), then opt individual routes into strict mode and test
+their `415` responses. No runtime warning or default change is introduced here.
+Any future default change requires a separately reviewed breaking-release
+migration decision and usage evidence; it must not silently ship in a patch.
+
 Set `require_json_content_type=True` with `body=` to reject non-empty bodies
 whose media type is neither `application/json` nor `application/*+json` with
 `415 Unsupported Media Type`. Matching is case-insensitive and ignores
