@@ -33,5 +33,5 @@ def parse_json_body(body: str) -> Any:
                 depth -= 1
     try:
         return json.loads(body)
-    except (json.JSONDecodeError, RecursionError) as exc:
+    except (ValueError, RecursionError) as exc:
         raise MalformedRequestError("Invalid JSON") from exc

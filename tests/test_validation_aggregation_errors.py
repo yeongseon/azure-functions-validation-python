@@ -123,6 +123,7 @@ class EmptyErrorAdapter(CustomAdapter):
 def test_empty_adapter_error_list_still_blocks_handler(
     mock_request_factory: RequestFactory,
 ) -> None:
+    """An adapter's explicit rejection must not become success just because details are empty."""
     calls = 0
 
     @validate_http(
@@ -145,6 +146,8 @@ def test_empty_adapter_error_list_still_blocks_handler(
 def test_malformed_input_discards_collected_validation_errors(
     mock_request_factory: RequestFactory,
 ) -> None:
+    """A malformed source takes precedence over previously collected model errors."""
+
     @validate_http(
         body=BodyInput,
         query=QueryInput,
@@ -163,6 +166,8 @@ def test_malformed_input_discards_collected_validation_errors(
 
 
 def test_formatter_failure_returns_sanitized_500(mock_request_factory: RequestFactory) -> None:
+    """A formatter defect must not expose its exception text through the fallback response."""
+
     def formatter(exception: Exception, status_code: int) -> dict[str, Any]:
         raise RuntimeError("formatter secret")
 
@@ -185,6 +190,8 @@ def test_formatter_failure_returns_sanitized_500(mock_request_factory: RequestFa
 def test_unexpected_error_discards_collected_errors_and_returns_500(
     mock_request_factory: RequestFactory,
 ) -> None:
+    """An adapter fault is not a client validation failure, even after earlier rejections."""
+
     @validate_http(
         body=BodyInput,
         query=QueryInput,

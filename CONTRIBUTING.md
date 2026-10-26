@@ -160,6 +160,14 @@ Examples are part of the supported API experience and should stay verified.
 - Add or update smoke tests whenever an example changes.
 - Prefer lightweight smoke coverage over infrastructure-heavy end-to-end tests.
 
+### Explaining non-obvious tests
+
+Use a short English docstring when the test name and assertions do not explain
+why a boundary matters. For example, an empty-error adapter test can say:
+"An adapter's explicit rejection must not become success just because details
+are empty." Keep simple tests uncommented; explain surprising fixtures locally
+instead of adding mandatory comment counts or Given/When/Then boilerplate.
+
 ## Issue Scope
 
 Follow the [repository-scope rules in AGENTS.md](AGENTS.md#repository-scope)
@@ -217,6 +225,24 @@ Not accepted: `[Bug] crash on save` (bracket prefix, no type), `Fix: crash on sa
 Pull requests are squash-merged and the pull request title becomes the final commit title. GitHub appends the pull request number by itself, so `fix: isolate missing-body validation errors` lands on `main` as `fix: isolate missing-body validation errors (#503)`. Do not write that number into the title yourself — the check rejects a title ending in `(#123)`, because it would be doubled. Link the issue from the pull request body instead, for example `Closes #503`. The **PR title** check validates the format whenever a pull request is opened, edited, reopened, or updated. Individual commits on a branch are not checked.
 
 Issue titles are not enforced. Anyone can open an issue without knowing this convention; maintainers adjust the title during triage.
+
+### Breaking-change classification
+
+Use `!` in a Conventional Commit/PR title, or a `BREAKING CHANGE:` footer in the **final squash commit**, only when a change makes an existing supported consumer usage incompatible or changes a supported observable contract incompatibly. Base the decision on verified behavior before and after the change, not on size, risk, security motivation, or which tool authored it. Public APIs, required configuration, authentication defaults, supported runtimes, published output formats, and generated application behavior may all be contracts. A security fix can be breaking if it changes a supported calling pattern; a refactor, dependency bump, CI scan, test change, or performance fix is not automatically breaking. When unsure, verify the affected contract before applying the marker. The existing PR-title check validates **syntax**, not compatibility. A squash commit marker influences Release Please; a Markdown `## BREAKING CHANGE` heading in a PR body alone does **not** guarantee that the final commit is marked breaking.
+
+#### Local contract examples
+
+- Breaking: #553 added the required `ValidationAdapter.serialize_response` method
+  for existing custom adapters; #528 changed JSON representations of some dictionary
+  keys (for example, `None` keys changed from `"None"` to `"null"`).
+- Not automatically breaking: faster serialization with unchanged supported response
+  bytes and semantics, compatible security hardening, or an internal refactor that
+  preserves adapter and response contracts.
+- Hypothetical generated-output change: assess existing consumers of regenerated
+  endpoint metadata before classifying it; do not infer compatibility from the
+  generator's implementation alone.
+- Uncertain support: check the documented adapter contract and regression tests
+  before deciding whether a behavior change requires a marker.
 
 ## Releases
 
