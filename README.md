@@ -301,6 +301,14 @@ arrive as strings and usually need a separate model that keeps coercion. See
 [Strict API boundary models](docs/strict-models.md) for runnable examples and
 exact validation responses.
 
+For a strict JSON endpoint, use
+`@validate_http(body=CreateUserRequest, response_model=CreateUserResponse, require_json_content_type=True)`.
+The compatibility default is `False`: valid JSON is parsed even when labeled
+`text/plain` or sent without `Content-Type`. Strict mode accepts `application/json`
+and `application/*+json`; a non-empty body with another or missing media type
+returns `415`. An empty body still returns the missing-body `422`, not `415`.
+See [JSON Content-Type configuration](docs/configuration.md#require_json_content_type).
+
 Start the Functions host locally:
 
 ```bash
