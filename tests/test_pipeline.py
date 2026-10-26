@@ -291,6 +291,8 @@ class TestSuccessfulValidation:
     def test_response_model_drops_subclass_fields(
         self, mock_request_factory: RequestFactory
     ) -> None:
+        """Serialize the declared public contract, never secret fields on a returned subclass."""
+
         @validate_http(response_model=PublicUserModel)
         def handler(req: HttpRequest) -> StoredUserModel:
             return StoredUserModel(name="Ada", password_hash="secret")
@@ -311,6 +313,8 @@ class TestSuccessfulValidation:
     def test_response_serialization_options_apply_after_validation(
         self, mock_request_factory: RequestFactory
     ) -> None:
+        """Output shaping must not bypass validation of the handler's response contract."""
+
         @validate_http(
             response_model=SerializationOptionsResponse,
             response_by_alias=False,
