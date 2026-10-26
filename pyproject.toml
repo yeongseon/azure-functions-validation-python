@@ -45,6 +45,7 @@ Issues = "https://github.com/yeongseon/azure-functions-validation-python/issues"
 
 [project.optional-dependencies]
 dev = [
+    "azure-functions-openapi>=0.25,<1",
     "bandit==1.9.4",
     "build",
     "coverage",
