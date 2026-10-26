@@ -1,5 +1,25 @@
 # Security Policy
 
+## Candidate runtime advisory gate
+
+The release `runtime-dependency-audit` matrix installs the exact built wheel in a
+fresh environment on Python 3.11–3.14 and audits its resolved runtime closure.
+`make audit-candidate CANDIDATE_WHEEL=/absolute/path/to/candidate.whl` reproduces
+the gate on the current `python` interpreter. Scanner tools live in a different
+environment, so development/scanner dependencies cannot contaminate that closure.
+The unpublished candidate itself is excluded from advisory lookup; its dependencies
+are not. Runtime advisories return status 1; missing, incomplete or malformed
+reports and scanner failures return status 2. Both block publishing, with inventory
+and JSON scanner evidence uploaded even on failure. No exception mechanism is
+introduced. Development-dependency audit findings remain advisory, not a substitute
+for this exact-candidate gate.
+
+Azure host authentication belongs to the route binding, never this decorator.
+`expose_internal_errors=True` is unsafe for production: it gives custom formatters
+original server-side exceptions. Default 5xx responses and formatter fallback must
+not echo request bodies, credentials or Pydantic input. Server-side diagnostic logs
+can retain exception details and must be protected separately.
+
 ## Reporting a Vulnerability
 
 We take security seriously. If you discover a vulnerability, please report it
