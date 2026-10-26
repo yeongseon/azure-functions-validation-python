@@ -481,6 +481,21 @@ jobs:
           cat /tmp/functions-host.log
           exit 1
 
+      - name: Prove candidate wheel behavior and broken-wrapper rejection
+        env:
+          HOST_PYTHON: python
+        run: |
+          pip install hatch
+          make build
+          make host-candidate CANDIDATE_WHEEL="$(realpath dist/*.whl)"
+
+      - name: Upload candidate host evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-host-${{ matrix.python-version }}
+          path: test-results/candidate-host/
+
   # azure-functions 2.x compatibility proof lane (issue #351), modeled on
   # langgraph d433b63. This is a SINGLE representative 2.x lane, not a matrix:
   # it builds the wheel, installs it, overrides the pyproject cap to pull
