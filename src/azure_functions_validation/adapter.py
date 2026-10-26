@@ -332,6 +332,7 @@ class PydanticAdapter:
                 hatch and will be removed in a future release.
         """
         self._legacy_loc = legacy_loc
+        self._prepared_body: tuple[Any, TypeAdapter[Any]] | None = None
 
     @staticmethod
     def _to_adapter_error(
@@ -412,7 +413,11 @@ class PydanticAdapter:
 
         # Validate with Pydantic
         try:
-            return TypeAdapter(model).validate_python(data)
+            prepared = self._prepared_body
+            adapter = (
+                prepared[1] if prepared is not None and prepared[0] is model else TypeAdapter(model)
+            )
+            return adapter.validate_python(data)
         except PydanticValidationError as exc:
             raise self._source_error(exc, "body") from exc
 

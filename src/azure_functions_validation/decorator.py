@@ -112,6 +112,7 @@ def validate_http(
         body = request_model
 
     # Use default adapter if none provided
+    default_adapter = adapter is None
     if adapter is None:
         adapter = PydanticAdapter(legacy_loc=legacy_loc)
 
@@ -158,6 +159,12 @@ def validate_http(
                 )
 
         is_async = inspect.iscoroutinefunction(func)
+
+        if default_adapter and isinstance(adapter, PydanticAdapter) and body is not None:
+            try:
+                adapter._prepared_body = (body, TypeAdapter(body))
+            except Exception:
+                adapter._prepared_body = None
 
         func_sig = inspect.signature(func)
         func_params = func_sig.parameters
