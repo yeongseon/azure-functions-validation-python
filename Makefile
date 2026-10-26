@@ -67,6 +67,19 @@ BANDIT_SCOPE := src examples scripts tools
 BANDIT := $(HATCH) run python -m bandit -q -f json
 BANDIT_CHECK := $(HATCH) run python scripts/check_bandit_report.py
 
+SEMGREP_VERSION := 1.182.0
+SEMGREP := .semgrep/bin/semgrep
+
+.PHONY: security-semgrep-install
+security-semgrep-install:
+	@$(PYTHON) -m venv .semgrep
+	@.semgrep/bin/python -m pip install --disable-pip-version-check "semgrep==$(SEMGREP_VERSION)"
+
+.PHONY: security-semgrep
+security-semgrep:
+	@mkdir -p test-results/semgrep
+	@$(SEMGREP) scan --config p/python --error --strict --metrics=off --json-output=test-results/semgrep/scan.json .
+
 .PHONY: security
 security: ensure-hatch
 	@rm -rf $(BANDIT_DIR) && mkdir -p $(BANDIT_DIR)

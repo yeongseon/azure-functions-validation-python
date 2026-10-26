@@ -44,3 +44,4 @@ examples/e2e_app/.python_packages/
 # uv is not part of this toolchain; a lockfile nothing refreshes is
 # worse than none, because uv honours it automatically.
 uv.lock
+.semgrep/
