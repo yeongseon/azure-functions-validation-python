@@ -307,6 +307,26 @@ def _validate_no_conflicts(
             f"conflicts with a @validate_http injected parameter of the same name. "
             f"Rename it (e.g. to 'req' or 'http_request')."
         )
+    parameters = inspect.signature(func).parameters
+    try:
+        annotations = get_type_hints(func)
+    except (NameError, TypeError):
+        annotations = getattr(func, "__annotations__", {})
+    for name, parameter in parameters.items():
+        if name == request_param_name or name in _injected:
+            continue
+        if parameter.default is not inspect.Parameter.empty:
+            continue
+        annotation = annotations.get(name)
+        expected = [
+            key for key, model in _injected.items() if model is not None and annotation is model
+        ]
+        if expected:
+            raise ValueError(
+                f"Function {func.__name__}: parameter '{name}' matches a configured model; "
+                f"expected injected parameter name(s): {', '.join(expected)}. "
+                "Validation injects by name, not by type."
+            )
 
 
 _MISSING: Any = object()  # sentinel for absent req argument
