@@ -41,31 +41,21 @@ A review is evidence for the commit it evaluated — never for the PR as a whole
   aggregate or a resolved thread from a stale commit does not stand in for re-review of the
   current one.
 
-## Review budget
+## Review effort
 
-- Default: **two published AI review rounds per scoped PR/task.**
-- New commits do not reset the budget. Deduplicate by head SHA and purpose — re-requesting review
-  on an unrelated rebase is not a new round.
-- After budget exhaustion with findings still open, do not manufacture a third automated round.
-  Record the no-change outcome and leave the PR pending for an explicit maintainer decision, or
-  route to human review.
+Request additional review when the change or an unresolved finding warrants it. Do not prescribe a number of AI review rounds or create repetitive reviews for formatting-only changes. Preserve explicit maintainer review for high-risk changes.
 
 ## What to record per PR
 
-In the PR body (see the extended `PULL_REQUEST_TEMPLATE.md` fields):
+For routine PRs, use a concise `Summary`, `Changes`, `Validation`, and `Related Issues` record. Report checks actually run, their results, and significant unresolved findings. Do not add empty review-evidence fields or agent-process logs.
 
-- Linked issue(s).
-- Risk category (see "R3 scope" below).
-- Review source and the exact commit SHA it evaluated.
-- Material findings and their disposition (fixed / acknowledged-wont-fix / deferred-with-issue).
-- Unresolved blockers, if any, with the reason merging anyway is acceptable (or "none").
+For high-risk changes in the R3 scope below, record the review source and the commit it evaluated, substantive findings and their disposition, and explicit maintainer authorization. These details may be kept in a brief dedicated section when necessary; do not mistake an AI reviewer for a human approver.
+
 - For changes to validation contracts specifically: which request source (body/query/path/header),
   generic/model/backend adapter type, alias/coercion behavior, response serialization option, or
   endpoint metadata field is affected, with the test(s) that exercise it.
 
-External contributors must not need an internal AI subscription, credentials, or local tooling to
-satisfy this — Copilot review runs automatically on PRs against this repository; a contributor
-without Copilot access simply records "no automated review available, human review requested."
+External contributors need no specific AI reviewer, paid tool, or subscription to follow these guidelines.
 
 ## R3 scope
 
@@ -98,12 +88,13 @@ exceptions in PR history rather than being recorded as if a review had occurred:
 - **GitHub Actions SHA updates**: never auto-merged; require a human diff check confirming the
   pinned SHA matches its claimed tag (see AGENTS.md). This human check *is* the review evidence —
   record the SHA/tag comparison performed.
-- **Forks**: external PRs are reviewed by a maintainer before merge (AGENTS.md); Copilot review
-  may be unavailable or restricted on fork PRs depending on repository settings — record
-  "unavailable" explicitly rather than silently skipping the field.
-- **Reviewer outages / emergencies**: if Copilot review is unavailable (quota, outage, provider
-  error), record the unavailability and fall back to human review before merge. This is never a
-  reason to merge with the review field left blank.
+- **Forks**: external PRs are reviewed by a maintainer before merge (AGENTS.md). Routine PRs
+  use the concise record above; no tool-availability report or empty review field is needed.
+  R3 changes still require the reviewed commit and explicit human maintainer authorization.
+- **Reviewer outages / emergencies**: use human review when an automated reviewer cannot
+  review the change. For routine PRs, record substantive findings and actual validation, not
+  tool-availability logs. R3 review and explicit human maintainer authorization remain required;
+  an outage never waives them or any required CI check.
 
 ## Provenance pitfalls (do not accept as evidence)
 

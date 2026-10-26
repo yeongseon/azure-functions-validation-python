@@ -2,13 +2,19 @@
 
 ## Summary
 
-<!-- Brief description of changes -->
+<!-- Briefly explain what changed and why. Keep agent-process details out of the description. -->
 
 ## Changes
 
-<!-- List the specific changes made -->
+<!-- Highlight relevant technical changes, compatibility implications, and important findings. -->
 
 -
+
+## Validation
+
+<!-- Commands actually run, their results, and any important validation not run. -->
+
+- 
 
 ## Type of Change
 
@@ -20,15 +26,6 @@
 - [ ] Documentation update
 - [ ] Refactoring (no functional changes)
 - [ ] Chore (maintenance, dependencies, CI, etc.)
-
-## Checklist
-
-- [ ] My code follows the project's code style
-- [ ] I have run `make check` (lint + typecheck)
-- [ ] I have run `make test` and all tests pass
-- [ ] I have added tests for new functionality (if applicable)
-- [ ] I have updated documentation (if applicable)
-- [ ] My changes do not introduce new warnings
 
 ## Release Impact
 
@@ -59,13 +56,5 @@
 
 <!-- Required: Closes #123 (include every issue this PR resolves). -->
 
-## Review Evidence
-
-<!-- See docs/review-evidence-policy.md (advisory, not a required check).
-     Record review source/SHA so evidence can be checked against the
-     commit it actually evaluated, not just the PR as a whole. -->
-
-- Review source and reviewed commit SHA:
-- Material findings and disposition (fixed / acknowledged-wont-fix / deferred-with-issue), or "none":
-- Unresolved blockers, or "none":
-- R3 (workflow permissions, release/publishing, security-sensitive filtering/disclosure, review-policy files): yes/no — if yes, human authorization record:
+<!-- Extra review details are only needed for significant security, release, or policy changes.
+     See docs/review-evidence-policy.md. Do not copy agent transcripts into PRs. -->
