@@ -24,7 +24,6 @@ from .errors import (
     MalformedRequestError,
     PayloadTooLargeError,
     RequestBindingError,
-    SerializationError,
     UnsupportedMediaTypeError,
     format_error_response,
 )
@@ -343,8 +342,6 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
             validated_result = config.adapter.validate_response(
                 result, config.response_model, type_adapter=config.response_type_adapter
             )
-        except AdapterValidationError as e:
-            return _format_error(e, 500, config)
         except Exception as e:
             return _format_error(e, 500, config)
 
@@ -360,8 +357,6 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
                 exclude_none=config.response_exclude_none,
                 exclude_unset=config.response_exclude_unset,
             )
-        except (SerializationError, TypeError, ValueError) as e:
-            return _format_error(e, 500, config)
         except Exception as e:
             return _format_error(e, 500, config)
 
@@ -374,8 +369,6 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     # No response model, serialize directly
     try:
         content, content_type = config.adapter.serialize(result)
-    except (SerializationError, TypeError) as e:
-        return _format_error(e, 500, config)
     except Exception as e:
         return _format_error(e, 500, config)
 
