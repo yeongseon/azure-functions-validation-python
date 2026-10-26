@@ -65,6 +65,7 @@ def _assert_signature_matches_bindings(
 
 class TestCustomTriggerArgName:
     def test_sync_custom_name_signature_matches_binding(self) -> None:
+        """Worker indexing requires the exposed request name to match the SDK trigger binding."""
         app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
         @app.route(route="probe", trigger_arg_name="request", methods=["POST"])
@@ -101,6 +102,7 @@ class TestCustomTriggerArgName:
         assert json.loads(positional.get_body()) == {"value": 1}
 
     def test_async_custom_name_signature_matches_binding_and_invokes(self) -> None:
+        """Async wrappers must preserve both the indexing name and keyword invocation contract."""
         app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
         @app.route(route="probe", trigger_arg_name="myreq", methods=["POST"])

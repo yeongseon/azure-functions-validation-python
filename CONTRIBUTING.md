@@ -160,6 +160,14 @@ Examples are part of the supported API experience and should stay verified.
 - Add or update smoke tests whenever an example changes.
 - Prefer lightweight smoke coverage over infrastructure-heavy end-to-end tests.
 
+### Explaining non-obvious tests
+
+Use a short English docstring when the test name and assertions do not explain
+why a boundary matters. For example, an empty-error adapter test can say:
+"An adapter's explicit rejection must not become success just because details
+are empty." Keep simple tests uncommented; explain surprising fixtures locally
+instead of adding mandatory comment counts or Given/When/Then boilerplate.
+
 ## Issue Scope
 
 Follow the [repository-scope rules in AGENTS.md](AGENTS.md#repository-scope)
