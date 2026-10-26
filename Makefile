@@ -149,6 +149,10 @@ e2e-azure: ensure-hatch
 build: ensure-hatch
 	@$(HATCH) build
 
+.PHONY: host-candidate
+host-candidate:
+	@bash scripts/check_candidate_host.sh "$(CANDIDATE_WHEEL)"
+
 .PHONY: publish-test
 publish-test: ensure-hatch
 	@$(HATCH) publish --repo test

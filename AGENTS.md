@@ -184,7 +184,7 @@ Every tier runs inside `publish-pypi.yml` on the tag, and **all of them gate the
 | `build` | tag/`__version__` mismatch; produces the one artifact that is later uploaded |
 | `lib-tests` | library unit regressions |
 | `cookbook-smoke` | downstream import/registration drift (0.21.0 class) |
-| `cookbook-host-smoke` | candidate wheel installs cleanly and a real `func` host + Azurite boots with it present, no cloud. NOTE: the cookbook HTTP examples do not import this package, so this is a host-boot smoke, **not** proof of this package's own runtime behavior (tracked separately) |
+| `cookbook-host-smoke` | retained job ID; repository-local candidate-wheel fixture proves indexing, custom trigger binding, valid/invalid JSON, response validation and subclass-field filtering on a real `func` host; a broken-wrapper negative control must fail indexing |
 | `azure-e2e` | cloud-only drift — deploys to real Azure, runs the live e2e suite, uploads an `azure-cert` record |
 | `publish` | uploads the exact artifact `build` produced; it never rebuilds |
 
@@ -194,7 +194,7 @@ Reproduce the automated gate locally before merging the Release PR, so failures 
 
 - Build the candidate: `make build` (produces `dist/*.whl`).
 - In [`azure-functions-cookbook-python`](https://github.com/yeongseon/azure-functions-cookbook-python): `make install`, then install the candidate over the PyPI floor with `hatch run pip install --force-reinstall --no-deps <path-to-candidate-wheel>`, confirm `importlib.metadata.version("azure-functions-validation")` equals the tag, and run `hatch run smoke`.
-- Reproduce the host-boot smoke tier: in the cookbook, with the candidate wheel installed, run `hatch run e2e tests/e2e/test_http_examples.py` (starts a real `func` host + Azurite). This confirms the candidate installs and the host boots with it present; it is the local stand-in for `cookbook-host-smoke` and must pass before tagging. NOTE: these HTTP examples do not import this package, so this is not a decorator runtime test — rely on `lib-tests` for `@validate_http` behavior.
+- Reproduce the candidate host tier here with `make host-candidate CANDIDATE_WHEEL="$(realpath dist/*.whl)"`. It proves decorator runtime behavior and rejects a deliberately broken wrapper; see [candidate host verification](docs/candidate-host.md). This is not deployed Azure certification.
 - Treat any new `RuntimeWarning`/`DeprecationWarning` from `@validate_http` as release-blocking — the library surfaces decorator-order and API-drift problems as warnings, so a clean run (zero validation warnings) is part of the gate.
 - If the cookbook pins a lower bound (`azure-functions-validation>=X.Y,<1`), bump it to the new minor in the same release PR so examples are tested against the version they advertise.
 
