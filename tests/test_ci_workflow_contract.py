@@ -16,8 +16,8 @@ _WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci-
 def test_sdk_2x_spike_lane_sets_both_fail_closed_variables() -> None:
     workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
     job = workflow["jobs"]["azure-functions-2x"]
-    spike_steps = [step for step in job["steps"] if "-m compat2x" in step.get("run", "")]
-    assert spike_steps, "azure-functions-2x no longer runs `pytest -m compat2x`"
+    spike_steps = [step for step in job["steps"] if "make test-spike-ci" in step.get("run", "")]
+    assert spike_steps, "azure-functions-2x no longer runs the dedicated spike target"
     for step in spike_steps:
         env = {**workflow.get("env", {}), **job.get("env", {}), **step.get("env", {})}
         name = step.get("name")
@@ -31,7 +31,7 @@ def test_required_test_lanes_preserve_reports_after_failure() -> None:
     for name in ("test", "minimum-dependencies", "azure-functions-2x"):
         steps = workflow["jobs"][name]["steps"]
         commands = "\n".join(step.get("run", "") for step in steps)
-        assert "--junitxml=" in commands, name
+        assert "make test-" in commands, name
         uploads = [step for step in steps if "actions/upload-artifact@" in step.get("uses", "")]
         assert uploads, name
         assert all(step.get("if") == "always()" for step in uploads), name
