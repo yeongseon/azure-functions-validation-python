@@ -24,12 +24,12 @@ This also applies when using the API or CLI.
 3. Keep tests and docs in lockstep for public behavior changes.
 4. Do not broaden supported Python versions or dependency ranges casually.
 
-## Review Evidence
+## Pull Request Descriptions
 
-Follow [`docs/review-evidence-policy.md`](review-evidence-policy.md) for recording review
-source/SHA, findings disposition, and R3 human-authorization notes in the PR body. This is
-advisory, not a required check — it does not change the zero-native-approval merge policy or the
-required CI contexts in `AGENTS.md`.
+Follow `AGENTS.md` for concise, human-readable PR summaries and actual validation results.
+Record additional review evidence only for significant findings or changes covered by
+[review-evidence-policy.md](review-evidence-policy.md). Do not add an empty "Review Evidence"
+section or copy agent review logs into ordinary PRs.
 
 ## Validation
 - `make test`

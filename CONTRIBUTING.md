@@ -226,6 +226,24 @@ Pull requests are squash-merged and the pull request title becomes the final com
 
 Issue titles are not enforced. Anyone can open an issue without knowing this convention; maintainers adjust the title during triage.
 
+### Breaking-change classification
+
+Use `!` in a Conventional Commit/PR title, or a `BREAKING CHANGE:` footer in the **final squash commit**, only when a change makes an existing supported consumer usage incompatible or changes a supported observable contract incompatibly. Base the decision on verified behavior before and after the change, not on size, risk, security motivation, or which tool authored it. Public APIs, required configuration, authentication defaults, supported runtimes, published output formats, and generated application behavior may all be contracts. A security fix can be breaking if it changes a supported calling pattern; a refactor, dependency bump, CI scan, test change, or performance fix is not automatically breaking. When unsure, verify the affected contract before applying the marker. The existing PR-title check validates **syntax**, not compatibility. A squash commit marker influences Release Please; a Markdown `## BREAKING CHANGE` heading in a PR body alone does **not** guarantee that the final commit is marked breaking.
+
+#### Local contract examples
+
+- Breaking: #553 added the required `ValidationAdapter.serialize_response` method
+  for existing custom adapters; #528 changed JSON representations of some dictionary
+  keys (for example, `None` keys changed from `"None"` to `"null"`).
+- Not automatically breaking: faster serialization with unchanged supported response
+  bytes and semantics, compatible security hardening, or an internal refactor that
+  preserves adapter and response contracts.
+- Hypothetical generated-output change: assess existing consumers of regenerated
+  endpoint metadata before classifying it; do not infer compatibility from the
+  generator's implementation alone.
+- Uncertain support: check the documented adapter contract and regression tests
+  before deciding whether a behavior change requires a marker.
+
 ## Releases
 
 Merging to `main` does not publish a release.
