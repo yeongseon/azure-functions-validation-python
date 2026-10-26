@@ -1,5 +1,9 @@
 # Writing a custom adapter
 
+The [surface evaluation](design/adapter-surface-evaluation.md) records why the
+complete public contract is retained, distinguishes shipped and test-only backends,
+and identifies evidence-backed internal reductions without API loss.
+
 `ValidationAdapter` is the public backend contract behind `validate_http`.
 Use a custom implementation only when the built-in `PydanticAdapter` cannot
 serve your model system.
