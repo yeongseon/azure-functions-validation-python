@@ -219,9 +219,39 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+  runtime-dependency-audit:
+    name: Candidate runtime audit (Py ${{ matrix.python-version }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: candidate-dist
+      - name: Audit exact candidate runtime closure
+        run: make audit-candidate CANDIDATE_WHEEL="$(realpath candidate-dist/*.whl)"
+      - name: Verify audit guards on the selected interpreter
+        run: |
+          pip install pytest pytest-cov
+          python -m pytest -o addopts= tests/test_runtime_audit_report.py
+      - name: Retain audit inventory and scanner output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-audit-${{ matrix.python-version }}
+          path: test-results/runtime-audit/
+
   publish:
     name: Publish to PyPI
-    needs: [build, lib-tests, cookbook-smoke, cookbook-host-smoke, azure-e2e]
+    needs: [build, lib-tests, cookbook-smoke, cookbook-host-smoke, azure-e2e, runtime-dependency-audit]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
