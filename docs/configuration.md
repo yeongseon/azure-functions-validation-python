@@ -1,5 +1,13 @@
 # Configuration
 
+Validation injects configured models by parameter name: `body`, `query`, `path`
+and `headers` (`req_model` for the deprecated shorthand). A required handler
+parameter annotated with a configured model but named differently, such as
+`payload: Input` for `body=Input`, raises a decoration-time configuration error.
+Rename it to `body`; there is no implicit injection by type. Independent Azure
+binding parameters and handlers that validate without consuming a model remain
+supported.
+
 This page documents every parameter of `validate_http` and how to combine them
 in production handlers.
 
