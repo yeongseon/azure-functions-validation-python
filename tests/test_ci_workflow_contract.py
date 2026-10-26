@@ -23,3 +23,19 @@ def test_sdk_2x_spike_lane_sets_both_fail_closed_variables() -> None:
         name = step.get("name")
         assert env.get("AZFUNC_2X_SPIKE") == "1", f"{name!r} must set AZFUNC_2X_SPIKE: '1'"
         assert env.get("FAIL_ON_SKIP") == "1", f"{name!r} must set FAIL_ON_SKIP: '1'"
+
+
+def test_required_test_lanes_preserve_reports_after_failure() -> None:
+    """A failed required lane must retain test outcomes, not just successful-run coverage."""
+    workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
+    for name in ("test", "minimum-dependencies", "azure-functions-2x"):
+        steps = workflow["jobs"][name]["steps"]
+        commands = "\n".join(step.get("run", "") for step in steps)
+        assert "--junitxml=" in commands, name
+        uploads = [step for step in steps if "actions/upload-artifact@" in step.get("uses", "")]
+        assert uploads, name
+        assert all(step.get("if") == "always()" for step in uploads), name
+        paths = "\n".join(step["with"]["path"] for step in uploads)
+        assert "test-results/" in paths, name
+        if name in ("test", "azure-functions-2x"):
+            assert "coverage.xml" in paths, name
