@@ -213,6 +213,13 @@ In short: raw Pydantic validates *one* handler; `@validate_http` standardizes *e
 
 ## FastAPI comparison
 
+Choose native `FunctionApp` decorators when Functions bindings, worker-visible
+signatures and the host's routing/auth model are your primary application model.
+Choose FastAPI hosted by Azure Functions `AsgiFunctionApp` when you want FastAPI's
+router, dependency injection, middleware and OpenAPI lifecycle as one ASGI app.
+This library targets native HTTP handlers, not replacement validation inside a
+FastAPI application. Host authentication remains host-owned in either approach.
+
 | Feature | FastAPI | azure-functions-validation |
 |---------|---------|---------------------------|
 | Request body parsing | Built-in via type hints | `@validate_http(body=Model)` |
