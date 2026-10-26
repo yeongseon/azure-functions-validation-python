@@ -163,6 +163,10 @@ build: ensure-hatch
 host-candidate:
 	@bash scripts/check_candidate_host.sh "$(CANDIDATE_WHEEL)"
 
+.PHONY: audit-candidate
+audit-candidate:
+	@bash scripts/audit_candidate.sh "$(CANDIDATE_WHEEL)"
+
 .PHONY: publish-test
 publish-test: ensure-hatch
 	@$(HATCH) publish --repo test
