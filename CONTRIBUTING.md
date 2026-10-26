@@ -29,6 +29,13 @@ make build
 
 `make check-all` runs the complete local quality gate used for contributions.
 
+`make test` is service-free and writes JUnit and coverage XML in ignored
+`test-results/`, enforcing the 95% floor. CI uses `make test-ci` on the selected
+matrix interpreter (`CI_PYTHON`, default `python`) rather than the pinned local
+Hatch environment. `make test-spike-ci` requires `AZFUNC_2X_SPIKE=1` and the SDK
+2.x wheel environment. `make test-e2e-ci` requires `E2E_BASE_URL`. Both reject skips
+and empty selections; neither local tests nor a host smoke certifies Azure.
+
 ## Branch Strategy
 
 Use GitHub Flow and branch from `main`.
