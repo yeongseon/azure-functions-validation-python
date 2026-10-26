@@ -112,7 +112,7 @@ style = "ruff check src tests tools scripts && ruff format --check src tests too
 # --explicit-package-bases names their files by directory.
 typecheck = "mypy src tests && mypy --explicit-package-bases tools scripts"
 lint = "hatch run style && hatch run typecheck"
-test = "pytest -v tests"
+test = "pytest -v tests --junitxml=test-results/junit.xml --cov-report=xml:test-results/coverage.xml"
 cov = "pytest --cov-report=term-missing --cov-report=html --cov-report=xml tests/"
 e2e-azure = "pytest -v -m e2e tests/e2e/ --no-cov"
 docs = "mkdocs serve"

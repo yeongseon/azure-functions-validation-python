@@ -129,6 +129,16 @@ test: ensure-hatch
 	@echo "Running tests..."
 	@$(HATCH) run test
 
+CI_PYTHON ?= python
+TEST_ARGS ?=
+.PHONY: test-ci test-spike-ci test-e2e-ci
+test-ci:
+	@FAIL_ON_SKIP=1 $(CI_PYTHON) -m pytest tests --junitxml=test-results/junit.xml --cov-report=xml:test-results/coverage.xml $(TEST_ARGS)
+test-spike-ci:
+	@FAIL_ON_SKIP=1 $(CI_PYTHON) -m pytest -m compat2x -o addopts= -o pythonpath= tests/test_worker_compat_2x_spike.py -v --junitxml=test-results/compat2x-junit.xml --cov=azure_functions_validation --cov-report=xml:test-results/coverage.xml --cov-fail-under=0
+test-e2e-ci:
+	@FAIL_ON_SKIP=1 $(CI_PYTHON) -m pytest -v -m e2e tests/e2e --no-cov --junitxml=test-results/e2e-junit.xml $(TEST_ARGS)
+
 .PHONY: cov
 cov: ensure-hatch
 	@$(HATCH) run cov
@@ -143,7 +153,7 @@ e2e-local: ensure-hatch
 .PHONY: e2e-azure
 e2e-azure: ensure-hatch
 	@echo "Running e2e tests against Azure (E2E_BASE_URL must be set)..."
-	@$(HATCH) run e2e-azure
+	@FAIL_ON_SKIP=1 $(HATCH) run e2e-azure
 
 .PHONY: build
 build: ensure-hatch
