@@ -41,6 +41,23 @@ its own local conformance tests against the versioned dict convention.
 
 ## Distribution & sync
 
+The versioned JSON-compatible namespace remains the integration boundary; no new
+shared runtime distribution is warranted. The local schema is a producer-side
+conformance artifact, not a second runtime dependency. The OpenAPI consumer reads
+`endpoint` directly, validates its version, copies it and translates response
+schemas to OpenAPI response content. It does not need Validation model classes.
+`tests/test_openapi_consumer_contract.py` runs the real published OpenAPI bridge
+against this producer in normal CI, detecting consumer/producer drift rather than
+assuming matching schema file names imply compatibility. OpenAPI is a development
+test dependency only; no sibling repository is modified or coordinated here.
+
+For version 1, preserve existing field meanings and JSON-compatible values;
+breaking field changes require a new namespace payload version and compatibility
+tests. An unknown version must remain observable rather than silently treated as
+the supported one. The `logging` namespace is independently owned by Logging;
+Validation only detects its presence to warn about correlation-context decorator
+order. It neither imports Logging nor consumes its private payload structure.
+
 - The schema ships as package data inside
   `azure_functions_validation.schemas`, loaded via `importlib.resources`. No
   new runtime dependency is introduced; `jsonschema` is required only to
