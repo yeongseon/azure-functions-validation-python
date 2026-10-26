@@ -160,6 +160,13 @@ interpreted by your shell (notably zsh with `EXTENDED_GLOB`).
 
 ## Example Coverage Policy
 
+When extending high-risk tests, state the invariant that a surprising fixture
+protects: for example, a returned subclass containing a password hash proves the
+declared public response model is a disclosure boundary. PR #600 already documented
+custom trigger binding and aggregation-failure ordering; keep those explanations
+alongside the tests, and leave self-evident assertions uncommented. No comment-count
+metric or mandatory boilerplate is required.
+
 Examples are part of the supported API experience and should stay verified.
 
 - Keep one representative example for the minimal validation workflow.
