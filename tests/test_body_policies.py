@@ -141,12 +141,19 @@ class TestJsonContentType:
         assert response.status_code == 422
         assert json.loads(response.get_body())["detail"][0]["type"] == "missing"
 
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            {"Content-Type": "application/json"},
+            {"Content-Type": "application/problem+json"},
+            {"Content-Type": "text/plain"},
+            {},
+        ],
+    )
     def test_default_still_parses_json_regardless_of_media_type(
-        self, mock_request_factory: RequestFactory
+        self, headers: dict[str, str], mock_request_factory: RequestFactory
     ) -> None:
-        response = _body_handler()(
-            mock_request_factory(body=b'{"name":"Ada"}', headers={"Content-Type": "text/plain"})
-        )
+        response = _body_handler()(mock_request_factory(body=b'{"name":"Ada"}', headers=headers))
 
         assert response.status_code == 200
 
