@@ -171,9 +171,9 @@ jobs:
           IS_COVERAGE_CELL: ${{ matrix.python-version == '3.11' }}
         run: |
           if [ "$IS_COVERAGE_CELL" = "true" ]; then
-            pytest tests/ --junitxml=test-results/junit.xml
+            make test-ci
           else
-            pytest tests/ --no-cov --junitxml=test-results/junit.xml
+            make test-ci TEST_ARGS=--no-cov
           fi
 
       - name: Upload test reports
@@ -187,14 +187,14 @@ jobs:
 
       - name: Verify coverage output
         if: matrix.python-version == '3.11'
-        run: ls -lh coverage.xml
+        run: ls -lh test-results/coverage.xml
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11' && github.actor != 'dependabot[bot]'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
+          files: ./test-results/coverage.xml
           verbose: true
           fail_ci_if_error: false
         env:
@@ -306,7 +306,7 @@ jobs:
           PY
 
       - name: Run full suite against minimum runtime dependencies
-        run: pytest tests/ --no-cov --junitxml=test-results/minimum-junit.xml
+        run: make test-ci TEST_ARGS=--no-cov
 
       - name: Upload minimum dependency reports
         if: always()
@@ -563,10 +563,7 @@ jobs:
           AZFUNC_2X_SPIKE: "1"
           FAIL_ON_SKIP: "1"
         run: |
-          pytest -m compat2x -o addopts= -o pythonpath= \
-            tests/test_worker_compat_2x_spike.py -v \
-            --junitxml=test-results/compat2x-junit.xml \
-            --cov=azure_functions_validation --cov-report=xml:coverage.xml --cov-fail-under=0
+          make test-spike-ci
 
       - name: Upload SDK compatibility reports
         if: always()
