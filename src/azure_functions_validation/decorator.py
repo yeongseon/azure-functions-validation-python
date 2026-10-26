@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import inspect
+import sys
 import types
 from typing import Any, get_type_hints
 import warnings
 
 from pydantic import TypeAdapter
-from pydantic.v1 import BaseModel as BaseModelV1
 
 from ._endpoint import build_endpoint_metadata, set_endpoint_metadata
 from ._metadata import METADATA_ATTR, ValidationMetadata, set_validation_metadata
@@ -146,7 +146,13 @@ def validate_http(
             ("request_model", request_model),
             ("response_model", response_model),
         ):
-            if isinstance(model, type(BaseModelV1)) and issubclass(model, BaseModelV1):
+            legacy_module = sys.modules.get("pydantic.v1")
+            legacy_base = getattr(legacy_module, "BaseModel", None)
+            if (
+                legacy_base is not None
+                and isinstance(model, type)
+                and issubclass(model, legacy_base)
+            ):
                 raise TypeError(
                     f"{option_name} uses a Pydantic v1 model; Pydantic v2 models are required"
                 )
