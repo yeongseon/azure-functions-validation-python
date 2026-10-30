@@ -8,7 +8,7 @@ from azure.functions.http import HttpResponseConverter
 from pydantic import BaseModel, Field
 import pytest
 
-from azure_functions_validation import ResponseSpec, validate_http
+from azure_functions_validation import PydanticAdapter, ResponseSpec, validate_http
 
 
 class Public(BaseModel):
@@ -135,6 +135,35 @@ def test_nested_responses_are_rejected_without_a_model(content: Any) -> None:
         return ResponseSpec(content=content)
 
     assert handler(request()).status_code == 500
+
+
+class _PermissiveAdapter(PydanticAdapter):
+    """A serializer that accepts any object, so only the envelope guard can reject content."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.serialized: list[Any] = []
+
+    def serialize(self, obj: Any) -> tuple[bytes, str]:
+        self.serialized.append(obj)
+        return b"custom", "application/vnd.custom"
+
+
+@pytest.mark.parametrize("content", [ResponseSpec(content="inner"), HttpResponse("raw")])
+def test_nested_responses_are_rejected_before_a_permissive_serializer(content: Any) -> None:
+    # Given: a custom adapter whose serializer would accept the nested response object.
+    adapter = _PermissiveAdapter()
+
+    @validate_http(adapter=adapter)
+    def handler(req: HttpRequest) -> ResponseSpec[Any]:
+        return ResponseSpec(content=content)
+
+    # When
+    response = handler(request())
+
+    # Then: the envelope guard, not the serializer, rejects it.
+    assert response.status_code == 500
+    assert adapter.serialized == []
 
 
 @pytest.mark.parametrize(
