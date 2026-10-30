@@ -110,6 +110,14 @@ retain their original classification. Invalid formatter transport fails closed.
 
 ## Core Use Cases
 
+Per-return `ResponseSpec[T]` supports validated status/header customization
+without an SDK bypass or adapter-protocol change. The envelope has no media_type;
+the serializer owns bytes and representation. Final None overrides even explicit
+201/202 to 204; 204/205/304 require None and reject data rather than discarding it.
+Raw HttpResponse remains the escape hatch for intentional empty non-204 statuses.
+Metadata remains a non-exhaustive fallback description; applications explicitly
+document dynamic statuses and headers.
+
 - Validate a JSON request body into a typed model
 - Validate query, path, or header models
 - Validate a few scalar/list query inputs with explicit `query_params`

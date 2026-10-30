@@ -20,6 +20,11 @@ response schemas. FastAPI-like developer experience without the web framework.
 ## Core API
 
 - `validate_http` — Main decorator for request/response validation
+- `ResponseSpec[T]` — Frozen/slotted/keyword-only validated handler envelope with
+  content, optional status_code and mapping/pair headers; no media_type.
+  None overrides explicit status to 204; 204/205/304 require final None.
+  Use raw HttpResponse for intentional empty 201/202 or 205/304.
+  Metadata is a non-exhaustive fallback description, never dynamic inference.
 - `ErrorFormatter` — Custom error formatting callback
 - `ErrorResponseSpec` — Request-schema-only formatter transport value
 - `ValidationErrorResponse` — Fixed status/media and optional Pydantic error model

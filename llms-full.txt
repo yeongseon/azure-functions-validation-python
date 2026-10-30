@@ -67,6 +67,32 @@ pip install -e .[dev]
 
 ## Public API
 
+### Validated per-return response
+
+ResponseSpec[T](*, content: T, status_code: int | None = None,
+headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None) is a frozen,
+slotted, keyword-only dataclass exported at package root and responses. It has no
+media_type. Construction is inert; the protected response path checks fields,
+unwraps once, validates content and uses declared-model serialization (including
+subclass filtering, aliases/exclusions). Without a model the adapter's serialize
+runs once. Exact bytes/media are preserved without SDK-body reparsing.
+
+Omitted status inherits status_code=. Envelope status (explicit or inherited)
+must be integer 200–599, excluding bool; HTTPStatus accepted. Final unmodelled or
+validated None overrides explicit status to empty 204, retaining valid headers
+and skipping serialization. Nonnullable models reject None. 204/205/304 require
+final None; non-None data fails with formatted 500. Use raw HttpResponse for an
+intentional empty 201/202 or 205/304. Direct SDK bypass preserves identity and
+ordinary static status behavior is unchanged.
+
+Headers reuse ErrorResponseSpec transport policy. Content-Type must agree with
+the serializer and is rejected for absent content. Nested ResponseSpec or SDK
+content is invalid. Response faults stay 500, never eligible for rich error
+overrides. Outer logging observes final status/headers; worker signatures and
+extra bindings are unchanged. Metadata remains a non-exhaustive fallback
+description; no runtime statuses/headers are inferred or emitted from envelopes
+or return annotations. Applications document additional outcomes explicitly.
+
 Custom adapter authors can import `ValidationAdapter`, `AdapterValidationError`,
 `MalformedRequestError`, `SerializationError`, and `AdapterConformanceTests`.
 The suite is pytest-agnostic at import time; subclass it in a test module and
