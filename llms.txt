@@ -21,6 +21,8 @@ response schemas. FastAPI-like developer experience without the web framework.
 
 - `validate_http` — Main decorator for request/response validation
 - `ErrorFormatter` — Custom error formatting callback
+- `ErrorResponseSpec` — Request-schema-only formatter transport value
+- `ValidationErrorResponse` — Fixed status/media and optional Pydantic error model
 - `ResponseValidationError` — Error raised when response validation fails
 - `SerializationError` — Error raised when serialization fails
 - `AdapterConformanceTests` — Pytest-agnostic custom-adapter contract suite
@@ -57,6 +59,11 @@ response schemas. FastAPI-like developer experience without the web framework.
   `response_exclude_none`, and `response_exclude_unset` require `response_model`;
   direct `HttpResponse` returns bypass them.
 - Per-handler error formatting via `ErrorFormatter` callback
+- `validation_error_response: ValidationErrorResponse | None = None` fixes request
+  validation status/media/model; formatter still receives 422. Rich results may
+  override only request-schema errors, never malformed JSON, body policies,
+  handler HttpError or 5xx. Invalid output fails closed to sanitized 500.
+  Fixed contracts emit endpoint v2; dynamic formatters omit guessed errors.
 
 ## Quick Start
 

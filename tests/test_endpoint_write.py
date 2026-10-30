@@ -16,8 +16,9 @@ from typing import Annotated, Any, cast
 import azure.functions as func
 import jsonschema
 from pydantic import BaseModel, Field
+import pytest
 
-from azure_functions_validation import validate_http
+from azure_functions_validation import ValidationErrorResponse, validate_http
 from azure_functions_validation._endpoint import (
     ENDPOINT_NAMESPACE,
     build_endpoint_metadata,
@@ -392,3 +393,100 @@ def test_scalar_query_endpoint_validation_schema() -> None:
     assert all(item["in"] == "query" for item in params.values())
     assert set(payload["responses"]) == {"422"}
     assert getattr(handler, METADATA_ATTR)["validation"]["query"] is None
+
+
+def test_custom_formatter_omits_unknown_request_error() -> None:
+    @validate_http(
+        body=CreateUser,
+        response_model=UserResponse,
+        error_formatter=lambda exc, status: {"custom": True},
+    )
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    payload = _endpoint_of(handler)
+    _validate(payload)
+    assert payload["version"] == 1
+    assert set(payload["responses"]) == {"200"}
+
+
+@pytest.mark.parametrize("media", ["application/json", "application/problem+json"])
+def test_fixed_400_metadata_includes_malformed_variant(media: str) -> None:
+    @validate_http(
+        body=CreateUser,
+        response_model=UserResponse | None,
+        error_formatter=lambda exc, status: {"id": 1, "name": "bad"},
+        validation_error_response=ValidationErrorResponse(
+            status_code=400, media_type=media, response_model=UserResponse
+        ),
+    )
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    payload = _endpoint_of(handler)
+    _validate(payload)
+    assert payload["version"] == 2
+    assert payload["responses"]["204"] == {"content": {}}
+    assert "application/json" in payload["responses"]["200"]["content"]
+    content = payload["responses"]["400"]["content"]
+    assert content["application/json"]["schema"] == {}
+    if media != "application/json":
+        assert content[media]["schema"]["properties"].keys() == {"id", "displayName"}
+
+
+def test_fixed_status_default_envelope_and_namespace_preservation() -> None:
+    def original(req: func.HttpRequest) -> None:
+        pass
+
+    foreign = {"version": 4, "owned": [1]}
+    setattr(original, METADATA_ATTR, {"foreign": foreign})
+    handler = validate_http(
+        body=CreateUser, validation_error_response=ValidationErrorResponse(status_code=400)
+    )(original)
+    payload = _endpoint_of(handler)
+    _validate(payload)
+    schema = payload["responses"]["400"]["content"]["application/json"]["schema"]
+    assert schema["required"] == ["detail"]
+    assert getattr(handler, METADATA_ATTR)["foreign"] is foreign
+    assert getattr(original, METADATA_ATTR) == {"foreign": foreign}
+
+
+def test_fixed_without_model_uses_unknown_custom_shape() -> None:
+    @validate_http(
+        query=ListQuery,
+        error_formatter=lambda exc, status: {},
+        validation_error_response=ValidationErrorResponse(status_code=409),
+    )
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    payload = _endpoint_of(handler)
+    _validate(payload)
+    assert payload["responses"] == {"409": {"content": {"application/json": {"schema": {}}}}}
+
+
+def test_fixed_without_request_models_has_no_fabricated_error() -> None:
+    @validate_http(validation_error_response=ValidationErrorResponse())
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    assert _endpoint_of(handler)["version"] == 2
+    assert _endpoint_of(handler)["responses"] is None
+
+
+def test_fixed_unknown_adapter_shape_is_not_standard_envelope() -> None:
+    from azure_functions_validation import PydanticAdapter
+
+    class Custom(PydanticAdapter):
+        def format_error(self, exc: Exception) -> dict[str, Any]:
+            return {"custom": str(exc)}
+
+    @validate_http(
+        body=CreateUser,
+        adapter=Custom(),
+        validation_error_response=ValidationErrorResponse(status_code=409),
+    )
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    assert _endpoint_of(handler)["responses"]["409"]["content"]["application/json"]["schema"] == {}

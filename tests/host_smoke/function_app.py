@@ -4,7 +4,7 @@ from typing import Annotated
 import azure.functions as func
 from pydantic import BaseModel, Field
 
-from azure_functions_validation import validate_http
+from azure_functions_validation import ErrorResponseSpec, ValidationErrorResponse, validate_http
 
 app = func.FunctionApp()
 
@@ -57,3 +57,34 @@ async def scalar_async(
     request: func.HttpRequest, context: func.Context, *, tags: list[str]
 ) -> dict:
     return {"tags": tags, "function_name": context.function_name}
+
+
+def problem_formatter(exc: Exception, status: int) -> ErrorResponseSpec | dict:
+    if status != 422:
+        return {"title": str(exc)}
+    return ErrorResponseSpec(
+        content={"title": "Invalid request", "status": 400}, headers={"X-Error-Contract": "fixed"}
+    )
+
+
+@app.route(route="problem", methods=["POST"])
+@validate_http(
+    body=InputBody,
+    error_formatter=problem_formatter,
+    validation_error_response=ValidationErrorResponse(
+        status_code=400, media_type="application/problem+json"
+    ),
+)
+def problem(req: func.HttpRequest, context: func.Context, body: InputBody) -> dict:
+    return {"function_name": context.function_name, "name": body.name}
+
+
+@app.route(route="invalid-error", methods=["POST"])
+@validate_http(
+    body=InputBody,
+    error_formatter=lambda exc, status: ErrorResponseSpec(
+        content={"secret": "formatter secret"}, status_code=500
+    ),
+)
+def invalid_error(req: func.HttpRequest, context: func.Context) -> dict:
+    return {"function_name": context.function_name}

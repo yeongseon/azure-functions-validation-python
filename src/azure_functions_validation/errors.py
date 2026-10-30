@@ -8,10 +8,14 @@ import logging
 from typing import Any, Protocol
 
 from azure.functions import HttpResponse
+from pydantic import TypeAdapter
+
+from ._response_transport import build_response, json_media_type, validation_status
+from .responses import ErrorResponseSpec, ValidationErrorResponse
 
 logger = logging.getLogger(__name__)
 
-ErrorFormatter = Callable[[Exception, int], dict[str, Any]]
+ErrorFormatter = Callable[[Exception, int], dict[str, Any] | ErrorResponseSpec]
 
 #: Stability marker embedded in every default error envelope.  Downstream
 #: consumers can pin against this integer; it is bumped only when the default
@@ -161,6 +165,9 @@ def format_error_response(
     expose_internal_errors: bool = False,
     handler_name: str | None = None,
     log_exception: bool = True,
+    request_validation: bool = False,
+    validation_error_response: ValidationErrorResponse | None = None,
+    error_type_adapter: TypeAdapter[Any] | None = None,
 ) -> HttpResponse:
     """Build an ``HttpResponse`` for a validation or parsing error.
 
@@ -196,9 +203,7 @@ def format_error_response(
             error_response = error_formatter(formatter_exception, status_code)
         except Exception:
             logger.exception("error_formatter raised an unexpected exception")
-            response_status_code = 500
-
-            error_response = json.loads(_SANITIZED_500_BODY)
+            return _sanitized_response()
         else:
             used_custom_formatter = True
     elif isinstance(exception, HttpError) and status_code < 500:
@@ -232,8 +237,7 @@ def format_error_response(
             error_response = adapter.format_error(exception)
         except Exception:
             logger.exception("adapter.format_error raised an unexpected exception")
-            response_status_code = 500
-            error_response = json.loads(_SANITIZED_500_BODY)
+            return _sanitized_response()
 
     # Stamp the stability marker on every default envelope, but never mutate a
     # successful custom formatter's output — callers own that shape entirely.
@@ -241,14 +245,46 @@ def format_error_response(
         error_response.setdefault("error_format_version", ERROR_FORMAT_VERSION)
 
     try:
-        body = json.dumps(error_response)
-    except (TypeError, ValueError):
+        rich = isinstance(error_response, ErrorResponseSpec)
+        if isinstance(error_response, ErrorResponseSpec):
+            if not request_validation:
+                raise ValueError("rich error responses require request-validation origin")
+            content = error_response.content
+        else:
+            content = error_response
+        if not isinstance(content, dict):
+            raise TypeError("error formatter content must be a dictionary")
+        fixed = validation_error_response if request_validation else None
+        media_type = "application/json"
+        if fixed is not None:
+            response_status_code = fixed.status_code
+            media_type = fixed.media_type
+        headers = None
+        if isinstance(error_response, ErrorResponseSpec):
+            headers = error_response.headers
+            if error_response.status_code is not None:
+                selected_status = validation_status(error_response.status_code)
+                if fixed is not None and selected_status != fixed.status_code:
+                    raise ValueError("formatter status disagrees with fixed contract")
+                response_status_code = selected_status
+            if error_response.media_type is not None:
+                selected_media = json_media_type(error_response.media_type)
+                if fixed is not None and selected_media != fixed.media_type:
+                    raise ValueError("formatter media type disagrees with fixed contract")
+                media_type = selected_media
+        if request_validation and error_type_adapter is not None:
+            validated = error_type_adapter.validate_python(content)
+            content = error_type_adapter.dump_python(validated, mode="json", by_alias=True)
+        body = json.dumps(content, allow_nan=not (rich or fixed is not None))
+        return build_response(body, response_status_code, media_type, headers)
+    except Exception:
         logger.exception("error_response could not be serialized to JSON")
-        body = _SANITIZED_500_BODY
-        response_status_code = 500
+        return _sanitized_response()
 
+
+def _sanitized_response() -> HttpResponse:
     return HttpResponse(
-        body=body,
-        status_code=response_status_code,
+        body=_SANITIZED_500_BODY,
+        status_code=500,
         headers={"Content-Type": "application/json"},
     )

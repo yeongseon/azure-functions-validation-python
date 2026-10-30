@@ -8,7 +8,7 @@
   "properties": {
     "version": {
       "description": "Schema version for the endpoint namespace payload. Consumers MUST warn (not fail) on an unknown version and fall back gracefully.",
-      "const": 1
+      "enum": [1, 2]
     },
     "request_body": {
       "description": "JSON Schema of the request body model, or null when the endpoint takes no body. Canonicalization: Pydantic model_json_schema(by_alias=True, mode='validation', ref_template='#/$defs/{model}'). $defs are left UNRESOLVED — the consumer (openapi) hoists them into components/schemas and remains the sole $ref-collision authority.",
@@ -32,7 +32,7 @@
         {
           "type": "object",
           "propertyNames": { "pattern": "^[1-5][0-9]{2}$" },
-          "additionalProperties": { "$ref": "#/$defs/response" }
+          "additionalProperties": { "type": "object" }
         },
         { "type": "null" }
       ]
@@ -56,7 +56,55 @@
       "items": { "type": "object" }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "version": { "const": 1 } } },
+      "then": { "properties": { "responses": { "anyOf": [
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/response" } },
+        { "type": "null" }
+      ] } } },
+      "else": { "properties": { "responses": { "anyOf": [
+        { "type": "object", "propertyNames": { "pattern": "^[2-5][0-9]{2}$" },
+          "additionalProperties": { "$ref": "#/$defs/responseV2" },
+          "properties": {
+            "204": { "properties": { "content": { "maxProperties": 0 } } },
+            "205": { "properties": { "content": { "maxProperties": 0 } } },
+            "304": { "properties": { "content": { "maxProperties": 0 } } }
+          }
+        },
+        { "type": "null" }
+      ] } } }
+    }
+  ],
   "$defs": {
+    "responseV2": {
+      "type": "object",
+      "required": ["content"],
+      "properties": {
+        "description": { "type": "string" },
+        "content": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["schema"],
+            "properties": { "schema": { "$ref": "#/$defs/jsonSchema" } },
+            "additionalProperties": false
+          }
+        },
+        "headers": {
+          "type": "object",
+          "propertyNames": { "not": { "pattern": "^[Cc][Oo][Nn][Tt][Ee][Nn][Tt]-[Tt][Yy][Pp][Ee]$" } },
+          "additionalProperties": {
+            "type": "object", "required": ["schema"],
+            "properties": {
+              "schema": { "$ref": "#/$defs/jsonSchema" },
+              "description": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "jsonSchema": {
       "description": "An embedded JSON Schema document (Pydantic-generated). Kept permissive: producers embed schemas verbatim; the consumer validates structure.",
       "type": "object"

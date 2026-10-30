@@ -1,5 +1,13 @@
 # Writing a custom adapter
 
+Error transport remains separate from the adapter protocol. Fixed
+`ValidationErrorResponse.response_model` uses a prepared Pydantic TypeAdapter,
+even with a custom adapter; no new adapter methods are required. Apply outer
+logging above validation so it observes early request-schema error responses,
+including final status, media type and headers, with correlation context intact.
+Custom adapters with unknown default error bodies publish `{}` for a fixed
+error contract without a model.
+
 The [surface evaluation](design/adapter-surface-evaluation.md) records why the
 complete public contract is retained, distinguishes shipped and test-only backends,
 and identifies evidence-backed internal reductions without API loss.

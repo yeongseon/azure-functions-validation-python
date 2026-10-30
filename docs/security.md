@@ -1,5 +1,16 @@
 # Security
 
+## Error formatter boundary
+
+Rich error transport is eligible only for failures originating in request schema
+validation. It cannot change malformed JSON, body policy, handler HttpError or
+server-error transport. Formatter exceptions, non-dictionary content, invalid
+headers, fixed-contract mismatches and invalid error models fail directly to the
+built-in sanitized 500. Rich JSON must be finite and serializable. Declared error
+models filter subclass-only fields. Legacy dictionary formatters keep the existing
+5xx sanitization/unsafe-opt-in contract; even unsafe opt-in does not permit rich
+server-error transport. Do not include secrets in formatter content or headers.
+
 This document outlines the security policies, reporting processes, and scanning tools used in the azure-functions-validation library. We take the security of this project seriously and appreciate responsible disclosure.
 
 ## Reporting Vulnerabilities

@@ -15,9 +15,11 @@ from ._endpoint import build_endpoint_metadata, set_endpoint_metadata
 from ._metadata import METADATA_ATTR, ValidationMetadata, set_validation_metadata
 from ._metadata_helpers import SAFE_IDENTITY_ATTRS, copy_identity_attrs
 from ._query_params import build_query_params
+from ._response_transport import json_media_type, validation_status
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
+from .responses import ValidationErrorResponse
 
 try:  # pragma: no cover - exercised indirectly; import guard for SDK variance
     from azure.functions.decorators.function_app import (
@@ -38,6 +40,7 @@ def validate_http(
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
+    validation_error_response: ValidationErrorResponse | None = None,
     expose_internal_errors: bool = False,
     status_code: int = 200,
     legacy_loc: bool = False,
@@ -64,6 +67,8 @@ def validate_http(
         response_model: Pydantic model for response validation.
         adapter: Custom validation adapter (defaults to ``PydanticAdapter``).
         error_formatter: Per-handler custom error formatter.
+        validation_error_response: Fixed request-validation status, JSON media type,
+            and optional Pydantic error model. Formatters still receive status 422.
         expose_internal_errors: Unsafe opt-in that passes original server-side
             exceptions to *error_formatter*. Defaults to ``False`` so custom
             formatters receive a sanitized ``InternalServerError`` for 5xx errors.
@@ -86,6 +91,22 @@ def validate_http(
     Returns:
         A decorator that wraps the handler with validation logic.
     """
+    error_type_adapter: TypeAdapter[Any] | None = None
+    if validation_error_response is not None:
+        if not isinstance(validation_error_response, ValidationErrorResponse):
+            raise TypeError("validation_error_response must be ValidationErrorResponse or None")
+        fixed_status = validation_status(validation_error_response.status_code)
+        fixed_media = json_media_type(validation_error_response.media_type)
+        error_model = validation_error_response.response_model
+        if error_formatter is None and (
+            fixed_media != "application/json" or error_model is not None
+        ):
+            raise ValueError("custom error media type or response_model requires error_formatter")
+        if error_model is not None:
+            error_type_adapter = TypeAdapter(error_model)
+        validation_error_response = ValidationErrorResponse(
+            status_code=fixed_status, media_type=fixed_media, response_model=error_model
+        )
     if not isinstance(expose_internal_errors, bool):
         raise TypeError("expose_internal_errors must be a bool")
     if query_params is not None and not isinstance(query_params, Mapping):
@@ -220,6 +241,8 @@ def validate_http(
             response_model=response_model,
             adapter=adapter,
             error_formatter=error_formatter,
+            validation_error_response=validation_error_response,
+            error_type_adapter=error_type_adapter,
             expose_internal_errors=expose_internal_errors,
             func_params=func_params,
             request_param_name=request_param_name,

@@ -23,7 +23,8 @@ from typing import Any, TypedDict
 from pydantic import BaseModel, TypeAdapter
 
 from ._metadata import _merge_namespace
-from .schemas import ENDPOINT_METADATA_VERSION, _contains_ref
+from .adapter import PydanticAdapter
+from .schemas import _ENDPOINT_METADATA_V2, ENDPOINT_METADATA_VERSION, _contains_ref
 
 #: Namespace for this package's local endpoint payload.
 ENDPOINT_NAMESPACE = "endpoint"
@@ -243,13 +244,54 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
             # 200-with-null-body (pipeline._build_response) -- document the
             # real outcome alongside the non-null success schema (#537).
             responses["204"] = {}
-    if has_request_model:
+    fixed = getattr(config, "validation_error_response", None)
+    custom_formatter = getattr(config, "error_formatter", None) is not None
+    if has_request_model and fixed is None and not custom_formatter:
         # Document the standardized validation-error contract the runtime emits
         # on invalid input, so consumers (openapi) need not hand-author it.
         responses[_VALIDATION_ERROR_STATUS] = {"schema": _validation_error_schema()}
 
+    version = ENDPOINT_METADATA_VERSION
+    if fixed is not None:
+        version = _ENDPOINT_METADATA_V2
+        responses = {
+            code: {
+                "content": {"application/json": {"schema": detail["schema"]}}
+                if "schema" in detail
+                else {}
+            }
+            for code, detail in responses.items()
+        }
+        if has_request_model or any(
+            model is not None for model in (config.body, config.query, config.path, config.headers)
+        ):
+            schema = {}
+            if fixed.response_model is not None:
+                schema = config.error_type_adapter.json_schema(
+                    by_alias=True, mode="serialization", ref_template=_REF_TEMPLATE
+                )
+            elif not custom_formatter and type(getattr(config, "adapter", None)) is PydanticAdapter:
+                schema = _validation_error_schema()
+            code = str(fixed.status_code)
+            content = responses.setdefault(code, {"content": {}})["content"]
+            content[fixed.media_type] = {"schema": schema}
+            if code == "400" and config.body is not None:
+                malformed_schema = {} if custom_formatter else _validation_error_schema()
+                if "application/json" in content:
+                    previous = content["application/json"]["schema"]
+                    merged = (
+                        {"anyOf": [previous, malformed_schema]}
+                        if previous and malformed_schema and previous != malformed_schema
+                        else previous
+                        if previous == malformed_schema
+                        else {}
+                    )
+                    content["application/json"] = {"schema": merged}
+                else:
+                    content["application/json"] = {"schema": malformed_schema}
+
     payload: EndpointMetadata = {
-        "version": ENDPOINT_METADATA_VERSION,
+        "version": version,
         "request_body": request_body,
         "request_body_required": request_body_required,
         "parameters": parameters,
