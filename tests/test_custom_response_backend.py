@@ -24,11 +24,11 @@ import asyncio
 import json
 from typing import Any
 
-from azure.functions import HttpRequest
+from azure.functions import HttpRequest, HttpResponse
 from pydantic import BaseModel, Field, TypeAdapter
 import pytest
 
-from azure_functions_validation import PydanticAdapter, validate_http
+from azure_functions_validation import PydanticAdapter, ResponseSpec, validate_http
 from azure_functions_validation.errors import SerializationError
 
 
@@ -117,6 +117,78 @@ class TestNonPydanticResponseBackend:
         assert response.get_body() == b"custom:ok"
         assert adapter.validation_calls == 1
         assert adapter.serialize_response_calls == 1
+
+    def test_envelope_uses_native_backend(self) -> None:
+        adapter = _NativeAdapter()
+
+        @validate_http(adapter=adapter, response_model=_NativeRecord)
+        def handler(req: HttpRequest) -> ResponseSpec[_NativeRecord]:
+            return ResponseSpec(content=_NativeRecord("envelope"), status_code=201)
+
+        response = handler(_get())
+        assert response.status_code == 201
+        assert response.get_body() == b"custom:envelope"
+        assert adapter.validation_calls == adapter.serialize_response_calls == 1
+
+
+@pytest.mark.parametrize("model", [None, _Output])
+def test_envelope_preserves_bytes_and_media_without_reparsing(
+    model: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import Mock
+
+    adapter = PydanticAdapter()
+    serialize = Mock(return_value=(b"\xff\x00{not-json}", "application/vnd.custom; profile=Exact"))
+    monkeypatch.setattr(adapter, "serialize" if model is None else "serialize_response", serialize)
+    get_body = HttpResponse.get_body
+    monkeypatch.setattr(HttpResponse, "get_body", Mock(side_effect=AssertionError("reparse")))
+
+    @validate_http(adapter=adapter, response_model=model)
+    def handler(req: HttpRequest) -> ResponseSpec[dict[str, str]]:
+        return ResponseSpec(content={"value": "ok"}, status_code=202)
+
+    response = handler(_get())
+    assert response.status_code == 202
+    assert get_body(response) == b"\xff\x00{not-json}"
+    assert response.headers["Content-Type"] == "application/vnd.custom; profile=Exact"
+    assert serialize.call_count == 1
+
+
+@pytest.mark.parametrize("model", [None, _Output | None])
+def test_envelope_none_skips_serialization(model: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
+    adapter = PydanticAdapter()
+    serialize = Mock(side_effect=AssertionError("None must not be serialized"))
+    monkeypatch.setattr(adapter, "serialize", serialize)
+    monkeypatch.setattr(adapter, "serialize_response", serialize)
+
+    @validate_http(adapter=adapter, response_model=model)
+    def handler(req: HttpRequest) -> ResponseSpec[None]:
+        return ResponseSpec(content=None, status_code=201)
+
+    assert handler(_get()).status_code == 204
+    serialize.assert_not_called()
+
+
+def test_envelope_uses_final_validated_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
+    adapter = PydanticAdapter()
+    validate = Mock(return_value=None)
+    serialize = Mock(side_effect=AssertionError("validated None must not be serialized"))
+    monkeypatch.setattr(adapter, "validate_response", validate)
+    monkeypatch.setattr(adapter, "serialize_response", serialize)
+
+    @validate_http(adapter=adapter, response_model=_Output)
+    def handler(req: HttpRequest) -> ResponseSpec[dict[str, str]]:
+        return ResponseSpec(content={"value": "normalize"}, status_code=205)
+
+    response = handler(_get())
+    assert response.status_code == 204
+    assert validate.call_args.args[0] == {"value": "normalize"}
+    assert validate.call_count == 1
+    serialize.assert_not_called()
 
 
 class _RecordingSerializationAdapter(PydanticAdapter):

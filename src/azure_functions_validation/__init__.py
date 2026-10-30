@@ -14,7 +14,7 @@ from .errors import (
     SerializationError,
     UnsupportedMediaTypeError,
 )
-from .responses import ErrorResponseSpec, ValidationErrorResponse
+from .responses import ErrorResponseSpec, ResponseSpec, ValidationErrorResponse
 from .testing import AdapterConformanceTests
 
 __all__ = [
@@ -24,6 +24,7 @@ __all__ = [
     "SerializationError",
     "ErrorFormatter",
     "ErrorResponseSpec",
+    "ResponseSpec",
     "ValidationErrorResponse",
     "ValidationAdapter",
     "PydanticAdapter",

@@ -20,6 +20,11 @@ private directory and dynamically selected loopback ports, never shared services
 It checks default request/context binding, custom `trigger_arg_name`, typed body
 injection, success serialization without subclass-only fields, malformed JSON 400,
 invalid-model 422 and sanitized invalid-response 500.
+Envelope routes prove sync/async validated 201 plus Location, subclass-secret
+exclusion, real context passthrough and None-to-204 precedence with custom headers.
+Curl's raw header capture retains both separate Set-Cookie fields on the async
+route; neither a mapping nor a comma-joined cookie assertion stands in for wire
+evidence. The existing broken-wrapper negative control remains mandatory.
 The fixed-error route proves 400 `application/problem+json`, a preserved custom
 header and real `func.Context` passthrough on success. An invalid rich error
 response must produce the exact sanitized 500 JSON envelope without secret data.

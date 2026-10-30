@@ -4,7 +4,12 @@ from typing import Annotated
 import azure.functions as func
 from pydantic import BaseModel, Field
 
-from azure_functions_validation import ErrorResponseSpec, ValidationErrorResponse, validate_http
+from azure_functions_validation import (
+    ErrorResponseSpec,
+    ResponseSpec,
+    ValidationErrorResponse,
+    validate_http,
+)
 
 app = func.FunctionApp()
 
@@ -88,3 +93,35 @@ def problem(req: func.HttpRequest, context: func.Context, body: InputBody) -> di
 )
 def invalid_error(req: func.HttpRequest, context: func.Context) -> dict:
     return {"function_name": context.function_name}
+
+
+@app.route(route="envelope", methods=["POST"], trigger_arg_name="request")
+@validate_http(body=InputBody, response_model=PublicResponse)
+def envelope(request: func.HttpRequest, body: InputBody) -> ResponseSpec[PublicResponse]:
+    return ResponseSpec(
+        content=InternalResponse(function_name=body.name, secret="envelope-private"),
+        status_code=201,
+        headers={"Location": "/api/envelope/1"},
+    )
+
+
+@app.route(route="envelope-async")
+@validate_http(response_model=PublicResponse)
+async def envelope_async(
+    req: func.HttpRequest, context: func.Context
+) -> ResponseSpec[PublicResponse]:
+    return ResponseSpec(
+        content=InternalResponse(function_name=context.function_name, secret="envelope-private"),
+        status_code=201,
+        headers=[
+            ("Location", "/api/envelope/2"),
+            ("Set-Cookie", "first=1; Path=/; HttpOnly"),
+            ("Set-Cookie", "second=2; Path=/"),
+        ],
+    )
+
+
+@app.route(route="envelope-empty")
+@validate_http(response_model=PublicResponse | None)
+def envelope_empty(req: func.HttpRequest) -> ResponseSpec[PublicResponse | None]:
+    return ResponseSpec(content=None, status_code=201, headers={"X-Empty": "yes"})

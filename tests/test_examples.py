@@ -364,7 +364,8 @@ class TestCrudCreateTask:
             headers={"Content-Type": "application/json"},
         )
         response = self.mod.create_task(request)
-        assert response.status_code == 200
+        assert response.status_code == 201
+        assert response.headers["Location"] == "/api/tasks/4"
         task = json.loads(response.get_body())
         assert task["id"] == 4
         assert task["title"] == "New task"
@@ -380,7 +381,7 @@ class TestCrudCreateTask:
             headers={"Content-Type": "application/json"},
         )
         response = self.mod.create_task(request)
-        assert response.status_code == 200
+        assert response.status_code == 201
         task = json.loads(response.get_body())
         assert task["title"] == "Minimal"
         assert task["priority"] == 3  # default

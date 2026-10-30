@@ -439,6 +439,21 @@ is unsafe because a formatter can expose internal details to clients.
 
 ### `status_code`
 
+Returning `ResponseSpec(content=..., status_code=201, headers={"Location": "..."})`
+overrides the fallback status per invocation without bypassing `response_model`.
+Omitted envelope status inherits this option; explicit/inherited envelope statuses
+must be integer 200–599 (not bool, `HTTPStatus` accepted). Ordinary returns retain
+their existing static-status behavior. The envelope has no `media_type`.
+
+**Final `None` overrides an explicit status to 204.** A nonnullable model rejects
+None. Statuses 204/205/304 require final None content, never discard data, and
+still become 204 under the universal None rule. Use raw `HttpResponse` for an
+intentional empty 201/202 or 205/304. Body-less envelopes reject caller Content-Type;
+other envelopes require agreement with the serializer. Header safety is shared
+with [rich error responses](#validation_error_response). Invalid fields yield
+formatted 500. Metadata remains a non-exhaustive fallback description; declare
+runtime status/header variants in application documentation.
+
 `status_code` sets the HTTP status code for successful responses (default
 `200`). Use it for creation endpoints and similar cases.
 

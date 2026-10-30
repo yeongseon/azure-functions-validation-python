@@ -84,6 +84,15 @@ adapter again.
 
 ## Error and formatter ordering
 
+`ResponseSpec` is unwrapped before `validate_response`. Its content follows these
+same entry points exactly once, including declared-model filtering and exclusion
+flags. Without a model, only `serialize` runs. Returned bytes and the exact media
+string are preserved without decoding or reparsing an SDK body. The envelope has
+no `media_type`; supplied Content-Type must match the serializer. Final None
+skips serialization and overrides explicit status to 204; 204/205/304 require
+None. Use a raw SDK response for an intentional empty 201/202 or 205/304.
+Response faults remain 500 and are not eligible for rich request-error transport.
+
 The pipeline classifies the adapter exception first: malformed request is
 `400`, request validation is `422`, and response validation, serialization,
 or an unexpected exception is `500`. A handler-level `error_formatter` then

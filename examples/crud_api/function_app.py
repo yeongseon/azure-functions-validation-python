@@ -15,7 +15,7 @@ from __future__ import annotations
 import azure.functions as func
 from pydantic import BaseModel, Field
 
-from azure_functions_validation import validate_http
+from azure_functions_validation import ResponseSpec, validate_http
 
 # ---------------------------------------------------------------------------
 # Models
@@ -134,7 +134,7 @@ def get_task(req: func.HttpRequest, path: TaskPath) -> dict[str, object]:
 @app.function_name(name="create_task")
 @app.route(route="tasks", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=TaskCreateRequest, response_model=TaskResponse)
-def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> TaskResponse:
+def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> ResponseSpec[TaskResponse]:
     """Create a new task using body validation.
 
     POST /api/tasks  {"title": "New task", "priority": 2}
@@ -150,7 +150,9 @@ def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> TaskResponse:
     )
     _TASKS[_NEXT_ID] = task.model_dump()
     _NEXT_ID += 1
-    return task
+    return ResponseSpec(
+        content=task, status_code=201, headers={"Location": f"/api/tasks/{task.id}"}
+    )
 
 
 @app.function_name(name="update_task")

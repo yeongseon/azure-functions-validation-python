@@ -8,6 +8,7 @@ import pytest
 from azure_functions_validation._response_transport import (
     build_response,
     json_media_type,
+    response_status,
     validation_status,
 )
 
@@ -15,6 +16,30 @@ from azure_functions_validation._response_transport import (
 @pytest.mark.parametrize("status", [400, 422, 499, HTTPStatus.CONFLICT])
 def test_client_status(status: int) -> None:
     assert validation_status(status) == int(status)
+
+
+@pytest.mark.parametrize("status", [200, HTTPStatus.CREATED, 599])
+def test_response_status(status: int) -> None:
+    assert response_status(status) == int(status)
+
+
+@pytest.mark.parametrize("status", [True, False, 199, 600, "201", 201.0])
+def test_invalid_response_status(status: Any) -> None:
+    with pytest.raises(ValueError):
+        response_status(status)
+
+
+def test_bodyless_transport_preserves_headers_without_content_type() -> None:
+    response = build_response(None, 204, None, {"X-Trace": "empty"})
+    assert response.status_code == 204
+    assert response.get_body() == b""
+    assert response.headers.get("Content-Type") is None
+    assert response.headers["X-Trace"] == "empty"
+
+
+def test_bodyless_transport_rejects_claimed_content_type() -> None:
+    with pytest.raises(ValueError):
+        build_response(None, 204, None, {"Content-Type": "application/json"})
 
 
 @pytest.mark.parametrize("status", [True, False, 399, 500, "400", None, 422.0])

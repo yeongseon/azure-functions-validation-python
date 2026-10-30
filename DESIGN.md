@@ -57,6 +57,16 @@ indexing boundary, not a universal decoration-time guarantee.
 
 ## Change Discipline
 
+`ResponseSpec[T]` is an inert frozen/slotted/keyword-only handler value. The
+protected response-building path unwraps once, validates and serializes through
+the existing adapter, then constructs one SDK response using shared transport
+checks. It has no media_type and does not reparse encoded bodies. Declared-model
+filtering remains the disclosure boundary. Final None overrides explicit status
+to 204; 204/205/304 require None, with raw SDK responses available for intentional
+empty 201/202 or 205/304. Direct SDK bypass and ordinary static status behavior
+remain unchanged. WorkerCompat and endpoint emission are unchanged: metadata is
+a non-exhaustive fallback description, not inferred dynamic status/header facts.
+
 Request-validation error transport is explicitly opt-in. `ErrorResponseSpec`
 is a formatter value; `ValidationErrorResponse` declares a fixed status/media
 and optional Pydantic error model. Only request-schema origins are eligible,

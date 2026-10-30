@@ -16,6 +16,7 @@ from typing import Any
 from azure.functions import HttpResponse
 from pydantic import BaseModel, TypeAdapter
 
+from ._response_transport import build_response, response_status
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
     AdapterValidationError,
@@ -28,7 +29,7 @@ from .errors import (
     UnsupportedMediaTypeError,
     format_error_response,
 )
-from .responses import ValidationErrorResponse
+from .responses import ResponseSpec, ValidationErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -364,22 +365,32 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     if isinstance(result, HttpResponse):
         return result
 
-    if result is None and config.response_model is None:
-        return HttpResponse(status_code=204)
+    try:
+        envelope = isinstance(result, ResponseSpec)
+        status = config.success_status_code
+        headers = None
+        if envelope:
+            status = response_status(status if result.status_code is None else result.status_code)
+            headers = result.headers
+            result = result.content
+            if isinstance(result, (ResponseSpec, HttpResponse)):
+                raise ValueError("response envelope content must not be another response")
 
-    # Validate and serialize response
-    if config.response_model is not None:
-        try:
+        if config.response_model is not None:
             validated_result = config.adapter.validate_response(
                 result, config.response_model, type_adapter=config.response_type_adapter
             )
-        except Exception as e:
-            return _format_error(e, 500, config)
-
+        else:
+            validated_result = result
         if validated_result is None:
+            if envelope:
+                return build_response(None, 204, None, headers)
             return HttpResponse(status_code=204)
 
-        try:
+        if envelope and status in (204, 205, 304):
+            raise ValueError("body-less response statuses require None content")
+
+        if config.response_model is not None:
             content, content_type = config.adapter.serialize_response(
                 validated_result,
                 config.response_model,
@@ -388,18 +399,10 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
                 exclude_none=config.response_exclude_none,
                 exclude_unset=config.response_exclude_unset,
             )
-        except Exception as e:
-            return _format_error(e, 500, config)
-
-        return HttpResponse(
-            body=content,
-            status_code=config.success_status_code,
-            headers={"Content-Type": content_type},
-        )
-
-    # No response model, serialize directly
-    try:
-        content, content_type = config.adapter.serialize(result)
+        else:
+            content, content_type = config.adapter.serialize(validated_result)
+        if envelope:
+            return build_response(content, status, content_type, headers)
     except Exception as e:
         return _format_error(e, 500, config)
 

@@ -9,6 +9,7 @@ from azure_functions_validation import (
     AggregatedValidationError,
     ErrorFormatter,
     ErrorResponseSpec,
+    ResponseSpec,
     ValidationErrorResponse,
     HttpError,
     MalformedRequestError,
@@ -227,6 +228,24 @@ def create_task(req: func.HttpRequest, body: CreateTaskRequest) -> dict[str, str
 !!! warning "Conflict rule"
     `request_model` cannot be combined with `body`, `query`, `path`, or `headers`.
     The decorator raises `ValueError` at import time if combined.
+
+## `ResponseSpec[T]`
+
+`ResponseSpec(*, content: T, status_code: int | None = None,
+headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None)` is a frozen,
+slotted, keyword-only dataclass exported at package root and in
+`azure_functions_validation.responses`. Construction only stores values; runtime
+transport checks occur inside protected response processing. It has no
+`media_type`: content uses the configured adapter's normal model validation and
+model-aware serialization, or `serialize` without a model.
+
+Omitted status inherits the decorator default. Integer 200–599 statuses accept
+`HTTPStatus` but reject bool. Final `None` **overrides explicit status to 204**;
+204/205/304 reject non-None content. Use raw `HttpResponse` for empty 201/202 or
+205/304. Headers use the same policy as `ErrorResponseSpec`, with matching
+`Content-Type` only for an existing serialized body. Nested envelopes/SDK responses
+are invalid. Violations produce formatted 500; direct SDK returns remain an
+identity-preserving bypass. Metadata is a non-exhaustive fallback description.
 
 ## `ResponseValidationError`
 
