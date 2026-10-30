@@ -20,6 +20,9 @@ private directory and dynamically selected loopback ports, never shared services
 It checks default request/context binding, custom `trigger_arg_name`, typed body
 injection, success serialization without subclass-only fields, malformed JSON 400,
 invalid-model 422 and sanitized invalid-response 500.
+The fixed-error route proves 400 `application/problem+json`, a preserved custom
+header and real `func.Context` passthrough on success. An invalid rich error
+response must produce the exact sanitized 500 JSON envelope without secret data.
 Sync/async scalar-query routes additionally prove custom request and real
 `func.Context` binding, a validated default, constrained-query `422` locations,
 and ordered repeated-list input. Native queue output binding registration and
