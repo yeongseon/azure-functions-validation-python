@@ -161,7 +161,53 @@ Content-Type: application/json
 - How to preserve validation while adapting API response contracts
 - Why per-handler formatter scope is useful for gradual rollout
 
-## Related docs
+## RFC 9457 Problem Details
+
+The runnable example also registers `POST /api/problem-comments`. It returns
+a dictionary from its formatter and declares the transport separately:
+
+```python
+class ProblemDetails(BaseModel):
+    type: str
+    title: str
+    status: int
+    detail: str
+    errors: list[dict[str, object]] | None = None
+
+
+def problem_details(exc: Exception, status_code: int) -> dict[str, object]:
+    if status_code != 422:
+        return {"title": str(exc), "status": status_code}
+    return {
+        "type": "https://example.com/problems/validation",
+        "title": "Invalid request",
+        "status": 400,
+        "detail": "Correct the invalid request fields and try again.",
+        "errors": exc.errors if isinstance(exc, AdapterValidationError) else None,
+    }
+
+
+@validate_http(
+    body=CommentRequest,
+    error_formatter=problem_details,
+    validation_error_response=ValidationErrorResponse(
+        status_code=400,
+        media_type="application/problem+json",
+        response_model=ProblemDetails,
+    ),
+)
+def create_problem_comment(req: func.HttpRequest, body: CommentRequest) -> dict[str, str]:
+    return {"text": body.text, "status": "accepted"}
+```
+
+Import `AdapterValidationError` and `ValidationErrorResponse` from the package.
+The formatter receives 422, but schema failures return 400 Problem Details.
+Malformed JSON remains 400 `application/json`, so metadata v2 describes both
+media types. Handler and server failures cannot use rich error transport.
+Returning an invalid error model produces sanitized 500, never a second request
+validation failure. The default `/comments` example remains unchanged.
+
+## Further reading
 
 - [Configuration](../configuration.md)
 - [API Reference](../api.md)

@@ -57,6 +57,17 @@ indexing boundary, not a universal decoration-time guarantee.
 
 ## Change Discipline
 
+Request-validation error transport is explicitly opt-in. `ErrorResponseSpec`
+is a formatter value; `ValidationErrorResponse` declares a fixed status/media
+and optional Pydantic error model. Only request-schema origins are eligible,
+not numeric 422 or the shared validation exception class. Transport validation
+is private and serialization-independent, preserving separate cookie fields.
+Error model serialization follows the declared type to filter subclass fields.
+Invalid formatter output fails directly to sanitized 500 without recursion.
+Fixed contracts emit endpoint v2 content maps; defaults remain v1. Dynamic
+formatters omit fabricated request-error schemas. No OpenAPI runtime import or
+adapter protocol expansion is involved.
+
 - Validation semantics must be covered by regression tests.
 - Error payload changes are user-facing behavior changes.
 - Experimental APIs must be clearly labeled in code and docs.

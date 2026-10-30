@@ -95,6 +95,13 @@ Consumers validating responses must allow unknown/additional properties. Custom
 
 ## Compatibility
 
+Request-schema failures may opt into 400–499 and a JSON application media type
+through `ValidationErrorResponse` or formatter `ErrorResponseSpec` results.
+The default 422 envelope is unchanged. Fixed contracts can validate/filter an
+error model and publish endpoint v2 metadata; dynamic formatter schemas are not
+guessed. Malformed input, body policies, handler errors and server failures
+retain their original classification. Invalid formatter transport fails closed.
+
 | Dependency | Supported versions |
 |---|---|
 | Python | 3.11-3.14 (`>=3.11,<3.15`) |
