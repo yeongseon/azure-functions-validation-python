@@ -1,14 +1,20 @@
 """Explicit scalar query declaration and request contracts."""
 
 from collections.abc import Callable
+from datetime import date
+from enum import StrEnum
 import inspect
+import json
 from typing import Annotated, Any
+from urllib.parse import parse_qsl
+from uuid import UUID
 
 import azure.functions as func
-from pydantic import AliasChoices, AliasPath, BaseModel, Field, ValidationError
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, PlainSerializer, ValidationError
 from pydantic.fields import FieldInfo
 import pytest
 
+from azure_functions_validation import PydanticAdapter, validate_http
 from azure_functions_validation._query_params import build_query_params
 
 
@@ -152,3 +158,261 @@ def test_declaration_metadata_is_copied() -> None:
     field.alias = "changed"
     assert getattr(model.model_validate({"page-size": "2"}), "page") == 2
     assert inspect.signature(_handler).parameters["page"].default is inspect.Parameter.empty
+
+
+def _request(query: str = "", **options: Any) -> func.HttpRequest:
+    return func.HttpRequest(
+        method="GET",
+        url=f"http://localhost/?{query}",
+        params=dict(parse_qsl(query, keep_blank_values=True)),
+        body=options.pop("body", b""),
+        **options,
+    )
+
+
+@pytest.mark.parametrize(
+    ("annotation", "query", "status", "expected"),
+    [
+        (int, "", 422, None),
+        (int | None, "", 422, None),
+        (int, "page=2", 200, 2),
+        (Annotated[int, Field(ge=1)], "page=0", 422, None),
+        (int, "page=", 422, None),
+        (str, "page=", 200, ""),
+        (int | None, "page=null", 422, None),
+        (list[str], "page=a", 200, ["a"]),
+        (list[str], "page=a&page=b", 200, ["a", "b"]),
+        (int, "page=1&page=2", 422, None),
+        (int | list[int], "page=2", 200, 2),
+        (int | list[int], "page=2&page=3", 200, [2, 3]),
+        (Annotated[int, Field(alias="page-size")], "page-size=2", 200, 2),
+        (Annotated[int, Field(validation_alias="page-size")], "page-size=2", 200, 2),
+        (Annotated[int, Field(serialization_alias="page-size")], "page=2", 200, 2),
+        (Annotated[int, Field(alias="page-size")], "page=2", 422, None),
+        (int, "page=2&extra=ignored", 200, 2),
+    ],
+    ids=[
+        "missing-required-http",
+        "nullable-required-http",
+        "integer-injection",
+        "constraint",
+        "blank-integer",
+        "blank-string",
+        "textual-null",
+        "singleton-list",
+        "repeated-list",
+        "repeated-scalar",
+        "scalar-or-list-single",
+        "scalar-or-list-repeated",
+        "alias",
+        "validation-alias",
+        "serialization-alias-only",
+        "alias-disables-name",
+        "unknown-key",
+    ],
+)
+def test_query_behavior_table(annotation: Any, query: str, status: int, expected: Any) -> None:
+    @validate_http(query_params={"page": annotation})
+    def handler(req: func.HttpRequest, *, page: Any) -> dict[str, Any]:
+        return {"value": page}
+
+    response = handler(_request(query))
+    assert response.status_code == status
+    payload = json.loads(response.get_body())
+    if status == 200:
+        assert payload == {"value": expected}
+    else:
+        wire_name = "page-size" if "alias" in str(annotation) else "page"
+        assert payload["detail"][0]["loc"] == ["query", wire_name]
+
+
+@pytest.mark.parametrize("declarations", [None, {}], ids=["no-declaration", "empty-mapping"])
+def test_empty_declaration_preserves_worker_signature(declarations: Any) -> None:
+    wrapped = validate_http(query_params=declarations)(_handler)
+    assert set(inspect.signature(wrapped).parameters) == {"req", "page"}
+
+
+def test_query_model_and_nonempty_shorthand_are_exclusive() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        validate_http(query=BaseModel, query_params={"page": int})
+
+
+def test_empty_shorthand_leaves_query_model_unchanged() -> None:
+    class Query(BaseModel):
+        page: int
+
+    @validate_http(query=Query, query_params={})
+    def handler(req: func.HttpRequest, query: Query) -> dict[str, int]:
+        return {"page": query.page}
+
+    assert json.loads(handler(_request("page=3")).get_body()) == {"page": 3}
+
+
+class _CustomAdapter(PydanticAdapter):
+    pass
+
+
+@pytest.mark.parametrize(
+    "adapter", [_CustomAdapter(), object()], ids=["subclass", "foreign-adapter"]
+)
+def test_custom_adapter_rejected_for_shorthand(adapter: Any) -> None:
+    with pytest.raises(TypeError, match="exact PydanticAdapter"):
+        validate_http(query_params={"page": int}, adapter=adapter)
+
+
+def test_exact_adapter_supported_and_request_value_wins() -> None:
+    @validate_http(query_params={"page": int}, adapter=PydanticAdapter())
+    def handler(req: func.HttpRequest, *, page: int) -> dict[str, int]:
+        return {"page": page}
+
+    assert json.loads(handler(_request("page=2"), page=99).get_body()) == {"page": 2}
+
+
+@pytest.mark.parametrize(
+    "default", ["3", "invalid"], ids=["validated-handler-default", "invalid-default"]
+)
+def test_http_handler_defaults(default: Any) -> None:
+    @validate_http(query_params={"page": int})
+    def handler(req: func.HttpRequest, *, page: Any = default) -> dict[str, Any]:
+        return {"page": page}
+
+    response = handler(_request())
+    assert response.status_code == (200 if default == "3" else 422)
+    if default == "3":
+        assert json.loads(response.get_body()) == {"page": 3}
+    else:
+        assert json.loads(response.get_body())["detail"][0]["loc"] == ["query", "page"]
+
+
+def test_annotated_default_used_without_handler_default() -> None:
+    @validate_http(query_params={"page": Annotated[int, Field(default="4")]})
+    def handler(req: func.HttpRequest, *, page: int) -> dict[str, int]:
+        return {"page": page}
+
+    assert json.loads(handler(_request()).get_body()) == {"page": 4}
+
+
+def test_factory_runs_per_request_and_model_is_built_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def factory() -> int:
+        calls.append(1)
+        return len(calls)
+
+    @validate_http(query_params={"page": Annotated[int, Field(default_factory=factory)]})
+    def handler(req: func.HttpRequest, *, page: int) -> dict[str, int]:
+        return {"page": page}
+
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("model creation must not occur per request")
+
+    monkeypatch.setattr("azure_functions_validation._query_params.create_model", forbidden)
+    assert calls == []
+    assert json.loads(handler(_request()).get_body()) == {"page": 1}
+    assert json.loads(handler(_request()).get_body()) == {"page": 2}
+
+
+class _Choice(StrEnum):
+    FIRST = "first"
+
+
+def test_python_typed_values_reach_handler_without_serialization() -> None:
+    @validate_http(
+        query_params={
+            "day": Annotated[date, PlainSerializer(lambda value: "serialized")],
+            "identifier": UUID,
+            "choice": _Choice,
+        }
+    )
+    def handler(
+        req: func.HttpRequest, *, day: date, identifier: UUID, choice: _Choice
+    ) -> dict[str, bool]:
+        return {
+            "typed": isinstance(day, date)
+            and isinstance(identifier, UUID)
+            and choice is _Choice.FIRST
+        }
+
+    response = handler(
+        _request("day=2026-10-30&identifier=12345678-1234-5678-1234-567812345678&choice=first")
+    )
+    assert json.loads(response.get_body()) == {"typed": True}
+
+
+@pytest.mark.anyio
+async def test_async_handler_uses_same_injection_path() -> None:
+    @validate_http(query_params={"page": int})
+    async def handler(req: func.HttpRequest, *, page: int) -> dict[str, int]:
+        return {"page": page}
+
+    response = await handler(_request("page=2"))
+    assert json.loads(response.get_body()) == {"page": 2}
+
+
+@pytest.mark.parametrize("aggregate", [False, True], ids=["fail-fast", "aggregation"])
+def test_source_order_with_other_models(aggregate: bool) -> None:
+    class Input(BaseModel):
+        value: int
+
+    @validate_http(
+        body=Input,
+        query_params={"page": int},
+        path=Input,
+        headers=Input,
+        aggregate_validation_errors=aggregate,
+    )
+    def handler(req: func.HttpRequest, *, page: int) -> None:
+        pytest.fail("invalid inputs must not invoke handler")
+
+    response = handler(_request("page=bad", body=b"{}", route_params={}, headers={}))
+    assert response.status_code == 422
+    locations = [entry["loc"] for entry in json.loads(response.get_body())["detail"]]
+    assert locations == (
+        [["body", "value"], ["query", "page"], ["path", "value"], ["headers", "value"]]
+        if aggregate
+        else [["body", "value"]]
+    )
+
+
+def test_mapping_is_copied_when_decorator_created() -> None:
+    declarations = {"page": int}
+    decorate = validate_http(query_params=declarations)
+    declarations.clear()
+    handler = decorate(_handler)
+    assert handler(_request()).status_code == 422
+
+
+def test_invalid_mapping_type_rejected() -> None:
+    invalid: Any = 3
+    with pytest.raises(TypeError, match="mapping"):
+        validate_http(query_params=invalid)
+
+
+@pytest.mark.parametrize(
+    "name", ["_private", "model_dump"], ids=["private-name", "model-attribute"]
+)
+def test_unrepresentable_field_name_rejected(name: str) -> None:
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    setattr(
+        handler,
+        "__signature__",
+        inspect.Signature(
+            [
+                inspect.Parameter("req", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+                inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY),
+            ]
+        ),
+    )
+    with pytest.raises(ValueError, match="field name"):
+        build_query_params(handler, {name: int}, "req")
+
+
+def test_unannotated_declared_parameter_supported() -> None:
+    def handler(req: func.HttpRequest, *, page: Any) -> dict[str, Any]:
+        return {"page": page}
+
+    handler.__annotations__.pop("page")
+    wrapped = validate_http(query_params={"page": int})(handler)
+    assert json.loads(wrapped(_request("page=2")).get_body()) == {"page": 2}

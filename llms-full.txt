@@ -40,6 +40,7 @@ def validate_http(
     *,
     body: Any = None,
     query: Any = None,
+    query_params: Mapping[str, Any] | None = None,
     path: Any = None,
     headers: Any = None,
     request_model: Any = None,

@@ -173,7 +173,7 @@ def _attach_defs_if_ref(
 def _build_parameters(model: type[BaseModel], location: str) -> list[dict[str, Any]]:
     """Build OpenAPI parameter objects from a query/path/header model.
 
-    Parameter ``name`` uses the field's serialization alias (``by_alias=True``)
+    Parameter ``name`` uses the field's inbound validation alias (``by_alias=True``)
     so it matches the wire contract. ``path`` parameters are always required.
     """
     schema = _model_schema(model, "validation")
@@ -215,11 +215,13 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
 
     parameters: list[dict[str, Any]] = []
     has_request_model = False
-    for model, location in (
+    sources: tuple[tuple[Any, str], ...] = (
         (config.query, "query"),
+        (getattr(config, "query_params_model", None), "query"),
         (config.path, "path"),
         (config.headers, "header"),
-    ):
+    )
+    for model, location in sources:
         if _is_model_type(model):
             has_request_model = True
             parameters.extend(_build_parameters(model, location))
