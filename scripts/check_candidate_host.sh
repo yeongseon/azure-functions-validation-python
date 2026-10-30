@@ -60,6 +60,23 @@ probe() {
   ! grep -q 'must not leak' "$output/response.json" || return 1
   status=$(curl --silent -o "$output/scalar-default.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-sync")
   [ "$status" = 200 ] || return 1
+  status=$(curl --silent -D "$output/envelope.headers" -o "$output/envelope.json" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -d '{"name":"created"}' "http://127.0.0.1:$port/api/envelope")
+  [ "$status" = 201 ] || return 1
+  grep -qi 'Location: /api/envelope/1' "$output/envelope.headers" || return 1
+  ! grep -qi 'secret\|envelope-private' "$output/envelope.json" || return 1
+  status=$(curl --silent -D "$output/envelope-async.headers" -o "$output/envelope-async.json" -w '%{http_code}' \
+    "http://127.0.0.1:$port/api/envelope-async")
+  [ "$status" = 201 ] || return 1
+  grep -qi 'Location: /api/envelope/2' "$output/envelope-async.headers" || return 1
+  [ "$(grep -ic '^Set-Cookie:' "$output/envelope-async.headers")" = 2 ] || return 1
+  grep -qi '^Set-Cookie: first=1' "$output/envelope-async.headers" || return 1
+  grep -qi '^Set-Cookie: second=2' "$output/envelope-async.headers" || return 1
+  ! grep -qi 'secret\|envelope-private' "$output/envelope-async.json" || return 1
+  status=$(curl --silent -D "$output/envelope-empty.headers" -o "$output/envelope-empty.body" -w '%{http_code}' \
+    "http://127.0.0.1:$port/api/envelope-empty")
+  [ "$status" = 204 ] && [ ! -s "$output/envelope-empty.body" ] || return 1
+  grep -qi 'X-Empty: yes' "$output/envelope-empty.headers" || return 1
   status=$(curl --silent -D "$output/problem.headers" -o "$output/problem.json" -w '%{http_code}' \
     -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:$port/api/problem")
   [ "$status" = 400 ] || return 1
@@ -82,6 +99,8 @@ import json
 from pathlib import Path
 import sys
 output = Path(sys.argv[1])
+assert json.loads((output / 'envelope.json').read_text()) == {'function_name': 'created'}
+assert json.loads((output / 'envelope-async.json').read_text()) == {'function_name': 'envelope_async'}
 assert json.loads((output / 'problem.json').read_text()) == {'title': 'Invalid request', 'status': 400}
 assert json.loads((output / 'problem-valid.json').read_text()) == {'function_name': 'problem', 'name': 'candidate'}
 assert json.loads((output / 'invalid-error.json').read_text()) == {'detail': [{'loc': [], 'msg': 'Internal Server Error', 'type': 'server_error'}], 'error_format_version': 1}
