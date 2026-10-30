@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from copy import deepcopy
+import functools
 import inspect
 import types
 from typing import Any, get_args, get_origin, get_type_hints
@@ -39,6 +40,12 @@ def _flat_schema(schema: dict[str, Any], defs: dict[str, Any], *, array: bool = 
     return schema.get("type") in {"string", "integer", "number", "boolean", "null"}
 
 
+def _underlying_function(func: Callable[..., Any]) -> Callable[..., Any]:
+    while isinstance(func, functools.partial):
+        func = func.func
+    return func
+
+
 def _wire_name(field: FieldInfo, name: str) -> str:
     if isinstance(field.validation_alias, str):
         return field.validation_alias
@@ -50,14 +57,18 @@ def _reject_normalization_collisions(model: type[BaseModel]) -> None:
 
     The query parser wraps a value in a list for every name a list field could be read
     under (validation alias, alias and Python name), not only the one it is read under.
-    Another field that reads one of those keys would be handed a list.
+    Another field that reads one of those keys would be handed a list, which is only
+    what a list field of its own expects.
     """
     fields = model.model_fields
     for name, field in fields.items():
         if not _is_unambiguous_list_annotation(field.annotation):
             continue
-        claimed = {_wire_name(other, other_name) for other_name, other in fields.items()}
-        claimed.discard(_wire_name(field, name))
+        claimed = {
+            _wire_name(other, other_name)
+            for other_name, other in fields.items()
+            if other_name != name and not _is_unambiguous_list_annotation(other.annotation)
+        }
         for candidate in _inbound_candidates(field, name):
             if candidate in claimed:
                 raise ValueError(f"query_params {name!r}: ambiguous inbound alias {candidate!r}")
@@ -72,6 +83,10 @@ def build_query_params(
     unrelated application-injection annotation cannot poison query declarations.
     """
     parameters = inspect.signature(func).parameters
+    target = _underlying_function(func)
+    namespace = getattr(target, "__globals__", None)
+    if namespace is None:
+        raise ValueError("query_params requires a Python function or a partial of one")
     fields: dict[str, Any] = {}
     inbound_names: set[str] = set()
     for name, declaration in declarations.items():
@@ -87,7 +102,7 @@ def build_query_params(
                 f"query_params {name!r}: put Field metadata in Annotated, not the default"
             )
 
-        probe = types.FunctionType((lambda: None).__code__, func.__globals__)
+        probe = types.FunctionType((lambda: None).__code__, namespace)
         probe.__annotations__ = {"declaration": declaration}
         if parameter.annotation is not inspect.Parameter.empty:
             probe.__annotations__["handler"] = parameter.annotation
@@ -126,17 +141,17 @@ def build_query_params(
 
     try:
         model = create_model(
-            f"{func.__name__}QueryParams",
+            f"{target.__name__}QueryParams",
             __config__=ConfigDict(
                 extra="ignore",
                 validate_by_alias=True,
                 validate_by_name=False,
                 validate_default=True,
             ),
-            __module__=func.__module__,
+            __module__=target.__module__,
             **fields,
         )
-        model.model_rebuild(_types_namespace=func.__globals__)
+        model.model_rebuild(_types_namespace=namespace)
         schema = model.model_json_schema(mode="validation")
     except (TypeError, ValueError, NameError, PydanticUserError) as exc:
         raise ValueError("query_params requires supported flat Pydantic annotations") from exc

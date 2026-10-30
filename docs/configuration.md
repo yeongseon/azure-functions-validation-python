@@ -200,8 +200,12 @@ keys are ignored. Invalid values/defaults return normal `422` errors with
 `Field(alias="page-size")` or a string `validation_alias` changes the inbound
 wire name, not the injected Python name. A serialization-only alias does not
 change input. Aliased fields do not also accept their Python names.
-`AliasChoices`, `AliasPath`, duplicate wire aliases, and aliases matching another
-declared Python name raise decoration-time `ValueError`.
+`AliasChoices`, `AliasPath`, an empty inbound name, duplicate wire aliases, and
+aliases matching another declared Python name raise decoration-time `ValueError`.
+The query parser also wraps a value in a list under every name a list field could
+be read as (its validation alias, alias and Python name), so a list field whose
+inactive alias or Python name equals the inbound name of a parameter that is not a
+list raises `ValueError` too; two list fields may share such a name.
 
 Nonempty declarations cannot accompany `query=Model` (`ValueError`). Omit
 `adapter` or pass an exact `PydanticAdapter` instance; other adapters, including

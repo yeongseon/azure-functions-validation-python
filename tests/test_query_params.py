@@ -160,6 +160,69 @@ def test_list_field_fallback_alias_must_not_shadow_another_parameter() -> None:
         build_query_params(handler, declarations, "req")
 
 
+def test_nonempty_validation_alias_decides_the_inbound_name() -> None:
+    def handler(req: func.HttpRequest, *, a: int, b: int) -> None:
+        pass
+
+    # ``a`` is read as ``shared`` (its validation alias), the same key ``b`` is read as.
+    declarations = {
+        "a": Annotated[int, Field(alias="x", validation_alias="shared")],
+        "b": Annotated[int, Field(alias="shared")],
+    }
+    with pytest.raises(ValueError, match="ambiguous"):
+        build_query_params(handler, declarations, "req")
+
+
+@pytest.mark.parametrize("other", [list[int], list[int] | None], ids=["list", "nullable-list"])
+def test_list_fields_may_share_a_fallback_name_with_another_list_field(other: Any) -> None:
+    @validate_http(
+        query_params={
+            "tags": Annotated[list[str], Field(alias="page-wire", validation_alias="tag-wire")],
+            "page": Annotated[other, Field(alias="page-wire")],
+        }
+    )
+    def handler(req: func.HttpRequest, *, tags: list[str], page: Any) -> dict[str, Any]:
+        return {"tags": tags, "page": page}
+
+    response = handler(
+        func.HttpRequest(
+            method="GET",
+            url="http://x/?tag-wire=a&page-wire=2",
+            params={"tag-wire": "a", "page-wire": "2"},
+            body=b"",
+        )
+    )
+    assert response.status_code == 200
+    assert json.loads(response.get_body()) == {"tags": ["a"], "page": [2]}
+
+
+def test_list_fallback_name_must_not_shadow_a_scalar_or_list_union() -> None:
+    def handler(req: func.HttpRequest, *, tags: list[str], page: Any) -> None:
+        pass
+
+    declarations = {
+        "tags": Annotated[list[str], Field(alias="page", validation_alias="tag")],
+        "page": int | list[int],
+    }
+    with pytest.raises(ValueError, match="ambiguous"):
+        build_query_params(handler, declarations, "req")
+
+
+def test_partial_handler_supports_the_shorthand() -> None:
+    import functools
+
+    def handler(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+        return {"page": page}
+
+    wrapped = validate_http(query_params={"page": Annotated[int, Field(ge=1)]})(
+        functools.partial(handler)
+    )
+    response = wrapped(
+        func.HttpRequest(method="GET", url="/api/x?page=3", params={"page": "3"}, body=b"")
+    )
+    assert json.loads(response.get_body()) == {"page": 3}
+
+
 def test_list_field_with_its_own_alias_coexists_with_a_scalar() -> None:
     @validate_http(
         query_params={
