@@ -1,6 +1,42 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.17.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.16.0...v0.17.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **adapter:** ValidationAdapter gains a new required method, serialize_response(). Existing custom adapter implementations must add it before upgrading; a thin pass-through to serialize() is sufficient for a backend that never configures response_model. Per this pre-1.0 package's compatibility policy, this ships as a minor release.
+
+### Features
+
+* **errors:** allow validation-error status and media type overrides ([#622](https://github.com/yeongseon/azure-functions-validation-python/issues/622)) ([fb6f8b6](https://github.com/yeongseon/azure-functions-validation-python/commit/fb6f8b66e464b98811cd527b756a9ff90658f19c))
+* **query:** add opt-in scalar query parameters without a BaseModel ([#621](https://github.com/yeongseon/azure-functions-validation-python/issues/621)) ([722369c](https://github.com/yeongseon/azure-functions-validation-python/commit/722369ceeda53f5a774cc93febeb2eaacde29133))
+* **response:** support per-return status and headers without bypassing response_model ([#623](https://github.com/yeongseon/azure-functions-validation-python/issues/623)) ([c2a489c](https://github.com/yeongseon/azure-functions-validation-python/commit/c2a489cb7de05a3e768fbb4656d02799ec603406))
+
+
+### Bug Fixes
+
+* **adapter:** honor AliasChoices precedence when multiple header aliases are present ([#563](https://github.com/yeongseon/azure-functions-validation-python/issues/563)) ([62ec67e](https://github.com/yeongseon/azure-functions-validation-python/commit/62ec67e60f44ec0c2accbab1d8384d1b41dfe153)), closes [#562](https://github.com/yeongseon/azure-functions-validation-python/issues/562)
+* **adapter:** honor custom response backends during preparation and serialization ([#553](https://github.com/yeongseon/azure-functions-validation-python/issues/553)) ([6a4e08c](https://github.com/yeongseon/azure-functions-validation-python/commit/6a4e08cb86ea6816782cfb247527d8ea58e917d2))
+* **adapter:** honor validation aliases in query and header normalization ([#555](https://github.com/yeongseon/azure-functions-validation-python/issues/555)) ([9bb5fd3](https://github.com/yeongseon/azure-functions-validation-python/commit/9bb5fd39d3b7aeedf9127e989cc22e709186e237))
+* **adapter:** isolate missing-body error locations between requests ([#557](https://github.com/yeongseon/azure-functions-validation-python/issues/557)) ([cb3e6d1](https://github.com/yeongseon/azure-functions-validation-python/commit/cb3e6d1be7a8d91c1562936f1138729dfe84c45c))
+* **adapter:** return 400 for JSON nested beyond a portable depth limit ([#583](https://github.com/yeongseon/azure-functions-validation-python/issues/583)) ([a8856ad](https://github.com/yeongseon/azure-functions-validation-python/commit/a8856ad481f3ed85442a2d1e3024a778a5e2fce8))
+* **ci:** stop printing WEBSITE_RUN_FROM_PACKAGE verbatim when it carries a package URL/SAS token ([#565](https://github.com/yeongseon/azure-functions-validation-python/issues/565)) ([1bc5b45](https://github.com/yeongseon/azure-functions-validation-python/commit/1bc5b454aa70d36fe0a0e4c3508fe63b1881904c)), closes [#564](https://github.com/yeongseon/azure-functions-validation-python/issues/564)
+* diagnose mismatched injected model parameters early ([#609](https://github.com/yeongseon/azure-functions-validation-python/issues/609)) ([236f5c7](https://github.com/yeongseon/azure-functions-validation-python/commit/236f5c737619afe5f5864244d06cf35b3ec919df))
+* **metadata:** emit endpoint contracts for supported generic model annotations ([#550](https://github.com/yeongseon/azure-functions-validation-python/issues/550)) ([78fb588](https://github.com/yeongseon/azure-functions-validation-python/commit/78fb5889e6386bdda46a03e932762596ac165e44))
+* **pipeline:** contain unexpected adapter serialization and formatter faults ([#556](https://github.com/yeongseon/azure-functions-validation-python/issues/556)) ([7a31529](https://github.com/yeongseon/azure-functions-validation-python/commit/7a31529838446923d38575654bb29cc47865e89f))
+* **query:** normalize singleton values for nullable list fields ([#554](https://github.com/yeongseon/azure-functions-validation-python/issues/554)) ([42a1c96](https://github.com/yeongseon/azure-functions-validation-python/commit/42a1c96f13ae930f575d256f4201fad85b945cda))
+* return sanitized 400 for oversized JSON integers ([#591](https://github.com/yeongseon/azure-functions-validation-python/issues/591)) ([654f502](https://github.com/yeongseon/azure-functions-validation-python/commit/654f5022adba875ec35f91280a7b1404aa3063ff))
+* **worker:** preserve custom http trigger parameter names ([#552](https://github.com/yeongseon/azure-functions-validation-python/issues/552)) ([a6c0d2e](https://github.com/yeongseon/azure-functions-validation-python/commit/a6c0d2e58e1e055038cff86f69d1039ccfd327b0))
+
+
+### Performance
+
+* avoid importing Pydantic v1 for v2 handlers ([#604](https://github.com/yeongseon/azure-functions-validation-python/issues/604)) ([e0ec300](https://github.com/yeongseon/azure-functions-validation-python/commit/e0ec30008dd7af3ef98dffa63d1d5a4f86645cec))
+* reject legacy models without eagerly importing pydantic v1 ([e0ec300](https://github.com/yeongseon/azure-functions-validation-python/commit/e0ec30008dd7af3ef98dffa63d1d5a4f86645cec))
+* reuse decorator-owned static body TypeAdapters ([#611](https://github.com/yeongseon/azure-functions-validation-python/issues/611)) ([206720a](https://github.com/yeongseon/azure-functions-validation-python/commit/206720ad4d26a1d10122efe4fdef29c32ad755dd))
+
 ## [0.16.0](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.15.0...v0.16.0) (2026-10-13)
 
 
