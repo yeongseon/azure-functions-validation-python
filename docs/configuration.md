@@ -397,9 +397,9 @@ responses it receives a public `InternalServerError` containing only
 Declare a fixed request-schema error contract with
 `ValidationErrorResponse(status_code=400, media_type="application/problem+json", response_model=Problem)`.
 The status must be an integer 400–499 (not a boolean). Media types are bare
-`application/json` or `application/<subtype>+json` (the subtype may contain further
-`+`, as in `application/vnd.acme+problem+json`), normalized to lowercase;
-parameters and wildcards are rejected. Non-default media or an error model
+`application/json` or `application/<subtype>+json` (an ASCII HTTP-token subtype that may
+contain further `+`, as in `application/vnd.acme+problem+json`), normalized to lowercase;
+non-ASCII text, parameters and wildcards are rejected. Non-default media or an error model
 requires `error_formatter`. A status-only declaration can reuse the default body.
 
 The synchronous formatter still receives the original classified status `422`.

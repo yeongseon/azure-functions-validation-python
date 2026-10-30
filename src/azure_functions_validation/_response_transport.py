@@ -40,6 +40,7 @@ def json_media_type(media_type: str) -> str:
     """Normalize a bare JSON application media type without accepting parameters."""
     if (
         not isinstance(media_type, str)
+        or not media_type.isascii()
         or "*" in media_type
         or not _JSON_MEDIA.fullmatch(media_type.lower())
     ):

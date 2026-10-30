@@ -47,6 +47,8 @@ def test_json_media(media: str) -> None:
         "application/json; charset=utf-8",
         " application/json",
         "application/json\n",
+        "application/a\u212a+json",
+        "application/caf\u00e9+json",
     ],
 )
 def test_invalid_media(media: Any) -> None:
