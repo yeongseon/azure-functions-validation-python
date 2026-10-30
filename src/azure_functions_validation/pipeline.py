@@ -14,7 +14,7 @@ import logging
 from typing import Any
 
 from azure.functions import HttpResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
@@ -28,6 +28,7 @@ from .errors import (
     UnsupportedMediaTypeError,
     format_error_response,
 )
+from .responses import ValidationErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +63,17 @@ class PipelineConfig:
     aggregate_validation_errors: bool = False
     query_params_model: type[BaseModel] | None = None
     query_param_names: tuple[str, ...] = ()
+    validation_error_response: ValidationErrorResponse | None = None
+    error_type_adapter: TypeAdapter[Any] | None = None
 
 
-def _format_error(exception: Exception, status_code: int, config: PipelineConfig) -> HttpResponse:
+def _format_error(
+    exception: Exception,
+    status_code: int,
+    config: PipelineConfig,
+    *,
+    request_validation: bool = False,
+) -> HttpResponse:
     return format_error_response(
         exception,
         status_code,
@@ -72,6 +81,9 @@ def _format_error(exception: Exception, status_code: int, config: PipelineConfig
         config.error_formatter,
         expose_internal_errors=config.expose_internal_errors,
         handler_name=config.handler_name,
+        request_validation=request_validation,
+        validation_error_response=config.validation_error_response,
+        error_type_adapter=config.error_type_adapter,
     )
 
 
@@ -305,7 +317,7 @@ def _parse_inputs(
             return _format_error(e, 415, config)
         except AdapterValidationError as e:
             if not config.aggregate_validation_errors:
-                return _format_error(e, 422, config)
+                return _format_error(e, 422, config, request_validation=True)
             validation_failed = True
             validation_errors.extend(e.errors)
             continue
@@ -321,7 +333,9 @@ def _parse_inputs(
         inject(name, parsed, config, parsed_inputs)
 
     if validation_failed:
-        return _format_error(AggregatedValidationError(validation_errors), 422, config)
+        return _format_error(
+            AggregatedValidationError(validation_errors), 422, config, request_validation=True
+        )
 
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":

@@ -1,6 +1,7 @@
 """Tests for the errors module."""
 
 import json
+from typing import Any
 from unittest.mock import Mock
 
 from azure.functions import HttpResponse
@@ -318,3 +319,40 @@ class TestSerializationError:
 
         with pytest.raises(SerializationError, match="Cannot serialize type Foo"):
             raise SerializationError("Foo")
+
+
+@pytest.mark.parametrize("rich", [False, True])
+def test_recursive_formatter_content_fails_closed(rich: bool) -> None:
+    from azure_functions_validation import ErrorResponseSpec, PydanticAdapter
+
+    content: dict[str, Any] = {}
+    content["cycle"] = content
+    calls = []
+
+    def formatter(exc: Exception, status: int) -> dict[str, Any] | ErrorResponseSpec:
+        calls.append(status)
+        return ErrorResponseSpec(content=content) if rich else content
+
+    response = format_error_response(
+        ValueError("secret"), 422, PydanticAdapter(), formatter, request_validation=True
+    )
+    assert response.status_code == 500
+    assert calls == [422]
+    assert b"secret" not in response.get_body()
+
+
+def test_async_formatter_is_not_awaited_and_fails_closed() -> None:
+    from azure_functions_validation import PydanticAdapter
+
+    async def formatter(exc: Exception, status: int) -> dict[str, Any]:
+        return {"secret": "hidden"}
+
+    coroutine = formatter(ValueError(), 422)
+    invalid_result: Any = coroutine
+    try:
+        response = format_error_response(
+            ValueError(), 422, PydanticAdapter(), lambda exc, status: invalid_result
+        )  # deliberately invalid callback
+        assert response.status_code == 500
+    finally:
+        coroutine.close()

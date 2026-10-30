@@ -47,6 +47,7 @@ def validate_http(
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
+    validation_error_response: ValidationErrorResponse | None = None,
     expose_internal_errors: bool = False,
     status_code: int = 200,
     legacy_loc: bool = False,
@@ -68,7 +69,8 @@ def validate_http(
         request_model: Deprecated shorthand alias for body. Use body instead.
         response_model: Pydantic model or TypeAdapter-compatible type for response validation.
         adapter: Custom validation adapter (defaults to PydanticAdapter).
-        error_formatter: Per-handler custom error formatter.
+  error_formatter: Per-handler custom error formatter.
+  validation_error_response: Fixed request-schema status/media/model; formatter receives 422.
         expose_internal_errors: Unsafe opt-in to pass original 5xx exceptions.
         status_code: HTTP status code for successful responses (default 200).
         legacy_loc: Omit the leading input source from error locations when true.

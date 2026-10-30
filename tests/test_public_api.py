@@ -36,6 +36,8 @@ class TestAPISurface:
             "ResponseValidationError",
             "SerializationError",
             "ErrorFormatter",
+            "ErrorResponseSpec",
+            "ValidationErrorResponse",
             "ValidationAdapter",
             "PydanticAdapter",
             "HttpError",
