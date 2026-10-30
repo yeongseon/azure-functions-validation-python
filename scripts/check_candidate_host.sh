@@ -57,7 +57,7 @@ probe() {
   [ "$status" = 422 ] || return 1
   status=$(curl --silent -o "$output/response.json" -w '%{http_code}' "http://127.0.0.1:$port/api/invalid-response")
   [ "$status" = 500 ] || return 1
-  ! grep -q 'must not leak' "$output/response.json"
+  ! grep -q 'must not leak' "$output/response.json" || return 1
   status=$(curl --silent -o "$output/scalar-default.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-sync")
   [ "$status" = 200 ] || return 1
   status=$(curl --silent -o "$output/scalar-invalid.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-sync?page=0")

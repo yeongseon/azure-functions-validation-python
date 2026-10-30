@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.errors import PydanticUserError
 from pydantic.fields import FieldInfo
 
+from .adapter import _inbound_candidates, _is_unambiguous_list_annotation
+
 _RESERVED = frozenset({"context", "http_request", "body", "query", "path", "headers", "req_model"})
 
 
@@ -35,6 +37,30 @@ def _flat_schema(schema: dict[str, Any], defs: dict[str, Any], *, array: bool = 
     if schema.get("type") == "array":
         return array and _flat_schema(schema.get("items", {}), defs, array=False)
     return schema.get("type") in {"string", "integer", "number", "boolean", "null"}
+
+
+def _wire_name(field: FieldInfo, name: str) -> str:
+    if isinstance(field.validation_alias, str):
+        return field.validation_alias
+    return field.alias if field.alias is not None else name
+
+
+def _reject_normalization_collisions(model: type[BaseModel]) -> None:
+    """Reject a list field whose fallback names include another field's inbound name.
+
+    The query parser wraps a value in a list for every name a list field could be read
+    under (validation alias, alias and Python name), not only the one it is read under.
+    Another field that reads one of those keys would be handed a list.
+    """
+    fields = model.model_fields
+    for name, field in fields.items():
+        if not _is_unambiguous_list_annotation(field.annotation):
+            continue
+        claimed = {_wire_name(other, other_name) for other_name, other in fields.items()}
+        claimed.discard(_wire_name(field, name))
+        for candidate in _inbound_candidates(field, name):
+            if candidate in claimed:
+                raise ValueError(f"query_params {name!r}: ambiguous inbound alias {candidate!r}")
 
 
 def build_query_params(
@@ -117,4 +143,5 @@ def build_query_params(
     defs = schema.get("$defs", {})
     if not all(_flat_schema(item, defs) for item in schema["properties"].values()):
         raise ValueError("query_params supports only scalars, scalar unions, and flat lists")
+    _reject_normalization_collisions(model)
     return model, tuple(fields)

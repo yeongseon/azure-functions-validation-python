@@ -147,6 +147,35 @@ def test_duplicate_empty_aliases_rejected() -> None:
         build_query_params(handler, declarations, "req")
 
 
+def test_list_field_fallback_alias_must_not_shadow_another_parameter() -> None:
+    def handler(req: func.HttpRequest, *, tags: list[str], page: int) -> None:
+        pass
+
+    # Only ``tag`` reads the list, but the parser also wraps the inactive alias ``page``.
+    declarations = {
+        "tags": Annotated[list[str], Field(alias="page", validation_alias="tag")],
+        "page": int,
+    }
+    with pytest.raises(ValueError, match="ambiguous"):
+        build_query_params(handler, declarations, "req")
+
+
+def test_list_field_with_its_own_alias_coexists_with_a_scalar() -> None:
+    @validate_http(
+        query_params={
+            "tags": Annotated[list[str], Field(alias="t")],
+            "page": Annotated[int, Field()],
+        }
+    )
+    def handler(req: func.HttpRequest, *, tags: list[str], page: int) -> dict[str, Any]:
+        return {"tags": tags, "page": page}
+
+    response = handler(
+        func.HttpRequest(method="GET", url="/api/x?page=2&t=a&t=b", body=b"", params={"page": "2"})
+    )
+    assert json.loads(response.get_body()) == {"tags": ["a", "b"], "page": 2}
+
+
 def test_unresolved_reference_rejected() -> None:
     with pytest.raises(ValueError, match="resolve"):
         build_query_params(_handler, {"page": "MissingQueryType"}, "req")
