@@ -10,7 +10,7 @@ import re
 from azure.functions import HttpResponse
 
 _TOKEN = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+", re.ASCII)
-_JSON_MEDIA = re.compile(r"application/(?:json|[!#$%&'*\-.^_`|~0-9a-z]+\+json)", re.ASCII)
+_JSON_MEDIA = re.compile(r"application/(?:json|[!#$%&'*+\-.^_`|~0-9a-z]+\+json)", re.ASCII)
 _PROHIBITED = frozenset(
     {
         "content-length",

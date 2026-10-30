@@ -24,7 +24,13 @@ def test_invalid_status(status: Any) -> None:
 
 
 @pytest.mark.parametrize(
-    "media", ["application/json", "APPLICATION/PROBLEM+JSON", "application/vnd.a+json"]
+    "media",
+    [
+        "application/json",
+        "APPLICATION/PROBLEM+JSON",
+        "application/vnd.a+json",
+        "application/vnd.acme+problem+json",
+    ],
 )
 def test_json_media(media: str) -> None:
     assert json_media_type(media) == media.lower()

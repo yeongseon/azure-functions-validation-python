@@ -200,6 +200,61 @@ def test_rich_result_rejected_outside_request_validation(kind: str, expose: bool
     assert b"secret" not in response.get_body()
 
 
+@pytest.mark.parametrize("fixed", [True, False], ids=["fixed", "dynamic"])
+def test_subtype_with_an_additional_plus_is_a_json_media_type(fixed: bool) -> None:
+    media = "application/vnd.acme+problem+json"
+
+    @validate_http(
+        body=Input,
+        error_formatter=lambda exc, status: ErrorResponseSpec(
+            content={"title": "invalid"}, status_code=400, media_type=media
+        ),
+        validation_error_response=(
+            ValidationErrorResponse(status_code=400, media_type=media) if fixed else None
+        ),
+    )
+    def handler(req: HttpRequest) -> None:
+        pytest.fail("handler must not run")
+
+    response = handler(request())
+    assert response.status_code == 400
+    assert response.headers["Content-Type"] == media
+    assert json.loads(response.get_body()) == {"title": "invalid"}
+
+
+@pytest.mark.parametrize("kind", ["oversized", "unsupported-media"])
+def test_rich_result_cannot_downgrade_413_or_415(kind: str) -> None:
+    calls: list[int] = []
+
+    def formatter(exc: Exception, status: int) -> ErrorResponseSpec:
+        calls.append(status)
+        return ErrorResponseSpec(
+            content={"secret": str(exc)}, status_code=400, headers={"X-Leak": "yes"}
+        )
+
+    options: dict[str, Any] = (
+        {"max_body_bytes": 1} if kind == "oversized" else {"require_json_content_type": True}
+    )
+
+    @validate_http(body=Input, error_formatter=formatter, **options)
+    def handler(req: HttpRequest) -> None:
+        pytest.fail("handler must not run")
+
+    response = handler(
+        HttpRequest(
+            "POST",
+            "http://localhost",
+            headers={"Content-Type": "text/plain"} if kind == "unsupported-media" else {},
+            body=b'{"value":1}',
+        )
+    )
+
+    assert response.status_code == 500
+    assert calls == [413 if kind == "oversized" else 415]
+    assert b"secret" not in response.get_body()
+    assert response.headers.get("X-Leak") is None
+
+
 @pytest.mark.parametrize(
     "fixed",
     [
