@@ -105,6 +105,8 @@ Consumers validating responses must allow unknown/additional properties. Custom
 
 - Validate a JSON request body into a typed model
 - Validate query, path, or header models
+- Validate a few scalar/list query inputs with explicit `query_params`
+  annotations and keyword-only handler arguments, without a dedicated BaseModel
 - Validate and serialize a typed response
 - Return structured validation errors for invalid input
 

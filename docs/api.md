@@ -33,6 +33,14 @@ from azure_functions_validation import (
 
 ::: azure_functions_validation.validate_http
 
+`query_params: Mapping[str, Any] | None = None` declares scalar/list Pydantic
+annotations keyed by explicit keyword-only handler arguments. It adds no public
+declaration class. Nonempty declarations exclude `query=Model` and require the
+default or exact `PydanticAdapter`; other adapters raise `TypeError` before any
+request. Configuration errors raise `ValueError`. See
+[scalar-query configuration](configuration.md#query_params) for the complete
+defaults, alias, collision and supported-type contract.
+
 | Response option | Default | Behavior |
 | --- | --- | --- |
 | `response_by_alias` | `True` | Use serialization aliases in validated response JSON and endpoint response metadata. |

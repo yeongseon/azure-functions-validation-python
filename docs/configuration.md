@@ -15,6 +15,7 @@ in production handlers.
 @validate_http(
     body=...,
     query=...,
+    query_params=None,
     path=...,
     headers=...,
     request_model=...,
@@ -38,6 +39,7 @@ Public keyword-only parameters:
 
 - `body`
 - `query`
+- `query_params: Mapping[str, Any] | None = None`
 - `path`
 - `headers`
 - `request_model`
@@ -164,6 +166,66 @@ class QueryModel(BaseModel):
 def list_items(req: func.HttpRequest, query: QueryModel) -> dict[str, int]:
     return {"page": query.page}
 ```
+
+### `query_params`
+
+For a few scalar inputs, declare Pydantic annotations without a dedicated model:
+
+```python
+from typing import Annotated
+
+from pydantic import Field
+
+
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def list_items(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+    return {"page": page}
+```
+
+Mapping keys are Python argument names, each explicitly keyword-only. The
+declaration controls validation; handler annotations are not inferred. A handler
+default is validated and injected when input is absent. Otherwise an `Annotated`
+default/default factory applies, or the input is required (even `int | None`).
+Factories run per request, never while generating metadata. Defaults in both
+places, or `Field(...)` as a handler default, raise `ValueError` at decoration.
+
+Scalars, scalar unions and flat lists are supported, including dates, enums and
+UUIDs as typed Python values. `list[str]` receives one value as a singleton list
+and repeated keys in order. A repeated scalar is rejected, not truncated.
+Scalar-or-list unions retain the existing parser's normalization. Blank input is
+not missing, and `null` is not a special textual null convention. Unknown query
+keys are ignored. Invalid values/defaults return normal `422` errors with
+`loc=["query", wire_name]`; aggregation keeps body, query, path, headers order.
+
+`Field(alias="page-size")` or a string `validation_alias` changes the inbound
+wire name, not the injected Python name. A serialization-only alias does not
+change input. Aliased fields do not also accept their Python names.
+`AliasChoices`, `AliasPath`, an empty inbound name, duplicate wire aliases, and
+aliases matching another declared Python name raise decoration-time `ValueError`.
+The query parser also wraps a value in a list under every name a list field could
+be read as (its validation alias, alias and Python name), so a list field whose
+inactive alias or Python name equals the inbound name of a parameter that is not a
+list raises `ValueError` too; two list fields may share such a name.
+
+Nonempty declarations cannot accompany `query=Model` (`ValueError`). Omit
+`adapter` or pass an exact `PydanticAdapter` instance; other adapters, including
+subclasses, raise `TypeError`. `None` and empty mappings preserve existing
+behavior. Objects/maps/nested models, unresolved references, absent or
+non-keyword-only arguments, and Azure SDK-typed parameters raise `ValueError`.
+References resolve against handler globals, so the handler must be a Python function,
+a bound method or a `functools.partial` of one; a callable object raises `ValueError`.
+Leading-underscore names and `BaseModel` attribute names are unsupported. Reserved
+names are the request parameter, `context`, `http_request`, `body`, `query`, `path`,
+`headers`, and `req_model`. A validated request value wins over an invocation keyword
+argument.
+
+Only declared names are hidden from the worker; real bindings remain visible.
+Supported ordering is SDK binding decorators, outer logging, validation, then
+application/DB injection using the inner wrapper's published signature. Foreign
+metadata namespaces are preserved. Validation cannot see a future outer binding
+named like an ordinary scalar: such a collision must fail worker indexing, and
+is not universally detectable at decoration time. Use `query=Model` for custom
+model policies or richer query structures.
 
 ### `path`
 

@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from azure.functions import HttpResponse
+from pydantic import BaseModel
 
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
@@ -59,6 +60,8 @@ class PipelineConfig:
     max_body_bytes: int | None = None
     require_json_content_type: bool = False
     aggregate_validation_errors: bool = False
+    query_params_model: type[BaseModel] | None = None
+    query_param_names: tuple[str, ...] = ()
 
 
 def _format_error(exception: Exception, status_code: int, config: PipelineConfig) -> HttpResponse:
@@ -213,6 +216,15 @@ def _inject_body(
         parsed_inputs["req_model"] = parsed
 
 
+def _inject_query(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    if config.query_params_model is None:
+        _inject_named(name, parsed, config, parsed_inputs)
+    else:
+        parsed_inputs.update({key: getattr(parsed, key) for key in config.query_param_names})
+
+
 def _header_value(http_request: Any, name: str) -> str | None:
     headers = http_request.headers or {}
     target = name.casefold()
@@ -269,7 +281,12 @@ def _parse_inputs(
         ...,
     ] = (
         ("body", config.body, config.adapter.parse_body, _inject_body),
-        ("query", config.query, config.adapter.parse_query, _inject_named),
+        (
+            "query",
+            config.query_params_model or config.query,
+            config.adapter.parse_query,
+            _inject_query,
+        ),
         ("path", config.path, config.adapter.parse_path, _inject_named),
         ("headers", config.headers, config.adapter.parse_headers, _inject_named),
     )

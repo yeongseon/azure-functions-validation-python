@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import json
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 import azure.functions as func
 import jsonschema
@@ -362,3 +362,33 @@ class TestContainsRef:
     def test_scalar_is_not_a_ref(self) -> None:
         assert _contains_ref("string") is False
         assert _contains_ref(42) is False
+
+
+def test_scalar_query_endpoint_validation_schema() -> None:
+    @validate_http(
+        query_params={
+            "page": Annotated[
+                int, Field(ge=1, validation_alias="page-size", serialization_alias="out")
+            ],
+            "cursor": int | None,
+            "tags": list[str],
+        }
+    )
+    def handler(
+        req: func.HttpRequest, *, cursor: int | None, tags: list[str], page: int = 1
+    ) -> None:
+        pass
+
+    payload = _endpoint_of(handler)
+    _validate(payload)
+    params = {item["name"]: item for item in payload["parameters"]}
+    assert set(params) == {"page-size", "cursor", "tags"}
+    assert params["page-size"]["required"] is False
+    assert params["page-size"]["schema"]["default"] == 1
+    assert params["page-size"]["schema"]["minimum"] == 1
+    assert params["cursor"]["required"] is True
+    assert params["cursor"]["schema"]["anyOf"] == [{"type": "integer"}, {"type": "null"}]
+    assert params["tags"]["schema"]["items"] == {"type": "string"}
+    assert all(item["in"] == "query" for item in params.values())
+    assert set(payload["responses"]) == {"422"}
+    assert getattr(handler, METADATA_ATTR)["validation"]["query"] is None

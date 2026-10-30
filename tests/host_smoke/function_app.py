@@ -1,7 +1,8 @@
 import os
+from typing import Annotated
 
 import azure.functions as func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from azure_functions_validation import validate_http
 
@@ -42,3 +43,17 @@ def validated(request: func.HttpRequest, body: InputBody) -> InternalResponse:
 @validate_http(response_model=PublicResponse)
 def invalid_response(req: func.HttpRequest) -> dict:
     return {"unexpected": "must not leak"}
+
+
+@app.route(route="scalar-sync", trigger_arg_name="request")
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def scalar_sync(request: func.HttpRequest, context: func.Context, *, page: int = 1) -> dict:
+    return {"page": page, "function_name": context.function_name}
+
+
+@app.route(route="scalar-async", trigger_arg_name="request")
+@validate_http(query_params={"tags": list[str]})
+async def scalar_async(
+    request: func.HttpRequest, context: func.Context, *, tags: list[str]
+) -> dict:
+    return {"tags": tags, "function_name": context.function_name}

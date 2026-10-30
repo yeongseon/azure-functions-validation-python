@@ -123,6 +123,7 @@ OpenAPI parameter objects. The model argument determines the `in` location:
 | Decorator argument | Emitted `in` value |
 | --- | --- |
 | `query=Model` | `"query"` |
+| `query_params={...}` (generated private model) | `"query"` |
 | `path=Model` | `"path"` |
 | `headers=Model` | `"header"` |
 
@@ -131,7 +132,7 @@ does **not** produce `parameters` entries — it is emitted as `request_body`.
 
 Each field becomes one parameter object `{ "name", "in", "required", "schema" }`:
 
-- **`name`** uses the field's serialization alias (`by_alias=True`), so it
+- **`name`** uses the field's inbound validation alias (`by_alias=True`), so it
   matches the wire contract rather than the Python attribute name. Configure
   aliases with Pydantic v2 `Field(alias=...)` / `alias_generator`.
 - **`required`** rules:
@@ -149,6 +150,13 @@ Each field becomes one parameter object `{ "name", "in", "required", "schema" }`
   references a nested model via `$ref`, the parameter's `schema` carries a
   top-level `$defs` so the consumer can hoist it (the `$defs`-if-`$ref`
   invariant).
+
+Scalar shorthand uses the same validation-mode parameter builder and endpoint
+v1 shape, including defaults, constraints, nullability, arrays and the `422`
+response. Default factories are not called for metadata. No internal model is
+exported: legacy `validation["query"]` remains exactly the user's `query=`
+argument, therefore `None` for shorthand. `endpoint` is the authoritative
+documentation payload.
 
 #### Repeated / array query parameters
 

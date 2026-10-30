@@ -8,6 +8,12 @@ and identifies evidence-backed internal reductions without API loss.
 Use a custom implementation only when the built-in `PydanticAdapter` cannot
 serve your model system.
 
+Nonempty `query_params` is deliberately Pydantic-only: omit `adapter` or pass an
+exact `PydanticAdapter` instance. Custom implementations and subclasses raise
+decoration-time `TypeError` with this shorthand. Existing custom adapters with
+`query=Model` or an empty/absent declaration are unchanged; the protocol gains no
+new methods.
+
 ## Lifetime and concurrency
 
 The decorator receives or creates an adapter once at decoration time. That

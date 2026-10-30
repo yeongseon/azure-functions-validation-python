@@ -57,7 +57,22 @@ probe() {
   [ "$status" = 422 ] || return 1
   status=$(curl --silent -o "$output/response.json" -w '%{http_code}' "http://127.0.0.1:$port/api/invalid-response")
   [ "$status" = 500 ] || return 1
-  ! grep -q 'must not leak' "$output/response.json"
+  ! grep -q 'must not leak' "$output/response.json" || return 1
+  status=$(curl --silent -o "$output/scalar-default.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-sync")
+  [ "$status" = 200 ] || return 1
+  status=$(curl --silent -o "$output/scalar-invalid.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-sync?page=0")
+  [ "$status" = 422 ] || return 1
+  status=$(curl --silent -o "$output/scalar-list.json" -w '%{http_code}' "http://127.0.0.1:$port/api/scalar-async?tags=a&tags=b")
+  [ "$status" = 200 ] || return 1
+  "$scratch/venv/bin/python" - "$output" <<'PY'
+import json
+from pathlib import Path
+import sys
+output = Path(sys.argv[1])
+assert json.loads((output / 'scalar-default.json').read_text()) == {'page': 1, 'function_name': 'scalar_sync'}
+assert json.loads((output / 'scalar-invalid.json').read_text())['detail'][0]['loc'] == ['query', 'page']
+assert json.loads((output / 'scalar-list.json').read_text()) == {'tags': ['a', 'b'], 'function_name': 'scalar_async'}
+PY
 }
 run_host 0
 probe

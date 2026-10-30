@@ -14,6 +14,7 @@ from pydantic import TypeAdapter
 from ._endpoint import build_endpoint_metadata, set_endpoint_metadata
 from ._metadata import METADATA_ATTR, ValidationMetadata, set_validation_metadata
 from ._metadata_helpers import SAFE_IDENTITY_ATTRS, copy_identity_attrs
+from ._query_params import build_query_params
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import ErrorFormatter
 from .pipeline import PipelineConfig, run_pipeline, run_pipeline_async
@@ -30,6 +31,7 @@ def validate_http(
     *,
     body: Any = None,
     query: Any = None,
+    query_params: Mapping[str, Any] | None = None,
     path: Any = None,
     headers: Any = None,
     request_model: Any = None,
@@ -51,6 +53,10 @@ def validate_http(
     Args:
         body: Pydantic model for request body validation.
         query: Pydantic model for query parameter validation.
+        query_params: Explicit Pydantic annotations keyed by keyword-only handler
+            names. Uses handler defaults or Annotated defaults (never both),
+            otherwise requires input. Empty mappings are ignored. Nonempty
+            declarations require PydanticAdapter and cannot accompany query.
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
         request_model: Deprecated shorthand alias for *body*. Use ``body`` instead;
@@ -82,6 +88,13 @@ def validate_http(
     """
     if not isinstance(expose_internal_errors, bool):
         raise TypeError("expose_internal_errors must be a bool")
+    if query_params is not None and not isinstance(query_params, Mapping):
+        raise TypeError("query_params must be a mapping or None")
+    declarations = dict(query_params or {})
+    if declarations and query is not None:
+        raise ValueError("query and nonempty query_params are mutually exclusive")
+    if declarations and adapter is not None and type(adapter) is not PydanticAdapter:
+        raise TypeError("query_params requires an exact PydanticAdapter instance")
     if max_body_bytes is not None and (
         isinstance(max_body_bytes, bool)
         or not isinstance(max_body_bytes, int)
@@ -170,7 +183,14 @@ def validate_http(
         func_params = func_sig.parameters
 
         request_param_name = _find_request_param(func, func_params)
-        _validate_no_conflicts(func, request_param_name, body, query, path, headers, request_model)
+        query_params_model, query_param_names = (
+            build_query_params(func, declarations, request_param_name)
+            if declarations
+            else (None, ())
+        )
+        _validate_no_conflicts(
+            func, request_param_name, body, query, path, headers, request_model, query_param_names
+        )
 
         # Pre-build TypeAdapter for response_model at decoration time (#97).
         # Construction is itself Pydantic-specific and must not be unconditional:
@@ -192,6 +212,8 @@ def validate_http(
         config = PipelineConfig(
             body=body,
             query=query,
+            query_params_model=query_params_model,
+            query_param_names=query_param_names,
             path=path,
             headers=headers,
             request_model=request_model,
@@ -296,6 +318,7 @@ def _validate_no_conflicts(
     path: Any,
     headers: Any,
     request_model: Any,
+    query_param_names: tuple[str, ...] = (),
 ) -> None:
     """Raise ``ValueError`` if the first positional parameter name collides
     with an injected parameter name.
@@ -320,7 +343,7 @@ def _validate_no_conflicts(
     except (NameError, TypeError):
         annotations = getattr(func, "__annotations__", {})
     for name, parameter in parameters.items():
-        if name == request_param_name or name in _injected:
+        if name == request_param_name or name in _injected or name in query_param_names:
             continue
         if parameter.default is not inspect.Parameter.empty:
             continue
@@ -349,7 +372,7 @@ def _validation_injected_names(config: Any) -> set[str]:
     the injection logic in :mod:`.pipeline` (``_inject_body`` / ``_inject_named``).
     """
     fp = config.func_params
-    names: set[str] = set()
+    names: set[str] = set(getattr(config, "query_param_names", ()))
     if config.body is not None:
         if "body" in fp:
             names.add("body")
