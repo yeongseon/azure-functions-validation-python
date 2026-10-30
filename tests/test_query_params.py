@@ -82,6 +82,18 @@ def test_sdk_binding_annotation_rejected() -> None:
         build_query_params(handler, {"page": int}, "req")
 
 
+class _CustomOut(func.Out[str]):
+    """A user-defined binding type; the SDK base class decides what it is."""
+
+
+def test_sdk_binding_subclass_rejected() -> None:
+    def handler(req: func.HttpRequest, *, page: _CustomOut) -> None:
+        pass
+
+    with pytest.raises(ValueError, match="SDK binding"):
+        build_query_params(handler, {"page": int}, "req")
+
+
 @pytest.mark.parametrize("metadata", [Field(default=1), Field(default_factory=lambda: 1)])
 def test_two_default_sources_rejected(metadata: Any) -> None:
     def handler(req: func.HttpRequest, *, page: int = 1) -> None:
@@ -115,6 +127,26 @@ def test_ambiguous_alias_rejected(alias: str) -> None:
         )
 
 
+def test_empty_inbound_alias_rejected() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        build_query_params(_handler, {"page": Annotated[int, Field(alias="")]}, "req")
+
+
+def test_empty_validation_alias_does_not_fall_back_to_another_name() -> None:
+    declaration = Annotated[int, Field(validation_alias="", alias="page")]
+    with pytest.raises(ValueError, match="non-empty"):
+        build_query_params(_handler, {"page": declaration}, "req")
+
+
+def test_duplicate_empty_aliases_rejected() -> None:
+    def handler(req: func.HttpRequest, *, a: int, b: int) -> None:
+        pass
+
+    declarations = {name: Annotated[int, Field(alias="")] for name in ("a", "b")}
+    with pytest.raises(ValueError, match="non-empty|ambiguous"):
+        build_query_params(handler, declarations, "req")
+
+
 def test_unresolved_reference_rejected() -> None:
     with pytest.raises(ValueError, match="resolve"):
         build_query_params(_handler, {"page": "MissingQueryType"}, "req")
@@ -123,6 +155,27 @@ def test_unresolved_reference_rejected() -> None:
 def test_resolved_reference_uses_declaration_not_handler_annotation() -> None:
     model, _ = build_query_params(_handler, {"page": "str"}, "req")
     assert getattr(model.model_validate({"page": "two"}), "page") == "two"
+
+
+def test_default_validation_cannot_be_disabled_by_the_declaration() -> None:
+    def handler(req: func.HttpRequest, *, page: int = 1) -> None:
+        pass
+
+    declaration = Annotated[int, Field(ge=5, validate_default=False)]
+    model, _ = build_query_params(handler, {"page": declaration}, "req")
+    with pytest.raises(ValidationError):
+        model.model_validate({})
+
+
+def test_handler_default_applies_to_an_aliased_constrained_declaration() -> None:
+    def handler(req: func.HttpRequest, *, page: int = 1) -> None:
+        pass
+
+    declaration = Annotated[int, Field(ge=1, validation_alias="page-size")]
+    model, _ = build_query_params(handler, {"page": declaration}, "req")
+    assert not model.model_fields["page"].is_required()
+    assert getattr(model.model_validate({}), "page") == 1
+    assert getattr(model.model_validate({"page-size": 7}), "page") == 7
 
 
 def test_handler_default_is_validated() -> None:

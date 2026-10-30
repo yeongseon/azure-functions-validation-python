@@ -8,7 +8,7 @@ import inspect
 import types
 from typing import Any, get_args, get_origin, get_type_hints
 
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.errors import PydanticUserError
 from pydantic.fields import FieldInfo
 
@@ -16,7 +16,10 @@ _RESERVED = frozenset({"context", "http_request", "body", "query", "path", "head
 
 
 def _is_sdk_annotation(annotation: Any) -> bool:
-    return getattr(annotation, "__module__", "").startswith("azure.") or any(
+    lineage = annotation.__mro__ if inspect.isclass(annotation) else (annotation,)
+    return any(
+        str(getattr(candidate, "__module__", "")).startswith("azure.") for candidate in lineage
+    ) or any(
         _is_sdk_annotation(arg)
         for arg in (get_origin(annotation), *get_args(annotation))
         if arg is not None
@@ -69,20 +72,31 @@ def build_query_params(
         if _is_sdk_annotation(hints.get("handler")):
             raise ValueError(f"query_params {name!r} cannot replace an Azure SDK binding")
 
-        info = deepcopy(FieldInfo.from_annotation(hints["declaration"]))
-        if parameter.default is not inspect.Parameter.empty:
-            if not info.is_required():
-                raise ValueError(f"query_params {name!r}: defaults supplied in both places")
-            info.default = deepcopy(parameter.default)
-        # Per-field metadata must not opt out of the shorthand's default policy.
-        info.validate_default = True
+        info = FieldInfo.from_annotation(hints["declaration"])
+        if parameter.default is not inspect.Parameter.empty and not info.is_required():
+            raise ValueError(f"query_params {name!r}: defaults supplied in both places")
         if info.validation_alias is not None and not isinstance(info.validation_alias, str):
             raise ValueError(f"query_params {name!r} requires one flat string validation alias")
-        wire_name = info.validation_alias or info.alias or name
+        wire_name = (
+            info.validation_alias
+            if info.validation_alias is not None
+            else info.alias
+            if info.alias is not None
+            else name
+        )
+        if not wire_name:
+            raise ValueError(f"query_params {name!r} requires a non-empty inbound name")
         if wire_name in inbound_names or (wire_name != name and wire_name in declarations):
             raise ValueError(f"query_params {name!r}: ambiguous inbound alias {wire_name!r}")
         inbound_names.add(wire_name)
-        fields[name] = (hints["declaration"], info)
+        # An assigned ``Field`` overrides the declaration's own metadata, so the shorthand's
+        # default policy holds even when the declaration sets ``validate_default=False``.
+        # Passing only an annotation and a ``Field`` keeps this independent of how a
+        # Pydantic version copies ``FieldInfo``.
+        default_policy: dict[str, Any] = {"validate_default": True}
+        if parameter.default is not inspect.Parameter.empty:
+            default_policy["default"] = deepcopy(parameter.default)
+        fields[name] = (hints["declaration"], Field(**default_policy))
 
     try:
         model = create_model(
