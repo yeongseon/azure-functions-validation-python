@@ -35,6 +35,11 @@ response schemas. FastAPI-like developer experience without the web framework.
 - Opt-in body policies: `max_body_bytes` returns 413 above the byte limit;
   `require_json_content_type` returns 415 for non-JSON non-empty bodies.
 - Request validation: body, query, path, headers all via Pydantic models
+- Scalar query shorthand: `query_params: Mapping[str, Any] | None = None` maps
+  explicit Pydantic annotations to keyword-only handler arguments. Handler or
+  Annotated defaults are validated; nullable without a default is required.
+  Nonempty declarations exclude `query=`, require the default/exact PydanticAdapter,
+  ignore unknown keys, and preserve list-query parsing and endpoint v1 metadata.
 - Plain models use lax coercion and ignore unknown fields. Prefer
   `ConfigDict(strict=True, extra="forbid")` for closed JSON body contracts;
   query, path, and header values arrive as strings and usually need coercion.

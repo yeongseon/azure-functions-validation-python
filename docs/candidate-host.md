@@ -20,6 +20,11 @@ private directory and dynamically selected loopback ports, never shared services
 It checks default request/context binding, custom `trigger_arg_name`, typed body
 injection, success serialization without subclass-only fields, malformed JSON 400,
 invalid-model 422 and sanitized invalid-response 500.
+Sync/async scalar-query routes additionally prove custom request and real
+`func.Context` binding, a validated default, constrained-query `422` locations,
+and ordered repeated-list input. Native queue output binding registration and
+signature-name equality are covered separately against the real SDK, without
+requiring Azurite in this HTTP-only gate.
 
 A second host uses the same installed candidate but deliberately replaces the
 fixture's decorator with a no-op. The same behavior probe must fail, with the

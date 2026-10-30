@@ -41,6 +41,16 @@ This repository owns:
 
 ## Compatibility Policy
 
+Explicit scalar-query declarations use `query_params` keyed by keyword-only
+handler arguments. One private generated Pydantic model per handler reuses the
+existing query parse slot; attribute injection preserves typed values. The model
+is separate from `PipelineConfig.query` and legacy metadata. Endpoint v1 schemas
+reuse the existing validation-mode parameter builder. Nonempty declarations are
+Pydantic-only and mutually exclusive with model queries; no signature inference
+or adapter-protocol expansion is introduced. WorkerCompat hides declared inputs
+while preserving binding slots. Future outer SDK binding collisions remain an
+indexing boundary, not a universal decoration-time guarantee.
+
 - Supported Python versions: `3.11`-`3.14` (metadata declares `>=3.11,<3.15`)
 - Supported runtime target: Azure Functions Python v2 programming model
 - Public APIs follow semantic versioning expectations

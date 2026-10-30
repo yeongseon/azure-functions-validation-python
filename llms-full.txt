@@ -62,6 +62,7 @@ def validate_http(
     Args:
         body: Pydantic model for request body validation.
         query: Pydantic model for query parameter validation.
+        query_params: Explicit scalar/list annotations mapped to keyword-only handler arguments.
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
         request_model: Deprecated shorthand alias for body. Use body instead.
@@ -190,6 +191,33 @@ def get_user(req: func.HttpRequest, path: UserPathParams, query: SearchParams) -
     # path and query are validated instances
     return func.HttpResponse(f"User: {path.user_id}, limit: {query.limit}")
 ```
+
+### Explicit Scalar Query Inputs
+
+```python
+from typing import Annotated
+from pydantic import Field
+
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def list_items(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+    return {"page": page}
+```
+
+The declaration controls validation, never inferred handler annotations. Handler
+defaults or Annotated defaults/factories apply (both is a ValueError); otherwise
+even nullable inputs are required. Defaults validate; factories run per request.
+Flat scalars/unions/lists only; unknown keys ignored. Repeated scalar keys fail,
+list keys retain existing singleton/repetition normalization. Blank and textual
+null values follow normal Pydantic validation. String inbound aliases change
+wire names, not injection names; serialization-only aliases do not change input.
+AliasChoices/AliasPath and ambiguous aliases are rejected. Nonempty declarations
+exclude query=Model and require omitted adapter or an exact PydanticAdapter.
+Keyword-only, reserved-name and SDK-binding checks run at decoration time;
+future outer binding collisions must fail worker indexing. References resolve in
+handler globals. Names starting with underscores or colliding with BaseModel
+attributes are unsupported. Validated request values override invocation kwargs.
+No new public export or dependency; endpoint v1 is authoritative, while legacy
+validation.query remains None. Outer logging must wrap validation to cover 422s.
 
 ### Request + Response Validation
 
