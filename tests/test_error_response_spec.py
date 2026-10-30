@@ -223,3 +223,22 @@ def test_async_handler_has_same_error_contract() -> None:
         pytest.fail("handler must not run")
 
     assert anyio.run(handler, request()).status_code == 400
+
+
+def test_wrong_fixed_declaration_type_rejected() -> None:
+    invalid: Any = {}
+    with pytest.raises(TypeError):
+        validate_http(validation_error_response=invalid)
+
+
+def test_fixed_contract_does_not_change_default_malformed_json() -> None:
+    @validate_http(body=Input, validation_error_response=ValidationErrorResponse(status_code=409))
+    def handler(req: HttpRequest) -> None:
+        pass
+
+    response = handler(request(b"broken"))
+    assert response.status_code == 400
+    assert json.loads(response.get_body()) == {
+        "detail": [{"loc": ["body"], "msg": "Invalid JSON", "type": "value_error"}],
+        "error_format_version": 1,
+    }
