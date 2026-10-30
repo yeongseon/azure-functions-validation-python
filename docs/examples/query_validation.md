@@ -79,6 +79,25 @@ def get_profile(
     )
 ```
 
+## Separate scalar-query route
+
+The runnable profile example also includes this opt-in route:
+
+```python
+from typing import Annotated
+
+
+@app.route(route="profiles", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def list_profiles(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+    return {"page": page}
+```
+
+`curl "http://localhost:7071/api/profiles?page=2"` returns `{"page": 2}`.
+Omitting `page` uses validated `1`; `?page=0` returns `422` at `["query", "page"]`.
+Keep the keyword-only `*`: shorthand inputs are application injection, not Azure
+binding slots. The existing model-based profile route remains unchanged.
+
 ## Step-by-step walkthrough
 
 ### Step 1: define source-specific models

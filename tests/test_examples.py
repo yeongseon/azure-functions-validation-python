@@ -105,6 +105,21 @@ def test_profile_validation_example_returns_header_validation_error() -> None:
     assert "detail" in payload
 
 
+def test_profile_scalar_query_example_default() -> None:
+    module = _load_example_module("profile_validation")
+    response = module.list_profiles(func.HttpRequest(method="GET", url="/api/profiles", body=b""))
+    assert json.loads(response.get_body()) == {"page": 1}
+
+
+def test_profile_scalar_query_example_invalid() -> None:
+    module = _load_example_module("profile_validation")
+    response = module.list_profiles(
+        func.HttpRequest(method="GET", url="/api/profiles?page=0", params={"page": "0"}, body=b"")
+    )
+    assert response.status_code == 422
+    assert json.loads(response.get_body())["detail"][0]["loc"] == ["query", "page"]
+
+
 def test_custom_error_handler_example_returns_custom_error_shape() -> None:
     function_app = _load_example_module("custom_error_handler")
     request = func.HttpRequest(
