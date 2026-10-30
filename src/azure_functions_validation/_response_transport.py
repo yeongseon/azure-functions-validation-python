@@ -36,6 +36,15 @@ def validation_status(status_code: int) -> int:
     return int(status_code)
 
 
+def response_status(status_code: int) -> int:
+    """Require a final-response integer, including HTTPStatus but excluding bool."""
+    if isinstance(status_code, bool) or not isinstance(status_code, int):
+        raise ValueError("response status must be an integer from 200 to 599")
+    if not 200 <= status_code <= 599:
+        raise ValueError("response status must be an integer from 200 to 599")
+    return int(status_code)
+
+
 def json_media_type(media_type: str) -> str:
     """Normalize a bare JSON application media type without accepting parameters."""
     if (
@@ -49,14 +58,14 @@ def json_media_type(media_type: str) -> str:
 
 
 def build_response(
-    body: str | bytes,
+    body: str | bytes | None,
     status_code: int,
-    media_type: str,
+    media_type: str | None,
     headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None,
 ) -> HttpResponse:
     """Copy and check headers, preserving separate Set-Cookie fields on the wire."""
     pairs = list(headers.items()) if isinstance(headers, Mapping) else list(headers or ())
-    ordinary = {"Content-Type": media_type}
+    ordinary = {} if media_type is None else {"Content-Type": media_type}
     cookies: list[str] = []
     seen: set[str] = set()
     for pair in pairs:
@@ -77,7 +86,7 @@ def build_response(
             raise ValueError("duplicate header name")
         seen.add(key)
         if key == "content-type":
-            if value.strip().lower() != media_type.lower():
+            if media_type is None or value.strip().lower() != media_type.lower():
                 raise ValueError("Content-Type must agree with the serialized media type")
         elif key == "set-cookie":
             cookie = SimpleCookie()
