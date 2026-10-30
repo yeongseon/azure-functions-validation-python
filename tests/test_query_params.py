@@ -173,6 +173,20 @@ def test_nonempty_validation_alias_decides_the_inbound_name() -> None:
         build_query_params(handler, declarations, "req")
 
 
+def test_guard_reads_the_inbound_name_through_the_validation_alias() -> None:
+    def handler(req: func.HttpRequest, *, tags: list[str], page: int) -> None:
+        pass
+
+    # ``page`` is read as ``page-wire`` (its validation alias, not its alias ``out``), which is
+    # also an inactive alias of the list field, so the parser would wrap it in a list.
+    declarations = {
+        "tags": Annotated[list[str], Field(alias="page-wire", validation_alias="tag-wire")],
+        "page": Annotated[int, Field(alias="out", validation_alias="page-wire")],
+    }
+    with pytest.raises(ValueError, match="ambiguous inbound alias 'page-wire'"):
+        build_query_params(handler, declarations, "req")
+
+
 @pytest.mark.parametrize("other", [list[int], list[int] | None], ids=["list", "nullable-list"])
 def test_list_fields_may_share_a_fallback_name_with_another_list_field(other: Any) -> None:
     @validate_http(
@@ -221,6 +235,30 @@ def test_partial_handler_supports_the_shorthand() -> None:
         func.HttpRequest(method="GET", url="/api/x?page=3", params={"page": "3"}, body=b"")
     )
     assert json.loads(response.get_body()) == {"page": 3}
+
+
+def test_partial_handler_resolves_string_declarations_against_the_underlying_globals() -> None:
+    import functools
+
+    def handler(req: func.HttpRequest, *, when: date | None = None) -> dict[str, str | None]:
+        return {"when": None if when is None else when.isoformat()}
+
+    wrapped = validate_http(query_params={"when": "date"})(functools.partial(handler))
+    response = wrapped(
+        func.HttpRequest(
+            method="GET", url="/api/x?when=2026-01-02", params={"when": "2026-01-02"}, body=b""
+        )
+    )
+    assert json.loads(response.get_body()) == {"when": "2026-01-02"}
+
+
+def test_callable_instance_is_rejected_by_the_shorthand() -> None:
+    class Handler:
+        def __call__(self, req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+            return {"page": page}
+
+    with pytest.raises(ValueError, match="Python function or a partial"):
+        validate_http(query_params={"page": int})(Handler())
 
 
 def test_list_field_with_its_own_alias_coexists_with_a_scalar() -> None:

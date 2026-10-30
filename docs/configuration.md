@@ -212,10 +212,12 @@ Nonempty declarations cannot accompany `query=Model` (`ValueError`). Omit
 subclasses, raise `TypeError`. `None` and empty mappings preserve existing
 behavior. Objects/maps/nested models, unresolved references, absent or
 non-keyword-only arguments, and Azure SDK-typed parameters raise `ValueError`.
-References resolve against handler globals. Leading-underscore names and
-`BaseModel` attribute names are unsupported. Reserved names are the request
-parameter, `context`, `http_request`, `body`, `query`, `path`, `headers`, and
-`req_model`. A validated request value wins over an invocation keyword argument.
+References resolve against handler globals, so the handler must be a Python function,
+a bound method or a `functools.partial` of one; a callable object raises `ValueError`.
+Leading-underscore names and `BaseModel` attribute names are unsupported. Reserved
+names are the request parameter, `context`, `http_request`, `body`, `query`, `path`,
+`headers`, and `req_model`. A validated request value wins over an invocation keyword
+argument.
 
 Only declared names are hidden from the worker; real bindings remain visible.
 Supported ordering is SDK binding decorators, outer logging, validation, then
