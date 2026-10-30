@@ -25,6 +25,7 @@ in production handlers.
     response_exclude_unset=False,
     adapter=...,
     error_formatter=...,
+    validation_error_response=None,
     status_code=200,
     legacy_loc=False,
     max_body_bytes=None,
@@ -49,6 +50,7 @@ Public keyword-only parameters:
 - `response_exclude_unset` (default `False`)
 - `adapter`
 - `error_formatter`
+- `validation_error_response: ValidationErrorResponse | None = None`
 - `status_code` (default `200`)
 - `legacy_loc` (default `False`)
 - `max_body_bytes` (default `None`)
@@ -390,7 +392,45 @@ The formatter receives the original exception for 4xx responses. For 5xx
 responses it receives a public `InternalServerError` containing only
 `"Internal Server Error"`; the original is logged once with traceback.
 
-### `expose_internal_errors`
+### `validation_error_response`
+
+Declare a fixed request-schema error contract with
+`ValidationErrorResponse(status_code=400, media_type="application/problem+json", response_model=Problem)`.
+The status must be an integer 400–499 (not a boolean). Media types are bare
+`application/json` or `application/<subtype>+json`, normalized to lowercase;
+parameters and wildcards are rejected. Non-default media or an error model
+requires `error_formatter`. A status-only declaration can reuse the default body.
+
+The synchronous formatter still receives the original classified status `422`.
+It may return a dictionary, or an `ErrorResponseSpec(content=..., status_code=...,
+media_type=..., headers=...)` on request-schema failures only. Without a fixed
+declaration, omitted rich fields inherit 422 and JSON. With one, omitted fields
+inherit the declaration and explicit disagreement fails closed. The optional
+Pydantic model is compiled once, validates content, and filters subclass-only
+fields during serialization. Success-response serialization options do not apply.
+
+Malformed JSON 400, 413, 415, request resolution, response failures and handler
+`HttpError` are not eligible, even `HttpError(422)`. Dictionary formatters retain
+their existing behavior there; rich results produce sanitized 500. Formatter
+exceptions, invalid results, model mismatch, cycles and nonfinite rich JSON also
+produce the built-in sanitized 500 without retrying the formatter or adapter.
+
+Rich headers accept a mapping or ordered pairs, copied per invocation. Names
+must be ASCII HTTP tokens; values must be Latin-1 strings without CR/LF, DEL or
+C0 controls except HTAB. Case-insensitive duplicates are rejected except
+individual `Set-Cookie` pairs (one valid cookie per entry, never comma-joined).
+`Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`,
+`Proxy-Authenticate`, `Proxy-Authorization`, `TE`, `Trailer`, `Upgrade` and
+`Host` are prohibited. Supplied `Content-Type` must match the authoritative media
+type after stripping whitespace and comparing case-insensitively.
+
+Fixed declarations opt that endpoint into metadata v2. A custom formatter
+without one omits the unknown request-error response: document application-owned
+variants explicitly. Older v1-only consumers warn/degrade for v2; no consumer
+runtime dependency is introduced. See [the metadata convention](METADATA_SPEC.md)
+and [Problem Details example](examples/custom_error_handler.md).
+
+### `expose_internal_errors` (unsafe opt-in)
 
 `expose_internal_errors` defaults to `False`. Setting it to `True` passes the
 original 5xx exception to `error_formatter`, restoring the old behavior. This

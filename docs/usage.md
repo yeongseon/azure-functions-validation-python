@@ -1,5 +1,17 @@
 # Usage
 
+## Choosing an error strategy
+
+Keep the default formatter for stable 422 JSON envelopes. Use a dictionary
+`ErrorFormatter` to customize bodies without transport changes. Declare
+`validation_error_response=ValidationErrorResponse(status_code=400,
+media_type="application/problem+json", response_model=Problem)` for a fixed
+request-schema contract, or return `ErrorResponseSpec` for dynamic eligible
+errors. The formatter always receives the original status. Fixed contracts
+publish metadata v2; dynamic formatter variants require explicit application
+documentation. See [configuration](configuration.md#validation_error_response)
+and the [RFC 9457 example](examples/custom_error_handler.md).
+
 This guide covers production patterns for `@validate_http` in the Azure Functions
 Python v2 programming model.
 
