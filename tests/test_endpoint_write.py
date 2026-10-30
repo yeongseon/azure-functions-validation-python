@@ -463,3 +463,30 @@ def test_fixed_without_model_uses_unknown_custom_shape() -> None:
     payload = _endpoint_of(handler)
     _validate(payload)
     assert payload["responses"] == {"409": {"content": {"application/json": {"schema": {}}}}}
+
+
+def test_fixed_without_request_models_has_no_fabricated_error() -> None:
+    @validate_http(validation_error_response=ValidationErrorResponse())
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    assert _endpoint_of(handler)["version"] == 2
+    assert _endpoint_of(handler)["responses"] is None
+
+
+def test_fixed_unknown_adapter_shape_is_not_standard_envelope() -> None:
+    from azure_functions_validation import PydanticAdapter
+
+    class Custom(PydanticAdapter):
+        def format_error(self, exc: Exception) -> dict[str, Any]:
+            return {"custom": str(exc)}
+
+    @validate_http(
+        body=CreateUser,
+        adapter=Custom(),
+        validation_error_response=ValidationErrorResponse(status_code=409),
+    )
+    def handler(req: func.HttpRequest) -> None:
+        pass
+
+    assert _endpoint_of(handler)["responses"]["409"]["content"]["application/json"]["schema"] == {}

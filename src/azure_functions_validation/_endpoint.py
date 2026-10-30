@@ -24,7 +24,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from ._metadata import _merge_namespace
 from .adapter import PydanticAdapter
-from .schemas import ENDPOINT_METADATA_VERSION, _contains_ref
+from .schemas import _ENDPOINT_METADATA_V2, ENDPOINT_METADATA_VERSION, _contains_ref
 
 #: Namespace for this package's local endpoint payload.
 ENDPOINT_NAMESPACE = "endpoint"
@@ -253,7 +253,7 @@ def build_endpoint_metadata(config: Any) -> EndpointMetadata:
 
     version = ENDPOINT_METADATA_VERSION
     if fixed is not None:
-        version = 2
+        version = _ENDPOINT_METADATA_V2
         responses = {
             code: {
                 "content": {"application/json": {"schema": detail["schema"]}}
