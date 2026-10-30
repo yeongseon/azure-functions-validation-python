@@ -98,14 +98,22 @@ The Azure Functions route binding (`@app.route(route=…, methods=…)`) is the
 single source of truth for path and HTTP methods. The consumer derives them at
 scan time from the binding, so producers must not duplicate them here.
 
-### `responses` describes the endpoint's actual runtime responses
+### `responses` is a non-exhaustive fallback description
 
-`responses` is a **generic** part of the convention: a producer maps each HTTP
-status code it can return to a response object carrying that response's JSON
-Schema, or emits `null` when it has nothing to describe. What those responses
+`responses` is a **generic** part of the convention: a producer maps known HTTP
+status codes to response objects carrying their JSON Schema, or emits `null`
+when it has nothing to describe. What those responses
 *are* is producer-specific. A non-Pydantic producer, or one that only emits
 success responses, is under no obligation to document a `422` body — it simply
 describes whatever its runtime actually returns.
+
+This producer's default v1 emission describes the decorator's fallback path,
+not every possible handler return. `ResponseSpec` status/header choices, direct
+SDK returns and return annotations do not change emission or infer dynamic
+statuses, Location or cookie schemas. There is no dynamic-response flag.
+Application-authored documentation must declare additional outcomes. A future
+declarative richer response contract, not the envelope itself, would justify
+new metadata facts. Existing fixed error declarations still select v2.
 
 ## azure-functions-validation implementation
 
