@@ -105,6 +105,24 @@ def list_items(req: func.HttpRequest, query: ListQuery) -> dict[str, int]:
     return {"limit": query.limit, "offset": query.offset}
 ```
 
+### Scalar query inputs without a model
+
+```python
+from typing import Annotated
+
+
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)], "tags": list[str]})
+def search(req: func.HttpRequest, *, tags: list[str], page: int = 1) -> dict[str, object]:
+    return {"page": page, "tags": tags}
+```
+
+`?tags=a&tags=b` injects `["a", "b"]`; omitted `page` injects validated `1`.
+Only explicit keyword-only declarations are injected; no handler annotation is
+inferred. Do not combine a nonempty declaration with `query=Model`. The same
+pattern works with async handlers, body/path/header models, and aggregation.
+See [the full scalar-query contract](configuration.md#query_params) for aliases,
+defaults and worker-binding limits.
+
 ### Path only
 
 ```python
@@ -444,9 +462,9 @@ Pydantic models without importing this package:
 meta = getattr(handler, "_azure_functions_metadata", None)
 if meta and "validation" in meta:
     validation = meta["validation"]
-    print(validation["body"])           # Pydantic model class or None
-    print(validation["query"])          # Pydantic model class or None
-    print(validation["response_model"]) # Pydantic model class or None
+    print(validation["body"])  # Pydantic model class or None
+    print(validation["query"])  # Pydantic model class or None
+    print(validation["response_model"])  # Pydantic model class or None
 ```
 
 !!! tip "Bridge integration"
