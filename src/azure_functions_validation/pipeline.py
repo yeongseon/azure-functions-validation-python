@@ -14,7 +14,9 @@ import logging
 from typing import Any
 
 from azure.functions import HttpResponse
+from pydantic import BaseModel, TypeAdapter
 
+from ._response_transport import build_response, response_status
 from .adapter import PydanticAdapter, ValidationAdapter
 from .errors import (
     AdapterValidationError,
@@ -27,6 +29,7 @@ from .errors import (
     UnsupportedMediaTypeError,
     format_error_response,
 )
+from .responses import ResponseSpec, ValidationErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +62,19 @@ class PipelineConfig:
     max_body_bytes: int | None = None
     require_json_content_type: bool = False
     aggregate_validation_errors: bool = False
+    query_params_model: type[BaseModel] | None = None
+    query_param_names: tuple[str, ...] = ()
+    validation_error_response: ValidationErrorResponse | None = None
+    error_type_adapter: TypeAdapter[Any] | None = None
 
 
-def _format_error(exception: Exception, status_code: int, config: PipelineConfig) -> HttpResponse:
+def _format_error(
+    exception: Exception,
+    status_code: int,
+    config: PipelineConfig,
+    *,
+    request_validation: bool = False,
+) -> HttpResponse:
     return format_error_response(
         exception,
         status_code,
@@ -69,6 +82,9 @@ def _format_error(exception: Exception, status_code: int, config: PipelineConfig
         config.error_formatter,
         expose_internal_errors=config.expose_internal_errors,
         handler_name=config.handler_name,
+        request_validation=request_validation,
+        validation_error_response=config.validation_error_response,
+        error_type_adapter=config.error_type_adapter,
     )
 
 
@@ -213,6 +229,15 @@ def _inject_body(
         parsed_inputs["req_model"] = parsed
 
 
+def _inject_query(
+    name: str, parsed: Any, config: PipelineConfig, parsed_inputs: dict[str, Any]
+) -> None:
+    if config.query_params_model is None:
+        _inject_named(name, parsed, config, parsed_inputs)
+    else:
+        parsed_inputs.update({key: getattr(parsed, key) for key in config.query_param_names})
+
+
 def _header_value(http_request: Any, name: str) -> str | None:
     headers = http_request.headers or {}
     target = name.casefold()
@@ -269,7 +294,12 @@ def _parse_inputs(
         ...,
     ] = (
         ("body", config.body, config.adapter.parse_body, _inject_body),
-        ("query", config.query, config.adapter.parse_query, _inject_named),
+        (
+            "query",
+            config.query_params_model or config.query,
+            config.adapter.parse_query,
+            _inject_query,
+        ),
         ("path", config.path, config.adapter.parse_path, _inject_named),
         ("headers", config.headers, config.adapter.parse_headers, _inject_named),
     )
@@ -288,7 +318,7 @@ def _parse_inputs(
             return _format_error(e, 415, config)
         except AdapterValidationError as e:
             if not config.aggregate_validation_errors:
-                return _format_error(e, 422, config)
+                return _format_error(e, 422, config, request_validation=True)
             validation_failed = True
             validation_errors.extend(e.errors)
             continue
@@ -304,7 +334,9 @@ def _parse_inputs(
         inject(name, parsed, config, parsed_inputs)
 
     if validation_failed:
-        return _format_error(AggregatedValidationError(validation_errors), 422, config)
+        return _format_error(
+            AggregatedValidationError(validation_errors), 422, config, request_validation=True
+        )
 
     # Add original HttpRequest if requested
     if "http_request" in config.func_params and config.request_param_name != "http_request":
@@ -333,22 +365,32 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
     if isinstance(result, HttpResponse):
         return result
 
-    if result is None and config.response_model is None:
-        return HttpResponse(status_code=204)
+    try:
+        envelope = isinstance(result, ResponseSpec)
+        status = config.success_status_code
+        headers = None
+        if envelope:
+            status = response_status(status if result.status_code is None else result.status_code)
+            headers = result.headers
+            result = result.content
+            if isinstance(result, (ResponseSpec, HttpResponse)):
+                raise ValueError("response envelope content must not be another response")
 
-    # Validate and serialize response
-    if config.response_model is not None:
-        try:
+        if config.response_model is not None:
             validated_result = config.adapter.validate_response(
                 result, config.response_model, type_adapter=config.response_type_adapter
             )
-        except Exception as e:
-            return _format_error(e, 500, config)
-
+        else:
+            validated_result = result
         if validated_result is None:
+            if envelope:
+                return build_response(None, 204, None, headers)
             return HttpResponse(status_code=204)
 
-        try:
+        if envelope and status in (204, 205, 304):
+            raise ValueError("body-less response statuses require None content")
+
+        if config.response_model is not None:
             content, content_type = config.adapter.serialize_response(
                 validated_result,
                 config.response_model,
@@ -357,18 +399,10 @@ def _build_response(result: Any, config: PipelineConfig) -> HttpResponse:
                 exclude_none=config.response_exclude_none,
                 exclude_unset=config.response_exclude_unset,
             )
-        except Exception as e:
-            return _format_error(e, 500, config)
-
-        return HttpResponse(
-            body=content,
-            status_code=config.success_status_code,
-            headers={"Content-Type": content_type},
-        )
-
-    # No response model, serialize directly
-    try:
-        content, content_type = config.adapter.serialize(result)
+        else:
+            content, content_type = config.adapter.serialize(validated_result)
+        if envelope:
+            return build_response(content, status, content_type, headers)
     except Exception as e:
         return _format_error(e, 500, config)
 

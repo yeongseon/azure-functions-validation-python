@@ -8,6 +8,9 @@ from azure_functions_validation import (
     AdapterValidationError,
     AggregatedValidationError,
     ErrorFormatter,
+    ErrorResponseSpec,
+    ResponseSpec,
+    ValidationErrorResponse,
     HttpError,
     MalformedRequestError,
     PayloadTooLargeError,
@@ -32,6 +35,14 @@ from azure_functions_validation import (
 ## `validate_http`
 
 ::: azure_functions_validation.validate_http
+
+`query_params: Mapping[str, Any] | None = None` declares scalar/list Pydantic
+annotations keyed by explicit keyword-only handler arguments. It adds no public
+declaration class. Nonempty declarations exclude `query=Model` and require the
+default or exact `PydanticAdapter`; other adapters raise `TypeError` before any
+request. Configuration errors raise `ValueError`. See
+[scalar-query configuration](configuration.md#query_params) for the complete
+defaults, alias, collision and supported-type contract.
 
 | Response option | Default | Behavior |
 | --- | --- | --- |
@@ -218,6 +229,24 @@ def create_task(req: func.HttpRequest, body: CreateTaskRequest) -> dict[str, str
     `request_model` cannot be combined with `body`, `query`, `path`, or `headers`.
     The decorator raises `ValueError` at import time if combined.
 
+## `ResponseSpec[T]`
+
+`ResponseSpec(*, content: T, status_code: int | None = None,
+headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None)` is a frozen,
+slotted, keyword-only dataclass exported at package root and in
+`azure_functions_validation.responses`. Construction only stores values; runtime
+transport checks occur inside protected response processing. It has no
+`media_type`: content uses the configured adapter's normal model validation and
+model-aware serialization, or `serialize` without a model.
+
+Omitted status inherits the decorator default. Integer 200–599 statuses accept
+`HTTPStatus` but reject bool. Final `None` **overrides explicit status to 204**;
+204/205/304 reject non-None content. Use raw `HttpResponse` for empty 201/202 or
+205/304. Headers use the same policy as `ErrorResponseSpec`, with matching
+`Content-Type` only for an existing serialized body. Nested envelopes/SDK responses
+are invalid. Violations produce formatted 500; direct SDK returns remain an
+identity-preserving bypass. Metadata is a non-exhaustive fallback description.
+
 ## `ResponseValidationError`
 
 ::: azure_functions_validation.ResponseValidationError
@@ -304,14 +333,38 @@ def custom_error(req: func.HttpRequest, body: InputModel) -> dict[str, int]:
 ```
 
 !!! tip "Formatter signature"
-    Keep the formatter signature exactly `(exc: Exception, status_code: int) -> dict[str, Any]`.
+    The formatter signature is `(exc: Exception, status_code: int) -> dict[str, Any] | ErrorResponseSpec`.
 
 For 4xx responses, the formatter receives the original exception. For 5xx
 responses, it receives `InternalServerError("Internal Server Error")` by default,
 while the original is logged server-side with traceback. The unsafe
 `expose_internal_errors=True` option restores original-exception passthrough.
 
-## `HttpError`
+## Error response values
+
+Both classes are frozen, slotted and keyword-only, available at package root
+and in `azure_functions_validation.responses`. Constructors store values;
+fixed configuration is checked during decoration and rich results at invocation.
+
+```python
+ErrorResponseSpec(
+    *, content: dict[str, Any], status_code: int | None = None,
+    media_type: str | None = None,
+    headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None,
+)
+ValidationErrorResponse(
+    *, status_code: int = 422, media_type: str = "application/json",
+    response_model: Any = None,
+)
+```
+
+`validate_http(..., validation_error_response: ValidationErrorResponse | None = None)`
+declares a fixed request-validation transport. `ErrorResponseSpec` is a formatter
+result, not a handler result or an SDK binding. Neither changes server errors.
+See [configuration](configuration.md#validation_error_response) for inheritance,
+fixed-contract agreement, error-model filtering and header safety.
+
+## `HttpError` reference
 
 ::: azure_functions_validation.HttpError
 

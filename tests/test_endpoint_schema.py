@@ -83,7 +83,7 @@ class TestSchemaDocument:
 
     def test_version_constant_matches_schema(self) -> None:
         schema = load_endpoint_schema()
-        assert ENDPOINT_METADATA_VERSION == schema["properties"]["version"]["const"]
+        assert ENDPOINT_METADATA_VERSION in schema["properties"]["version"]["enum"]
         assert ENDPOINT_METADATA_VERSION == 1
 
 
@@ -106,7 +106,7 @@ class TestPayloadValidation:
 
     def test_wrong_version_fails(self) -> None:
         payload = _representative_payload()
-        payload["version"] = 2
+        payload["version"] = 3
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(payload, load_endpoint_schema())
 
@@ -179,3 +179,33 @@ class TestSchemaHashPin:
             .read_bytes()
         )
         assert endpoint_schema_sha256() == hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        {"content": {}},
+        {"content": {"application/problem+json": {"schema": {"type": "object"}}}},
+        {"content": {}, "headers": {"X-Trace": {"schema": {"type": "string"}}}},
+    ],
+)
+def test_v2_responses_pass(detail: dict[str, Any]) -> None:
+    jsonschema.validate({"version": 2, "responses": {"400": detail}}, load_endpoint_schema())
+
+
+@pytest.mark.parametrize(
+    "code,detail",
+    [
+        ("400", {}),
+        ("400", {"schema": {}}),
+        ("400", {"content": {}, "schema": {}}),
+        ("400", {"content": {"application/json": {}}}),
+        ("400", {"content": {"application/json": {"schema": None}}}),
+        ("204", {"content": {"application/json": {"schema": {}}}}),
+        ("199", {"content": {}}),
+        ("400", {"content": {}, "headers": {"Content-Type": {"schema": {}}}}),
+    ],
+)
+def test_invalid_v2_response_fails(code: str, detail: dict[str, Any]) -> None:
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({"version": 2, "responses": {code: detail}}, load_endpoint_schema())

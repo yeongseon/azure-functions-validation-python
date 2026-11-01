@@ -10,6 +10,7 @@ from azure_functions_validation import (
     AggregatedValidationError,
     MalformedRequestError,
     ValidationAdapter,
+    ValidationErrorResponse,
     validate_http,
 )
 
@@ -225,3 +226,21 @@ def test_legacy_locations_remain_unprefixed(mock_request_factory: RequestFactory
         ["body_value"],
         ["query_value"],
     ]
+
+
+def test_fixed_error_contract_applies_to_aggregation(mock_request_factory: RequestFactory) -> None:
+    @validate_http(
+        body=BodyInput,
+        query=QueryInput,
+        aggregate_validation_errors=True,
+        validation_error_response=ValidationErrorResponse(status_code=400),
+        error_formatter=lambda exc, status: {"original": status, "errors": getattr(exc, "errors")},
+    )
+    def handler(req: HttpRequest) -> None:
+        pass
+
+    response = handler(mock_request_factory(body=b"{}"))
+    assert response.status_code == 400
+    data = json.loads(response.get_body())
+    assert data["original"] == 422
+    assert len(data["errors"]) == 2

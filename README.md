@@ -484,6 +484,21 @@ Reference the files at repository root:
 - https://github.com/yeongseon/azure-functions-validation-python/blob/main/llms.txt
 - https://github.com/yeongseon/azure-functions-validation-python/blob/main/llms-full.txt
 
+## Contributing
+
+We welcome contributions! This package is maintained as open source and improves through community involvement.
+
+**Getting started:** See the [Contributing Guide](CONTRIBUTING.md) for setup, testing, and pull request workflows.
+
+**Find an issue to work on:**
+
+- **[Good first issue](https://github.com/yeongseon/azure-functions-validation-python/labels/good%20first%20issue)**: starter tasks scoped for first-time contributors. These are small, self-contained, and acceptance-tested.
+- **[Help wanted](https://github.com/yeongseon/azure-functions-validation-python/labels/help%20wanted)**: community contributions welcomed. These can require more familiarity with the codebase or Azure Functions.
+
+**Before you start:** Please comment on the issue to request assignment before implementation. An assigned issue is reserved so multiple people do not work on the same task.
+
+**No open starter issues?** Bug reports and small documentation suggestions are always welcome, even when no labeled issue is currently available.
+
 ## Disclaimer
 
 This project is an independent community project and is not affiliated with,

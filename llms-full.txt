@@ -4,6 +4,46 @@
 
 ## Package Info
 
+## Request-validation error transport
+
+ErrorFormatter = Callable[[Exception, int], dict[str, Any] | ErrorResponseSpec].
+ErrorResponseSpec(*, content: dict[str, Any], status_code: int | None = None,
+media_type: str | None = None,
+headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None).
+ValidationErrorResponse(*, status_code: int = 422,
+media_type: str = "application/json", response_model: Any = None).
+Both classes are frozen/slotted/keyword-only and exported at package root and
+azure_functions_validation.responses. Constructors only store values.
+
+The fixed decorator declaration validates at decoration time and compiles its
+Pydantic error model once. Formatter receives original 422; dictionaries use
+the fixed transport, rich results inherit omitted fields and must agree when
+explicit. Without a declaration, rich fields inherit 422/application/json.
+Only request-schema origins (including aggregation) are eligible. Malformed
+JSON 400, 413, 415, binding failures, response failures and handler HttpError
+(even 422) are excluded. Rich results there produce sanitized 500. Legacy
+dictionary formatters preserve their behavior and 5xx sanitization opt-in.
+
+Error models validate and serialize against declared annotations, filtering
+subclass fields. New rich/fixed JSON is finite; cycles, invalid output, model
+mismatch, formatter exceptions or header violations produce sanitized 500,
+without retrying formatter or adapter. Async formatters are unsupported.
+
+Statuses are integer 400–499, excluding bool; HTTPStatus is accepted. Media
+is bare application/json or application/<subtype>+json, case-normalized.
+Non-default fixed media or a model requires a formatter. Headers are copied
+from mappings or pairs: ASCII token names, Latin-1 values, no controls except
+HTAB, no case-insensitive duplicates except Set-Cookie. Each cookie pair must
+contain one valid cookie. Transport/hop-by-hop headers are prohibited;
+Content-Type must agree with the authoritative media type.
+
+Fixed declarations emit endpoint metadata v2 required content maps. Default
+configurations retain v1. Dynamic custom formatters omit guessed request-error
+schemas. Fixed status 400 on body endpoints includes malformed JSON's JSON
+variant; unknown formatter body schemas are {}. Older v1-only consumers warn
+and degrade; there is no OpenAPI runtime dependency. Outer logging must wrap
+validation to observe early responses with correlation context.
+
 - PyPI: `pip install azure-functions-validation`
 - Version: see package metadata
 - Python: >=3.11, <3.15
@@ -27,6 +67,32 @@ pip install -e .[dev]
 
 ## Public API
 
+### Validated per-return response
+
+ResponseSpec[T](*, content: T, status_code: int | None = None,
+headers: Mapping[str, str] | Sequence[tuple[str, str]] | None = None) is a frozen,
+slotted, keyword-only dataclass exported at package root and responses. It has no
+media_type. Construction is inert; the protected response path checks fields,
+unwraps once, validates content and uses declared-model serialization (including
+subclass filtering, aliases/exclusions). Without a model the adapter's serialize
+runs once. Exact bytes/media are preserved without SDK-body reparsing.
+
+Omitted status inherits status_code=. Envelope status (explicit or inherited)
+must be integer 200–599, excluding bool; HTTPStatus accepted. Final unmodelled or
+validated None overrides explicit status to empty 204, retaining valid headers
+and skipping serialization. Nonnullable models reject None. 204/205/304 require
+final None; non-None data fails with formatted 500. Use raw HttpResponse for an
+intentional empty 201/202 or 205/304. Direct SDK bypass preserves identity and
+ordinary static status behavior is unchanged.
+
+Headers reuse ErrorResponseSpec transport policy. Content-Type must agree with
+the serializer and is rejected for absent content. Nested ResponseSpec or SDK
+content is invalid. Response faults stay 500, never eligible for rich error
+overrides. Outer logging observes final status/headers; worker signatures and
+extra bindings are unchanged. Metadata remains a non-exhaustive fallback
+description; no runtime statuses/headers are inferred or emitted from envelopes
+or return annotations. Applications document additional outcomes explicitly.
+
 Custom adapter authors can import `ValidationAdapter`, `AdapterValidationError`,
 `MalformedRequestError`, `SerializationError`, and `AdapterConformanceTests`.
 The suite is pytest-agnostic at import time; subclass it in a test module and
@@ -40,12 +106,14 @@ def validate_http(
     *,
     body: Any = None,
     query: Any = None,
+    query_params: Mapping[str, Any] | None = None,
     path: Any = None,
     headers: Any = None,
     request_model: Any = None,
     response_model: Any = None,
     adapter: ValidationAdapter | None = None,
     error_formatter: ErrorFormatter | None = None,
+    validation_error_response: ValidationErrorResponse | None = None,
     expose_internal_errors: bool = False,
     status_code: int = 200,
     legacy_loc: bool = False,
@@ -61,12 +129,14 @@ def validate_http(
     Args:
         body: Pydantic model for request body validation.
         query: Pydantic model for query parameter validation.
+        query_params: Explicit scalar/list annotations mapped to keyword-only handler arguments.
         path: Pydantic model for path parameter validation.
         headers: Pydantic model for header validation.
         request_model: Deprecated shorthand alias for body. Use body instead.
         response_model: Pydantic model or TypeAdapter-compatible type for response validation.
         adapter: Custom validation adapter (defaults to PydanticAdapter).
-        error_formatter: Per-handler custom error formatter.
+  error_formatter: Per-handler custom error formatter.
+  validation_error_response: Fixed request-schema status/media/model; formatter receives 422.
         expose_internal_errors: Unsafe opt-in to pass original 5xx exceptions.
         status_code: HTTP status code for successful responses (default 200).
         legacy_loc: Omit the leading input source from error locations when true.
@@ -189,6 +259,33 @@ def get_user(req: func.HttpRequest, path: UserPathParams, query: SearchParams) -
     # path and query are validated instances
     return func.HttpResponse(f"User: {path.user_id}, limit: {query.limit}")
 ```
+
+### Explicit Scalar Query Inputs
+
+```python
+from typing import Annotated
+from pydantic import Field
+
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def list_items(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+    return {"page": page}
+```
+
+The declaration controls validation, never inferred handler annotations. Handler
+defaults or Annotated defaults/factories apply (both is a ValueError); otherwise
+even nullable inputs are required. Defaults validate; factories run per request.
+Flat scalars/unions/lists only; unknown keys ignored. Repeated scalar keys fail,
+list keys retain existing singleton/repetition normalization. Blank and textual
+null values follow normal Pydantic validation. String inbound aliases change
+wire names, not injection names; serialization-only aliases do not change input.
+AliasChoices/AliasPath and ambiguous aliases are rejected. Nonempty declarations
+exclude query=Model and require omitted adapter or an exact PydanticAdapter.
+Keyword-only, reserved-name and SDK-binding checks run at decoration time;
+future outer binding collisions must fail worker indexing. References resolve in
+handler globals. Names starting with underscores or colliding with BaseModel
+attributes are unsupported. Validated request values override invocation kwargs.
+No new public export or dependency; endpoint v1 is authoritative, while legacy
+validation.query remains None. Outer logging must wrap validation to cover 422s.
 
 ### Request + Response Validation
 

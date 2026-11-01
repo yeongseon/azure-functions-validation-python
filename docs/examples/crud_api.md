@@ -42,7 +42,7 @@ from __future__ import annotations
 import azure.functions as func
 from pydantic import BaseModel, Field
 
-from azure_functions_validation import validate_http
+from azure_functions_validation import ResponseSpec, validate_http
 
 
 class TaskCreateRequest(BaseModel):
@@ -76,9 +76,21 @@ class TaskListQuery(BaseModel):
 
 
 _TASKS: dict[int, dict[str, object]] = {
-    1: {"id": 1, "title": "Write docs", "description": "Add examples", "priority": 2, "done": False},
+    1: {
+        "id": 1,
+        "title": "Write docs",
+        "description": "Add examples",
+        "priority": 2,
+        "done": False,
+    },
     2: {"id": 2, "title": "Fix bug #42", "description": "", "priority": 5, "done": True},
-    3: {"id": 3, "title": "Add tests", "description": "Cover edge cases", "priority": 3, "done": False},
+    3: {
+        "id": 3,
+        "title": "Add tests",
+        "description": "Cover edge cases",
+        "priority": 3,
+        "done": False,
+    },
 }
 _NEXT_ID = 4
 
@@ -115,7 +127,7 @@ def get_task(req: func.HttpRequest, path: TaskPath) -> dict[str, object]:
 @app.function_name(name="create_task")
 @app.route(route="tasks", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 @validate_http(body=TaskCreateRequest, response_model=TaskResponse)
-def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> TaskResponse:
+def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> ResponseSpec[TaskResponse]:
     global _NEXT_ID  # noqa: PLW0603
 
     task = TaskResponse(
@@ -127,7 +139,9 @@ def create_task(req: func.HttpRequest, body: TaskCreateRequest) -> TaskResponse:
     )
     _TASKS[_NEXT_ID] = task.model_dump()
     _NEXT_ID += 1
-    return task
+    return ResponseSpec(
+        content=task, status_code=201, headers={"Location": f"/api/tasks/{task.id}"}
+    )
 
 
 @app.function_name(name="update_task")
@@ -179,6 +193,12 @@ This catches accidental response drift early.
 ### Step 3: implement create with `body`
 
 `body=TaskCreateRequest` validates the request body and injects `body`.
+Creation returns `ResponseSpec` with 201 and `Location` while retaining
+`response_model=TaskResponse` validation and field filtering. The envelope has
+no `media_type`; serialization owns the representation. None overrides explicit
+status to 204, and 204/205/304 require None. Use raw HttpResponse for intentional
+empty 201/202 or 205/304. Metadata describes the non-exhaustive fallback path;
+the application must document creation's additional 201/Location outcome.
 
 ### Step 4: implement PATCH safely
 
@@ -196,7 +216,8 @@ Delete endpoint intentionally bypasses model serialization.
 
 !!! tip "Practical pattern"
     Use typed model responses for normal JSON paths, and return `HttpResponse`
-    directly for no-content or custom-status control paths.
+    directly for intentional bypass paths; use `ResponseSpec` for validated
+    per-return status and headers.
 
 ## curl checks with expected output
 
@@ -241,8 +262,9 @@ curl -i -X POST http://localhost:7071/api/tasks \
 Expected response:
 
 ```http
-HTTP/1.1 200 OK
+HTTP/1.1 201 Created
 Content-Type: application/json
+Location: /api/tasks/4
 
 {"id":4,"title":"Ship release notes","description":"","priority":2,"done":false}
 ```

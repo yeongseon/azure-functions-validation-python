@@ -20,6 +20,19 @@ private directory and dynamically selected loopback ports, never shared services
 It checks default request/context binding, custom `trigger_arg_name`, typed body
 injection, success serialization without subclass-only fields, malformed JSON 400,
 invalid-model 422 and sanitized invalid-response 500.
+Envelope routes prove sync/async validated 201 plus Location, subclass-secret
+exclusion, real context passthrough and None-to-204 precedence with custom headers.
+Curl's raw header capture retains both separate Set-Cookie fields on the async
+route; neither a mapping nor a comma-joined cookie assertion stands in for wire
+evidence. The existing broken-wrapper negative control remains mandatory.
+The fixed-error route proves 400 `application/problem+json`, a preserved custom
+header and real `func.Context` passthrough on success. An invalid rich error
+response must produce the exact sanitized 500 JSON envelope without secret data.
+Sync/async scalar-query routes additionally prove custom request and real
+`func.Context` binding, a validated default, constrained-query `422` locations,
+and ordered repeated-list input. Native queue output binding registration and
+signature-name equality are covered separately against the real SDK, without
+requiring Azurite in this HTTP-only gate.
 
 A second host uses the same installed candidate but deliberately replaces the
 fixture's decorator with a no-op. The same behavior probe must fail, with the

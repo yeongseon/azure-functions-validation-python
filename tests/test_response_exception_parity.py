@@ -6,7 +6,7 @@ from azure.functions import HttpRequest
 from pydantic import BaseModel
 import pytest
 
-from azure_functions_validation import PydanticAdapter, validate_http
+from azure_functions_validation import PydanticAdapter, ResponseSpec, validate_http
 
 
 class Output(BaseModel):
@@ -16,8 +16,13 @@ class Output(BaseModel):
 @pytest.mark.parametrize("seam", ["validate_response", "serialize_response", "serialize"])
 @pytest.mark.parametrize("error_type", [TypeError, ValueError, RuntimeError])
 @pytest.mark.parametrize("expose", [False, True])
+@pytest.mark.parametrize("envelope", [False, True])
 def test_response_faults_preserve_formatter_status_and_logging(
-    seam: str, error_type: type[Exception], expose: bool, caplog: pytest.LogCaptureFixture
+    seam: str,
+    error_type: type[Exception],
+    expose: bool,
+    envelope: bool,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     original = error_type("private-canary")
     adapter = PydanticAdapter()
@@ -34,8 +39,8 @@ def test_response_faults_preserve_formatter_status_and_logging(
         error_formatter=formatter,
         expose_internal_errors=expose,
     )
-    def handler(req: HttpRequest) -> dict[str, int]:
-        return {"value": 1}
+    def handler(req: HttpRequest) -> dict[str, int] | ResponseSpec[dict[str, int]]:
+        return ResponseSpec(content={"value": 1}) if envelope else {"value": 1}
 
     with caplog.at_level(logging.ERROR):
         response = handler(HttpRequest("GET", "https://example.test", body=b""))

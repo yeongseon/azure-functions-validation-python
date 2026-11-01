@@ -32,6 +32,7 @@ from typing import Any
 #: Current version of the ``endpoint`` namespace payload. Bump only on a
 #: breaking payload change; consumers warn (not fail) on unknown versions.
 ENDPOINT_METADATA_VERSION = 1
+_ENDPOINT_METADATA_V2 = 2
 
 #: Name of the shipped JSON Schema file within this package.
 ENDPOINT_SCHEMA_FILENAME = "endpoint.schema.json"

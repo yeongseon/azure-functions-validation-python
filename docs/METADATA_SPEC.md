@@ -1,6 +1,6 @@
 # `endpoint` metadata convention — `azure-functions-validation` conformance
 
-Status: **v1** · Owner namespace: `endpoint` · Issue: [#271](https://github.com/yeongseon/azure-functions-validation-python/issues/271) · Umbrella: [#270](https://github.com/yeongseon/azure-functions-validation-python/issues/270)
+Status: **v1 default, v2 opt-in** · Owner namespace: `endpoint`
 
 > **Scope of this document:** This document describes `azure-functions-validation`'s
 > local conformance to the toolkit `endpoint` metadata **v1** convention. The
@@ -98,14 +98,22 @@ The Azure Functions route binding (`@app.route(route=…, methods=…)`) is the
 single source of truth for path and HTTP methods. The consumer derives them at
 scan time from the binding, so producers must not duplicate them here.
 
-### `responses` describes the endpoint's actual runtime responses
+### `responses` is a non-exhaustive fallback description
 
-`responses` is a **generic** part of the convention: a producer maps each HTTP
-status code it can return to a response object carrying that response's JSON
-Schema, or emits `null` when it has nothing to describe. What those responses
+`responses` is a **generic** part of the convention: a producer maps known HTTP
+status codes to response objects carrying their JSON Schema, or emits `null`
+when it has nothing to describe. What those responses
 *are* is producer-specific. A non-Pydantic producer, or one that only emits
 success responses, is under no obligation to document a `422` body — it simply
 describes whatever its runtime actually returns.
+
+This producer's default v1 emission describes the decorator's fallback path,
+not every possible handler return. `ResponseSpec` status/header choices, direct
+SDK returns and return annotations do not change emission or infer dynamic
+statuses, Location or cookie schemas. There is no dynamic-response flag.
+Application-authored documentation must declare additional outcomes. A future
+declarative richer response contract, not the envelope itself, would justify
+new metadata facts. Existing fixed error declarations still select v2.
 
 ## azure-functions-validation implementation
 
@@ -123,6 +131,7 @@ OpenAPI parameter objects. The model argument determines the `in` location:
 | Decorator argument | Emitted `in` value |
 | --- | --- |
 | `query=Model` | `"query"` |
+| `query_params={...}` (generated private model) | `"query"` |
 | `path=Model` | `"path"` |
 | `headers=Model` | `"header"` |
 
@@ -131,7 +140,7 @@ does **not** produce `parameters` entries — it is emitted as `request_body`.
 
 Each field becomes one parameter object `{ "name", "in", "required", "schema" }`:
 
-- **`name`** uses the field's serialization alias (`by_alias=True`), so it
+- **`name`** uses the field's inbound validation alias (`by_alias=True`), so it
   matches the wire contract rather than the Python attribute name. Configure
   aliases with Pydantic v2 `Field(alias=...)` / `alias_generator`.
 - **`required`** rules:
@@ -149,6 +158,13 @@ Each field becomes one parameter object `{ "name", "in", "required", "schema" }`
   references a nested model via `$ref`, the parameter's `schema` carries a
   top-level `$defs` so the consumer can hoist it (the `$defs`-if-`$ref`
   invariant).
+
+Scalar shorthand uses the same validation-mode parameter builder and endpoint
+v1 shape, including defaults, constraints, nullability, arrays and the `422`
+response. Default factories are not called for metadata. No internal model is
+exported: legacy `validation["query"]` remains exactly the user's `query=`
+argument, therefore `None` for shorthand. `endpoint` is the authoritative
+documentation payload.
 
 #### Repeated / array query parameters
 
@@ -194,8 +210,46 @@ independently of `response_model`: an operation with a request model but no
 `response_model` still carries a `responses` map of just `{"422": …}`. When
 there is no request model, no `422` is emitted. This documents the default
 `{"detail": [...]}` envelope only; a custom `ErrorFormatter` may change the
-runtime body without changing this schema. Adding `422` is an additive change
-and does not bump the namespace version.
+runtime body. With a custom formatter and no fixed declaration, this producer
+omits the fabricated request-error entry and retains other known hints.
+Applications must declare their dynamic error variants explicitly.
+
+## Fixed error contracts (version 2)
+
+An explicit `ValidationErrorResponse` opts that endpoint into v2 while
+`ENDPOINT_METADATA_VERSION = 1` remains the default. Request and parameter
+fields are unchanged. Every response detail has required `content`, mapping
+media types to objects with a required schema dictionary; response-level
+`schema` is forbidden. `content: {}` explicitly means no body.
+
+```json
+{
+  "version": 2,
+  "responses": {
+    "200": {"content": {"application/json": {"schema": {"type": "object"}}}},
+    "400": {"content": {
+      "application/problem+json": {"schema": {"type": "object"}},
+      "application/json": {"schema": {}}
+    }},
+    "204": {"content": {}}
+  }
+}
+```
+
+The fixed status/media and serialization-mode error model schema are emitted.
+Without a model, default Pydantic formatting uses the standard envelope; a
+custom formatter or unknown custom-adapter error shape uses `{}`. Body endpoints
+with fixed status 400 also include malformed JSON's `application/json` variant.
+Its schema is unknown with a custom formatter. Same-media variants combine with
+`anyOf`, unless `{}` subsumes them. Other known success responses are converted
+to content maps, including body-less 204 for nullable output.
+
+Optional `headers` maps names to objects requiring a schema dictionary and
+optional description. They describe header schemas, not literal wire values;
+Content-Type belongs to the content map. Status keys are 200–599; body-forbidden
+204, 205 and 304 require empty content. Older v1-only consumers warn/degrade on
+v2, never interpret it as v1. Validation has no OpenAPI runtime dependency, and
+v2 conformance is locally tested without requiring a consumer release.
 
 
 ## Canonicalization rules (validation-specific)

@@ -41,11 +41,42 @@ This repository owns:
 
 ## Compatibility Policy
 
+Explicit scalar-query declarations use `query_params` keyed by keyword-only
+handler arguments. One private generated Pydantic model per handler reuses the
+existing query parse slot; attribute injection preserves typed values. The model
+is separate from `PipelineConfig.query` and legacy metadata. Endpoint v1 schemas
+reuse the existing validation-mode parameter builder. Nonempty declarations are
+Pydantic-only and mutually exclusive with model queries; no signature inference
+or adapter-protocol expansion is introduced. WorkerCompat hides declared inputs
+while preserving binding slots. Future outer SDK binding collisions remain an
+indexing boundary, not a universal decoration-time guarantee.
+
 - Supported Python versions: `3.11`-`3.14` (metadata declares `>=3.11,<3.15`)
 - Supported runtime target: Azure Functions Python v2 programming model
 - Public APIs follow semantic versioning expectations
 
 ## Change Discipline
+
+`ResponseSpec[T]` is an inert frozen/slotted/keyword-only handler value. The
+protected response-building path unwraps once, validates and serializes through
+the existing adapter, then constructs one SDK response using shared transport
+checks. It has no media_type and does not reparse encoded bodies. Declared-model
+filtering remains the disclosure boundary. Final None overrides explicit status
+to 204; 204/205/304 require None, with raw SDK responses available for intentional
+empty 201/202 or 205/304. Direct SDK bypass and ordinary static status behavior
+remain unchanged. WorkerCompat and endpoint emission are unchanged: metadata is
+a non-exhaustive fallback description, not inferred dynamic status/header facts.
+
+Request-validation error transport is explicitly opt-in. `ErrorResponseSpec`
+is a formatter value; `ValidationErrorResponse` declares a fixed status/media
+and optional Pydantic error model. Only request-schema origins are eligible,
+not numeric 422 or the shared validation exception class. Transport validation
+is private and serialization-independent, preserving separate cookie fields.
+Error model serialization follows the declared type to filter subclass fields.
+Invalid formatter output fails directly to sanitized 500 without recursion.
+Fixed contracts emit endpoint v2 content maps; defaults remain v1. Dynamic
+formatters omit fabricated request-error schemas. No OpenAPI runtime import or
+adapter protocol expansion is involved.
 
 - Validation semantics must be covered by regression tests.
 - Error payload changes are user-facing behavior changes.

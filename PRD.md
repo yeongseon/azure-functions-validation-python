@@ -95,6 +95,13 @@ Consumers validating responses must allow unknown/additional properties. Custom
 
 ## Compatibility
 
+Request-schema failures may opt into 400–499 and a JSON application media type
+through `ValidationErrorResponse` or formatter `ErrorResponseSpec` results.
+The default 422 envelope is unchanged. Fixed contracts can validate/filter an
+error model and publish endpoint v2 metadata; dynamic formatter schemas are not
+guessed. Malformed input, body policies, handler errors and server failures
+retain their original classification. Invalid formatter transport fails closed.
+
 | Dependency | Supported versions |
 |---|---|
 | Python | 3.11-3.14 (`>=3.11,<3.15`) |
@@ -103,8 +110,18 @@ Consumers validating responses must allow unknown/additional properties. Custom
 
 ## Core Use Cases
 
+Per-return `ResponseSpec[T]` supports validated status/header customization
+without an SDK bypass or adapter-protocol change. The envelope has no media_type;
+the serializer owns bytes and representation. Final None overrides even explicit
+201/202 to 204; 204/205/304 require None and reject data rather than discarding it.
+Raw HttpResponse remains the escape hatch for intentional empty non-204 statuses.
+Metadata remains a non-exhaustive fallback description; applications explicitly
+document dynamic statuses and headers.
+
 - Validate a JSON request body into a typed model
 - Validate query, path, or header models
+- Validate a few scalar/list query inputs with explicit `query_params`
+  annotations and keyword-only handler arguments, without a dedicated BaseModel
 - Validate and serialize a typed response
 - Return structured validation errors for invalid input
 

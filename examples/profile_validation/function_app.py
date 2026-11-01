@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import azure.functions as func
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -47,3 +49,9 @@ def get_profile(
         view=view,
         request_id=headers.x_request_id,
     )
+
+
+@app.route(route="profiles", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)]})
+def list_profiles(req: func.HttpRequest, *, page: int = 1) -> dict[str, int]:
+    return {"page": page}

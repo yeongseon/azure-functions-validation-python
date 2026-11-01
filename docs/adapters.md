@@ -1,5 +1,13 @@
 # Writing a custom adapter
 
+Error transport remains separate from the adapter protocol. Fixed
+`ValidationErrorResponse.response_model` uses a prepared Pydantic TypeAdapter,
+even with a custom adapter; no new adapter methods are required. Apply outer
+logging above validation so it observes early request-schema error responses,
+including final status, media type and headers, with correlation context intact.
+Custom adapters with unknown default error bodies publish `{}` for a fixed
+error contract without a model.
+
 The [surface evaluation](design/adapter-surface-evaluation.md) records why the
 complete public contract is retained, distinguishes shipped and test-only backends,
 and identifies evidence-backed internal reductions without API loss.
@@ -7,6 +15,12 @@ and identifies evidence-backed internal reductions without API loss.
 `ValidationAdapter` is the public backend contract behind `validate_http`.
 Use a custom implementation only when the built-in `PydanticAdapter` cannot
 serve your model system.
+
+Nonempty `query_params` is deliberately Pydantic-only: omit `adapter` or pass an
+exact `PydanticAdapter` instance. Custom implementations and subclasses raise
+decoration-time `TypeError` with this shorthand. Existing custom adapters with
+`query=Model` or an empty/absent declaration are unchanged; the protocol gains no
+new methods.
 
 ## Lifetime and concurrency
 
@@ -69,6 +83,15 @@ propagating out of the decorated handler or recursing into the same failing
 adapter again.
 
 ## Error and formatter ordering
+
+`ResponseSpec` is unwrapped before `validate_response`. Its content follows these
+same entry points exactly once, including declared-model filtering and exclusion
+flags. Without a model, only `serialize` runs. Returned bytes and the exact media
+string are preserved without decoding or reparsing an SDK body. The envelope has
+no `media_type`; supplied Content-Type must match the serializer. Final None
+skips serialization and overrides explicit status to 204; 204/205/304 require
+None. Use a raw SDK response for an intentional empty 201/202 or 205/304.
+Response faults remain 500 and are not eligible for rich request-error transport.
 
 The pipeline classifies the adapter exception first: malformed request is
 `400`, request validation is `422`, and response validation, serialization,

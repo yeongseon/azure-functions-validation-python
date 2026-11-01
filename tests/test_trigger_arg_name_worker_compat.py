@@ -28,6 +28,7 @@ import azure.functions as func
 from azure.functions.decorators.function_app import Function
 from pydantic import BaseModel
 import pytest
+from test_composition import RecordingOut
 
 from azure_functions_validation import validate_http
 
@@ -64,6 +65,42 @@ def _assert_signature_matches_bindings(
 
 
 class TestCustomTriggerArgName:
+    def test_scalar_query_with_real_queue_binding(self) -> None:
+        app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
+        @app.route(route="scalar", trigger_arg_name="request")
+        @app.queue_output(arg_name="out_msg", queue_name="q", connection="AzureWebJobsStorage")
+        @validate_http(query_params={"page": int})
+        def handler(
+            request: func.HttpRequest, out_msg: func.Out[str], *, page: int = 1
+        ) -> dict[str, int]:
+            out_msg.set(str(page))
+            return {"page": page}
+
+        wrapper, names = _assert_signature_matches_bindings(app)
+        assert names == {"request", "out_msg"}
+        assert wrapper.__annotations__ == {"out_msg": func.Out[str]}
+        assert wrapper.__code__.co_argcount == 1
+        output = RecordingOut()
+        request = func.HttpRequest(
+            method="GET", url="http://localhost/?page=2", params={"page": "2"}, body=b""
+        )
+        response = wrapper(request=request, out_msg=output)
+        assert json.loads(response.get_body()) == {"page": 2}
+        assert output.get() == "2"
+
+    def test_future_scalar_binding_collision_fails_name_invariant(self) -> None:
+        app = func.FunctionApp()
+
+        @app.route(route="collision", trigger_arg_name="request")
+        @app.queue_output(arg_name="page", queue_name="q", connection="AzureWebJobsStorage")
+        @validate_http(query_params={"page": int})
+        def handler(request: func.HttpRequest, *, page: int) -> None:
+            pass
+
+        with pytest.raises(AssertionError, match="disagrees"):
+            _assert_signature_matches_bindings(app)
+
     def test_sync_custom_name_signature_matches_binding(self) -> None:
         """Worker indexing requires the exposed request name to match the SDK trigger binding."""
         app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)

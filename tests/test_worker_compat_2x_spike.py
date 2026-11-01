@@ -28,6 +28,7 @@ from azure.functions import HttpRequest, HttpResponse
 from packaging.version import Version
 from pydantic import BaseModel
 import pytest
+from test_composition import RecordingOut
 
 from azure_functions_validation import validate_http
 
@@ -122,3 +123,26 @@ def test_worker_indexes_handler_with_output_binding() -> None:
 
     functions = _registered_functions(app)
     assert len(functions) >= 1
+
+
+def test_scalar_query_preserves_real_output_binding_names() -> None:
+    app = func.FunctionApp()
+
+    @app.route(route="scalar", trigger_arg_name="request")
+    @app.queue_output(arg_name="out_msg", queue_name="q", connection="AzureWebJobsStorage")
+    @validate_http(query_params={"page": int})
+    def emit(request: HttpRequest, out_msg: func.Out[str], *, page: int = 1) -> HttpResponse:
+        out_msg.set(str(page))
+        return HttpResponse(str(page))
+
+    registered = app.get_functions()[0]
+    wrapper = registered.get_user_function()
+    bindings = {binding.name for binding in registered.get_bindings() if binding.name != "$return"}
+    assert set(inspect.signature(wrapper).parameters) == bindings == {"request", "out_msg"}
+    assert wrapper.__annotations__ == {"out_msg": func.Out[str]}
+    output = RecordingOut()
+    response = wrapper(
+        request=HttpRequest(method="GET", url="http://localhost/", body=b""), out_msg=output
+    )
+    assert response.get_body() == b"1"
+    assert output.get() == "1"

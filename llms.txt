@@ -20,7 +20,14 @@ response schemas. FastAPI-like developer experience without the web framework.
 ## Core API
 
 - `validate_http` — Main decorator for request/response validation
+- `ResponseSpec[T]` — Frozen/slotted/keyword-only validated handler envelope with
+  content, optional status_code and mapping/pair headers; no media_type.
+  None overrides explicit status to 204; 204/205/304 require final None.
+  Use raw HttpResponse for intentional empty 201/202 or 205/304.
+  Metadata is a non-exhaustive fallback description, never dynamic inference.
 - `ErrorFormatter` — Custom error formatting callback
+- `ErrorResponseSpec` — Request-schema-only formatter transport value
+- `ValidationErrorResponse` — Fixed status/media and optional Pydantic error model
 - `ResponseValidationError` — Error raised when response validation fails
 - `SerializationError` — Error raised when serialization fails
 - `AdapterConformanceTests` — Pytest-agnostic custom-adapter contract suite
@@ -35,6 +42,11 @@ response schemas. FastAPI-like developer experience without the web framework.
 - Opt-in body policies: `max_body_bytes` returns 413 above the byte limit;
   `require_json_content_type` returns 415 for non-JSON non-empty bodies.
 - Request validation: body, query, path, headers all via Pydantic models
+- Scalar query shorthand: `query_params: Mapping[str, Any] | None = None` maps
+  explicit Pydantic annotations to keyword-only handler arguments. Handler or
+  Annotated defaults are validated; nullable without a default is required.
+  Nonempty declarations exclude `query=`, require the default/exact PydanticAdapter,
+  ignore unknown keys, and preserve list-query parsing and endpoint v1 metadata.
 - Plain models use lax coercion and ignore unknown fields. Prefer
   `ConfigDict(strict=True, extra="forbid")` for closed JSON body contracts;
   query, path, and header values arrive as strings and usually need coercion.
@@ -52,6 +64,11 @@ response schemas. FastAPI-like developer experience without the web framework.
   `response_exclude_none`, and `response_exclude_unset` require `response_model`;
   direct `HttpResponse` returns bypass them.
 - Per-handler error formatting via `ErrorFormatter` callback
+- `validation_error_response: ValidationErrorResponse | None = None` fixes request
+  validation status/media/model; formatter still receives 422. Rich results may
+  override only request-schema errors, never malformed JSON, body policies,
+  handler HttpError or 5xx. Invalid output fails closed to sanitized 500.
+  Fixed contracts emit endpoint v2; dynamic formatters omit guessed errors.
 
 ## Quick Start
 

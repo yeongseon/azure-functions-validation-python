@@ -1,5 +1,17 @@
 # Usage
 
+## Choosing an error strategy
+
+Keep the default formatter for stable 422 JSON envelopes. Use a dictionary
+`ErrorFormatter` to customize bodies without transport changes. Declare
+`validation_error_response=ValidationErrorResponse(status_code=400,
+media_type="application/problem+json", response_model=Problem)` for a fixed
+request-schema contract, or return `ErrorResponseSpec` for dynamic eligible
+errors. The formatter always receives the original status. Fixed contracts
+publish metadata v2; dynamic formatter variants require explicit application
+documentation. See [configuration](configuration.md#validation_error_response)
+and the [RFC 9457 example](examples/custom_error_handler.md).
+
 This guide covers production patterns for `@validate_http` in the Azure Functions
 Python v2 programming model.
 
@@ -104,6 +116,24 @@ class ListQuery(BaseModel):
 def list_items(req: func.HttpRequest, query: ListQuery) -> dict[str, int]:
     return {"limit": query.limit, "offset": query.offset}
 ```
+
+### Scalar query inputs without a model
+
+```python
+from typing import Annotated
+
+
+@validate_http(query_params={"page": Annotated[int, Field(ge=1)], "tags": list[str]})
+def search(req: func.HttpRequest, *, tags: list[str], page: int = 1) -> dict[str, object]:
+    return {"page": page, "tags": tags}
+```
+
+`?tags=a&tags=b` injects `["a", "b"]`; omitted `page` injects validated `1`.
+Only explicit keyword-only declarations are injected; no handler annotation is
+inferred. Do not combine a nonempty declaration with `query=Model`. The same
+pattern works with async handlers, body/path/header models, and aggregation.
+See [the full scalar-query contract](configuration.md#query_params) for aliases,
+defaults and worker-binding limits.
 
 ### Path only
 
@@ -229,6 +259,43 @@ def create_task(req: func.HttpRequest, body: CreateTaskBody) -> dict[str, str]:
     The decorator rejects this configuration at import time.
 
 ## Response validation patterns
+
+### Per-return status and headers without bypassing validation
+
+```python
+from azure_functions_validation import ResponseSpec
+
+
+@validate_http(response_model=ItemOut, status_code=202)
+def create_item(req: func.HttpRequest) -> ResponseSpec[ItemOut]:
+    return ResponseSpec(
+        content=ItemOut(id=1, name="alpha"),
+        status_code=201,
+        headers={"Location": "/api/items/1"},
+    )
+```
+
+`ResponseSpec` unwraps once and follows normal model validation, declared-model
+field filtering and serialization options. Omitted status inherits `status_code=`;
+without a model the configured adapter serializes content once. The envelope has
+**no `media_type`**: the serializer owns the representation. Use ordered pairs for
+repeated `Set-Cookie` fields, never a comma-joined value. Headers follow the
+[shared safety policy](configuration.md#validation_error_response).
+
+!!! warning "None overrides even an explicit status"
+    Unmodelled or successfully validated `None` produces empty **204**, even with
+    `status_code=201` or `202`, preserving valid custom headers. A nonnullable model
+    still rejects `None`. Statuses **204/205/304 require final content `None`**;
+    non-None data produces formatted 500, never silent data loss. Use raw
+    `func.HttpResponse` for intentional empty 201/202, or empty 205/304.
+    Caller `Content-Type` is invalid without content; otherwise it must agree
+    with the serializer. Invalid status/header fields and nested response objects
+    produce formatted 500. Status must be integer 200–599, not bool (`HTTPStatus`
+    members are accepted), including an inherited status on this opt-in path.
+
+Endpoint metadata remains a **non-exhaustive fallback description**, not a list
+of every runtime-selected status/header. Document additional outcomes explicitly
+in the application; return annotations do not create metadata declarations.
 
 ### Pattern A: model instance return
 
@@ -444,9 +511,9 @@ Pydantic models without importing this package:
 meta = getattr(handler, "_azure_functions_metadata", None)
 if meta and "validation" in meta:
     validation = meta["validation"]
-    print(validation["body"])           # Pydantic model class or None
-    print(validation["query"])          # Pydantic model class or None
-    print(validation["response_model"]) # Pydantic model class or None
+    print(validation["body"])  # Pydantic model class or None
+    print(validation["query"])  # Pydantic model class or None
+    print(validation["response_model"])  # Pydantic model class or None
 ```
 
 !!! tip "Bridge integration"

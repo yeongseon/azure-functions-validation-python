@@ -54,6 +54,23 @@ def _make_request(body: bytes = b'{"name": "Alice", "age": 30}') -> Mock:
 
 
 class TestToolkitMetadataConvention:
+    def test_scalar_query_preserves_foreign_namespaces_without_mutating_original(self) -> None:
+        def handler(req: HttpRequest, *, page: int = 1) -> dict[str, int]:
+            return {"page": page}
+
+        foreign = {"db": object(), "logging": object(), "arbitrary": object()}
+        setattr(handler, _TOOLKIT_META_ATTR, foreign)
+        import pytest
+
+        with pytest.warns(RuntimeWarning, match="with_context"):
+            wrapped = validate_http(query_params={"page": int})(handler)
+        metadata = getattr(wrapped, _TOOLKIT_META_ATTR)
+        assert all(metadata[key] is value for key, value in foreign.items())
+        assert getattr(handler, _TOOLKIT_META_ATTR) is foreign
+        assert set(foreign) == {"db", "logging", "arbitrary"}
+        assert metadata["validation"]["query"] is None
+        assert metadata["endpoint"]["parameters"][0]["name"] == "page"
+
     """Verify _azure_functions_metadata convention compliance."""
 
     def test_metadata_attribute_exists_on_decorated_function(self) -> None:
