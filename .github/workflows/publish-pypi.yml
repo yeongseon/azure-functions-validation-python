@@ -241,7 +241,7 @@ jobs:
       - name: Verify audit guards on the selected interpreter
         run: |
           pip install pytest pytest-cov
-          python -m pytest -o addopts= tests/test_runtime_audit_report.py
+          python -m pytest --noconftest -o addopts= tests/test_runtime_audit_report.py
       - name: Retain audit inventory and scanner output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
