@@ -1,0 +1,17 @@
+{
+  "repo": "yeongseon/azure-functions-validation-python",
+  "legacy_repos": [
+    "yeongseon/azure-functions-validation"
+  ],
+  "non_human_logins": [
+    "sisyphus-dev-ai"
+  ],
+  "protected": {
+    "v0.17.0": [
+      "ValidationAdapter gains a new required method, serialize_response()"
+    ],
+    "v0.16.0": [
+      "The supported Pydantic floor is raised from 2.0 to 2.11"
+    ]
+  }
+}
