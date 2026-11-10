@@ -70,7 +70,9 @@ For every published version the package files on PyPI are byte-identical to the 
 - The tag and the GitHub Release are kept; nothing is moved, deleted or re-uploaded. The Release
   body now opens with a notice that the version was not published, and it keeps the
   breaking-change guidance for `ValidationAdapter.serialize_response()` (a protected statement in
-  `.github/release-notes.json`, as is the notice).
+  `.github/release-notes.json`, as is the notice). It is also marked as a **pre-release**, so GitHub
+  no longer shows it as the Latest release: the Latest release is `v0.16.0`, the latest version on
+  PyPI. The next published release becomes Latest by itself.
 - Re-running the publish workflow for this tag is not a recovery: a dispatch uses the workflow file
   at the tag, which still contains the failing step.
 - The supported path is fix-forward. The cause is fixed on `main`, so the next published release
