@@ -1,4 +1,4 @@
-"""Wiring of the release verification jobs (#904).
+"""Wiring of the release verification jobs (#641).
 
 The scripts under test are the ``run`` blocks of the real workflow files, extracted from the YAML
 and executed in bash with a fake ``python3`` on ``PATH``, so the exit codes and job summaries are
