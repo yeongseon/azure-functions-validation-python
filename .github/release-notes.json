@@ -8,11 +8,66 @@
     "sisyphus-dev-ai"
   ],
   "protected": {
-    "v0.17.0": [
-      "ValidationAdapter gains a new required method, serialize_response()"
+    "v0.5.0": [
+      "was not published to PyPI"
+    ],
+    "v0.7.2": [
+      "was never published to PyPI"
+    ],
+    "v0.9.0": [
+      "was not published to PyPI"
     ],
     "v0.16.0": [
       "The supported Pydantic floor is raised from 2.0 to 2.11"
+    ],
+    "v0.17.0": [
+      "ValidationAdapter gains a new required method, serialize_response()",
+      "was not published to PyPI"
     ]
+  },
+  "not_a_release": [
+    "v0.7.2"
+  ],
+  "annotations": {
+    "v0.5.0": {
+      "notes": [
+        "> **`v0.5.0` was not published to PyPI.** Its `Publish to PyPI` run failed (the job log has expired), so no `0.5.0` package exists. `0.5.1`, tagged three days later, also failed to publish and has no GitHub Release. `0.5.2`, published on 2026-03-15, is the first package on PyPI after `0.3.0` and contains the changes listed here. The tag is kept unchanged as an audit record; see [Release history and provenance](https://github.com/yeongseon/azure-functions-validation-python/blob/main/docs/release_history.md#v050-and-v051-failed-publishes)."
+      ]
+    },
+    "v0.5.3": {
+      "notes": [
+        "_This GitHub Release was added afterwards for an already-published package: `0.5.3` was uploaded to PyPI on 2026-03-16 from the existing `v0.5.3` tag (`1c49426`), whose package source matches the PyPI files exactly. No tag, package file or date was changed; the notes are reconstructed from [`CHANGELOG.md`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CHANGELOG.md), cross-checked against the commits between the tags._"
+      ]
+    },
+    "v0.5.4": {
+      "notes": [
+        "_This GitHub Release was added afterwards for an already-published package: `0.5.4` was uploaded to PyPI on 2026-03-16 from the existing `v0.5.4` tag (`616abbf`), whose package source matches the PyPI files exactly. No tag, package file or date was changed; the notes are reconstructed from [`CHANGELOG.md`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CHANGELOG.md), cross-checked against the commits between the tags._"
+      ]
+    },
+    "v0.5.5": {
+      "notes": [
+        "_This GitHub Release was added afterwards for an already-published package: `0.5.5` was uploaded to PyPI on 2026-03-17 from the existing `v0.5.5` tag (`16c27b2`), whose package source matches the PyPI files exactly. No tag, package file or date was changed; the notes are reconstructed from [`CHANGELOG.md`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CHANGELOG.md), cross-checked against the commits between the tags._"
+      ]
+    },
+    "v0.5.6": {
+      "notes": [
+        "_This GitHub Release was added afterwards for an already-published package: `0.5.6` was uploaded to PyPI on 2026-03-17 from the existing `v0.5.6` tag (`03466ae`), whose package source matches the PyPI files exactly. No tag, package file or date was changed; the notes are reconstructed from [`CHANGELOG.md`](https://github.com/yeongseon/azure-functions-validation-python/blob/main/CHANGELOG.md), cross-checked against the commits between the tags._"
+      ]
+    },
+    "v0.7.2": {
+      "notes": [
+        "> **`v0.7.2` was never published to PyPI and is not a usable release.** The tag points at commit `2d7339f`, whose source still declares version `0.6.0`, on a side branch that is not part of `main`'s history; GitHub's [`v0.7.1...v0.7.2`](https://github.com/yeongseon/azure-functions-validation-python/compare/v0.7.1...v0.7.2) comparison reports it as diverged (2 commits ahead, 44 behind), so the *Full Changelog* link below shows that side branch rather than release changes. The `Publish to PyPI` run for this tag failed, so no `0.7.2` package exists: install `0.7.1` or `0.7.3`. The tag is kept unchanged as an audit record; see [Release history and provenance](https://github.com/yeongseon/azure-functions-validation-python/blob/main/docs/release_history.md#v072-invalid-tag-never-published)."
+      ]
+    },
+    "v0.9.0": {
+      "notes": [
+        "> **`v0.9.0` was not published to PyPI.** Its `Publish to PyPI` run failed at the \"Build distribution packages\" step (the job log has expired), so no `0.9.0` package exists. `0.9.1`, published about 15 minutes later, includes every change listed here. The tag is kept unchanged as an audit record; see [Release history and provenance](https://github.com/yeongseon/azure-functions-validation-python/blob/main/docs/release_history.md#v090-unpublished-superseded-by-v091)."
+      ]
+    },
+    "v0.17.0": {
+      "notes": [
+        "> **`v0.17.0` was not published to PyPI.** The release candidate passed its build, library tests, host checks and real-Azure certification, but all four runtime-audit jobs then failed in their guard-test step: pytest could not load the project's `tests/conftest.py` in an interpreter without `azure-functions` (`ModuleNotFoundError: No module named 'azure'`), so the publish job was skipped. The latest version on PyPI is `0.16.0`. The cause is fixed on `main` ([#625](https://github.com/yeongseon/azure-functions-validation-python/pull/625)); the changes below, including the required `ValidationAdapter.serialize_response()` migration, will reach PyPI with the first published release after `0.16.0`. The tag is kept unchanged as an audit record; see [Release history and provenance](https://github.com/yeongseon/azure-functions-validation-python/blob/main/docs/release_history.md#v0170-unpublished-release-candidate)."
+      ]
+    }
   }
 }

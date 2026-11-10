@@ -140,4 +140,7 @@ range and run `AdapterConformanceTests` when upgrading.
 `serialize_response` (#539) is one such breaking addition: any existing
 custom `ValidationAdapter` implementation must add it (a thin pass-through to
 `serialize` is sufficient when `response_model=` is never configured against
-that backend) before upgrading past the release that introduced it.
+that backend) before upgrading past the release that introduced it. That release,
+`0.17.0`, was not published to PyPI (see
+[Release History](release_history.md#v0170-unpublished-release-candidate)), so the requirement
+reaches PyPI users with the first published release after `0.16.0`.
