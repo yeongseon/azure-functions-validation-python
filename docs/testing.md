@@ -108,20 +108,24 @@ hatch run pytest tests/test_pipeline.py
 
 ## Test Structure
 
-Tests are located in the `tests/` directory and organized by the functional area they cover:
+Tests live in `tests/`. Rather than enumerating every file (the list changes often and goes stale),
+this map lists the test *levels* and the directories or representative files that implement each one.
+Every path below is checked against the working tree by `tests/test_testing_docs.py`.
 
-| File | Description |
-| :--- | :--- |
-| `test_decorator.py` | Validates configuration-time errors when applying `@validate_http`. |
-| `test_pipeline.py` | Tests the runtime behavior including parsing, validation, and response building. |
-| `test_errors.py` | Focuses on the error module and default error formatting logic. |
-| `test_integration.py` | End-to-end tests using real Azure Function handlers and request objects. |
-| `test_examples.py` | Smoke tests that verify the code snippets in the `examples/` directory. |
-| `test_public_api.py` | Verifies the public API surface and export stability. |
-| `test_adapter.py` | Tests the adapter layer responsible for interacting with Azure Functions types. |
-| `test_placeholder.py` | Minimal sanity check for the test environment. |
+| Level | Location | What it proves | Runs by default |
+| :--- | :--- | :--- | :--- |
+| Unit | `tests/test_decorator.py`, `tests/test_pipeline.py`, `tests/test_errors.py`, `tests/test_adapter.py`, `tests/test_public_api.py` | Decorator configuration errors, pipeline parsing/validation/response building, error formatting, adapter behavior, and the public export surface, using in-process request objects. | Yes (`make test`) |
+| Offline integration | `tests/test_integration.py`, `tests/test_testing.py`, `tests/test_e2e_app.py`, `tests/test_examples.py` | Real decorated handlers (including the Azure E2E app handlers and the `examples/` snippets) driven in-process with request doubles. No Functions host and no network. | Yes |
+| Functions host smoke | `tests/host_smoke/` | A real Azure Functions host (Core Tools) running the built wheel; run with `make host-candidate` (see [candidate-host.md](candidate-host.md)). | No (needs Core Tools) |
+| Real Azure E2E | `tests/e2e/` | The deployed example app on Azure, selected with `-m e2e` and `E2E_BASE_URL`. | No (opt-in) |
 
-The `tests/_test_app/` directory contains a sample Azure Functions application used by the integration tests to verify decorator behavior in a realistic environment.
+`tests/_test_app/` contains a sample Azure Functions application used by the offline tests.
+
+These levels are **not equivalent evidence**. Offline mocks prove the library's logic against request
+doubles; they cannot prove worker, host, or binding behavior. The host smoke lane proves behavior on a real
+local Functions host, but not Azure hosting. Only the real Azure E2E lane exercises a deployed Function
+App. A passing offline run is not host or Azure verification, and a local host smoke run is not Azure
+certification.
 
 ## Test Organization
 
@@ -133,31 +137,37 @@ Tests are generally organized into classes to group related functionality and sh
 - `TestCustomErrorFormatter`: Validates that users can override the default error response format.
 - `TestConfigurationErrors`: Checks that improper use of the decorator (e.g., conflicting parameters) is caught at decoration time.
 
-## Fixtures
+## Request test doubles
 
-The project uses `pytest` fixtures to simplify test setup. The most important fixture is `mock_request_factory`.
+There are two kinds of request double. Only one is public API.
 
-### mock_request_factory
+### `MockHttpRequest` (public, for consumers)
 
-Located in `tests/test_pipeline.py`, this fixture provides a factory function to create mock `azure.functions.HttpRequest` objects. It allows you to specify the method, URL, body, and various parameters without manually setting up complex mock objects.
+`azure_functions_validation.testing.MockHttpRequest` is the supported helper for testing your own
+handlers; see the first section of this guide. Use it in consumer test suites and in new tests in this
+repository that need a realistic request.
+
+### `mock_request_factory` (internal fixture)
+
+`mock_request_factory` is an internal pytest fixture defined in `tests/conftest.py`, so it is available to
+every test module in this repository without an import. It is **not** public API and is not available to
+consumers of the package. It returns a `unittest.mock.Mock` spec'd against `azure.functions.HttpRequest`
+with `method`, `url`, `params`, `route_params`, and `headers` set, and `get_body()` returning the given
+bytes. Because it is a mock, `get_json()` is **not** wired to the body; the pipeline reads
+`get_body()`.
 
 ```python
 def test_example(mock_request_factory):
     request = mock_request_factory(
         method="POST",
         body=b'{"name": "Alice"}',
-        params={"debug": "true"}
+        params={"debug": "true"},
     )
     # Use the mock request in your test
 ```
 
-## Integration Test Patterns
-
-### MockHttpRequest Class
-
-For tests that require a more robust representation of a request than a simple `unittest.mock.Mock`, the `tests/test_integration.py` file defines a `MockHttpRequest` class. This class implements the `HttpRequest` interface, providing realistic behavior for methods like `get_json()` and `get_body()`.
-
-This is particularly useful when testing how the validation layer interacts with the internal state of an Azure Functions request object.
+`tests/test_integration.py` also defines its own local `MockHttpRequest` class. It is a test-local helper
+that shares a name with, but is unrelated to, the public `azure_functions_validation.testing.MockHttpRequest`.
 
 ## Writing New Tests
 
@@ -165,7 +175,7 @@ When contributing new features or fixing bugs, please follow these guidelines:
 
 1. **Location**: Place unit tests in the file corresponding to the module being tested. If it's a new functional area, create a new `test_*.py` file.
 2. **Naming**: Use descriptive names for test functions, starting with `test_`. Use class-based grouping for related tests.
-3. **Mocking**: Use the `mock_request_factory` for unit tests. For integration tests that need to verify handler behavior, refer to the patterns in `test_integration.py`.
+3. **Mocking**: For low-level pipeline tests in this repository, the internal `mock_request_factory` fixture is fine. When a realistic `HttpRequest` is needed, prefer the public `MockHttpRequest`.
 4. **Async**: If testing async functionality, mark the test with `@pytest.mark.anyio`.
 
 Example of a new test:
