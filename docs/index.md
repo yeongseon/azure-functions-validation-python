@@ -113,6 +113,7 @@ For dependency setup details, see [Installation](installation.md).
 
 - [Basic Validation](examples/basic_validation.md)
 - [Query / Path / Header Validation](examples/query_validation.md)
+- [Header Alias Precedence](examples/header_alias_precedence.md)
 - [Async Validation](examples/async_validation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
 - [CRUD API](examples/crud_api.md)
