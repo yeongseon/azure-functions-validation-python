@@ -11,6 +11,7 @@
 | Focused | `examples/async_validation` | Async handler validation with typed request and response models. |
 | Focused | `examples/validation_aggregation` | Fail-fast vs opt-in `aggregate_validation_errors` across body and query. |
 | Focused | `examples/custom_error_handler` | Custom validation error formatting for HTTP handlers. |
+| Focused | `examples/custom_adapter` | Minimal non-Pydantic custom adapter run through `AdapterConformanceTests` (not a Functions app). |
 | Focused | `examples/body_policies` | Opt-in `require_json_content_type` (`415`) and `max_body_bytes` (`413`) vs the relaxed default. |
 | Focused | `examples/error_status_media_type` | Default vs overridden validation-error status and media type. |
 | Focused | `examples/response_overrides` | `ResponseSpec` status and header overrides that keep `response_model` validation. |
