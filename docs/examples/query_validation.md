@@ -98,6 +98,9 @@ Omitting `page` uses validated `1`; `?page=0` returns `422` at `["query", "page"
 Keep the keyword-only `*`: shorthand inputs are application injection, not Azure
 binding slots. The existing model-based profile route remains unchanged.
 
+A standalone, offline-tested recipe for this feature (coercion, validation errors and
+opt-in behavior) is on the [Scalar Query Validation](scalar_query.md) page.
+
 ## Step-by-step walkthrough
 
 ### Step 1: define source-specific models

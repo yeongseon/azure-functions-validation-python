@@ -408,6 +408,9 @@ source-prefixed locations, custom formatters, and the envelope version are
 unchanged. Invalid JSON remains an immediate 400 rather than being combined
 with validation errors.
 
+A runnable, offline-tested comparison of both modes is in the
+[aggregation walkthrough](examples/validation_aggregation.md).
+
 ### Custom strategy: per-handler `error_formatter`
 
 ```python
