@@ -116,6 +116,7 @@ For dependency setup details, see [Installation](installation.md).
 - [Async Validation](examples/async_validation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
 - [CRUD API](examples/crud_api.md)
+- [Testing with MockHttpRequest](examples/mock_request_testing.md)
 
 ## Need help?
 
