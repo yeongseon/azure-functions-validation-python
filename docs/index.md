@@ -113,6 +113,7 @@ For dependency setup details, see [Installation](installation.md).
 
 - [Basic Validation](examples/basic_validation.md)
 - [Query / Path / Header Validation](examples/query_validation.md)
+- [Header Alias Precedence](examples/header_alias_precedence.md)
 - [Scalar Query Validation](examples/scalar_query.md)
 - [Async Validation](examples/async_validation.md)
 - [Multi-Source Error Aggregation](examples/validation_aggregation.md)

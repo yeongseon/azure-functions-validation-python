@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Representative | `examples/hello_validation` | Minimal body validation and typed response flow. |
 | Complex | `examples/profile_validation` | Combined query, path, and header validation with a typed response model. |
+| Focused | `examples/header_alias_precedence` | `AliasChoices` header alias precedence through `@validate_http`. |
 | Focused | `examples/scalar_query` | Opt-in `query_params` scalar query validation without a `BaseModel`. |
 | Focused | `examples/async_validation` | Async handler validation with typed request and response models. |
 | Focused | `examples/validation_aggregation` | Fail-fast vs opt-in `aggregate_validation_errors` across body and query. |
