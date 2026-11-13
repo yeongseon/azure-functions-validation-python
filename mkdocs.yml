@@ -30,10 +30,14 @@ nav:
   - Examples:
       - Basic Validation: examples/basic_validation.md
       - Query/Path/Header: examples/query_validation.md
+      - Scalar Query: examples/scalar_query.md
       - Async Validation: examples/async_validation.md
+      - Error Aggregation: examples/validation_aggregation.md
       - Custom Error Handler: examples/custom_error_handler.md
       - Error Status and Media Type: examples/error_status_media_type.md
+      - Response Overrides: examples/response_overrides.md
       - CRUD API: examples/crud_api.md
+      - Testing with MockHttpRequest: examples/mock_request_testing.md
   - API Reference: api.md
   - Contributing:
       - Development: development.md

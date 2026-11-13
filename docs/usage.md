@@ -293,6 +293,9 @@ repeated `Set-Cookie` fields, never a comma-joined value. Headers follow the
     produce formatted 500. Status must be integer 200–599, not bool (`HTTPStatus`
     members are accepted), including an inherited status on this opt-in path.
 
+A runnable, offline-tested version of this pattern is in the
+[Response Overrides example](examples/response_overrides.md).
+
 Endpoint metadata remains a **non-exhaustive fallback description**, not a list
 of every runtime-selected status/header. Document additional outcomes explicitly
 in the application; return annotations do not create metadata declarations.
@@ -407,6 +410,9 @@ One 422 contains errors in body, query, path, then headers order. Existing
 source-prefixed locations, custom formatters, and the envelope version are
 unchanged. Invalid JSON remains an immediate 400 rather than being combined
 with validation errors.
+
+A runnable, offline-tested comparison of both modes is in the
+[aggregation walkthrough](examples/validation_aggregation.md).
 
 ### Custom strategy: per-handler `error_formatter`
 
