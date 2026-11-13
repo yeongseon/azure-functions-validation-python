@@ -45,6 +45,9 @@ def test_create_user_missing_field_returns_422():
     assert response.status_code == 422
 ```
 
+A copyable, tested version covering a JSON body, query arguments and headers is the
+[MockHttpRequest recipe](examples/mock_request_testing.md).
+
 ### Constructor options
 
 | Argument | Purpose |
