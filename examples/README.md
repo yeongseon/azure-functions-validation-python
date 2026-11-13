@@ -10,6 +10,7 @@
 | Focused | `examples/async_validation` | Async handler validation with typed request and response models. |
 | Focused | `examples/validation_aggregation` | Fail-fast vs opt-in `aggregate_validation_errors` across body and query. |
 | Focused | `examples/custom_error_handler` | Custom validation error formatting for HTTP handlers. |
+| Focused | `examples/response_overrides` | `ResponseSpec` status and header overrides that keep `response_model` validation. |
 | Focused | `examples/query_header_errors` | Offline regression recipe for invalid query and header input (`422` status, `loc`, `type`). |
 | Comprehensive | `examples/crud_api` | Task management CRUD API covering body, query, path, list response, request_model shorthand, and HttpResponse bypass. |
 | E2E | `examples/e2e_app` | End-to-end test app with health check and validated item creation. |

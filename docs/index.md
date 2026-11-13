@@ -117,6 +117,7 @@ For dependency setup details, see [Installation](installation.md).
 - [Async Validation](examples/async_validation.md)
 - [Multi-Source Error Aggregation](examples/validation_aggregation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
+- [Response Status and Header Overrides](examples/response_overrides.md)
 - [CRUD API](examples/crud_api.md)
 - [Testing with MockHttpRequest](examples/mock_request_testing.md)
 
