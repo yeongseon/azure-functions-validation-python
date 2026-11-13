@@ -155,6 +155,129 @@ Fix:
 - return model/dict if you want response validation
 - keep direct `HttpResponse` only when bypass is intentional
 
+## Upgrade issues: custom adapters and response overrides
+
+Applies to custom `ValidationAdapter` backends and to handlers that return
+`ResponseSpec`. The full contract lives in the
+[adapter reference](adapters.md#method-contract) and the
+[per-return status and headers](usage.md#per-return-status-and-headers-without-bypassing-validation)
+section of Usage. The `v0.17.0` tag
+([release notes](https://github.com/yeongseon/azure-functions-validation-python/releases/tag/v0.17.0))
+introduced both changes, but that version was never published to PyPI, so the
+requirement reaches PyPI users with the first published release after `0.16.0`
+(see [Release History](release_history.md#v0170-unpublished-release-candidate)).
+
+### Problem: HTTP `500` after upgrading a custom adapter, handler uses `response_model=`
+
+Symptom:
+
+- every successful call to a handler with `response_model=` returns the
+  sanitized `500` envelope (`"Internal Server Error"`), even though the handler
+  returns a valid value
+- the server log shows `AttributeError: ... 'serialize_response'`
+
+Cause:
+
+- `serialize_response()` is now a required `ValidationAdapter` method. The
+  pipeline calls it whenever `response_model=` is configured. An adapter written
+  before it existed raises `AttributeError`, which is an adapter fault, so the
+  client only sees the sanitized `500`.
+
+Fix:
+
+- add `serialize_response()` with the signature documented in the
+  [method contract](adapters.md#method-contract). When the backend never
+  configures `response_model=`, a thin pass-through to `serialize()` is enough.
+  A backend that does use `response_model=` must serialize by the declared
+  model, not by the runtime type of the object.
+- run `AdapterConformanceTests` (see
+  [Run the conformance suite](adapters.md#run-the-conformance-suite)); it fails
+  for an adapter that lacks the method.
+
+### Problem: telling a response-model failure from a legitimate status/header override
+
+Both a non-conforming return value and a missing `serialize_response()` produce
+the same sanitized `500`, so compare the server log, not the response body.
+A `ResponseSpec` with a custom status or headers is not an error: its content
+still goes through `response_model` validation, and its status and headers are
+applied afterwards.
+
+| Handler returns | Result | Server log |
+| --- | --- | --- |
+| `{"message": "hi"}` with a legacy adapter | `500` | `AttributeError` for `serialize_response` |
+| `{"msg": "wrong key"}` with a conforming adapter | `500` | `AdapterValidationError` for `response` |
+| `ResponseSpec(content={"message": "hi"}, status_code=201, headers={...})` | `201` plus your headers | none |
+| `func.HttpResponse(...)` | returned as-is, **not** validated | none |
+
+A direct `func.HttpResponse` bypasses `response_model` validation entirely; use
+`ResponseSpec` when you need a custom status or headers **and** validation.
+
+Reproduce all four rows offline, with no Azure resources (this block is
+executed by `tests/test_troubleshooting_upgrade.py`):
+
+```python
+# --- upgrade-repro ---
+import logging
+
+import azure.functions as func
+from pydantic import BaseModel
+
+from azure_functions_validation import PydanticAdapter, ResponseSpec, validate_http
+
+
+class Out(BaseModel):
+    message: str
+
+
+class LegacyAdapter(PydanticAdapter):
+    """Simulates an adapter written before serialize_response() existed."""
+
+    def __getattribute__(self, name: str):
+        if name == "serialize_response":
+            raise AttributeError(name)
+        return super().__getattribute__(name)
+
+
+def call(handler) -> func.HttpResponse:
+    return handler(func.HttpRequest("GET", "/api/demo", body=b""))
+
+
+@validate_http(response_model=Out, adapter=LegacyAdapter())
+def legacy(req: func.HttpRequest) -> dict[str, str]:
+    return {"message": "hi"}
+
+
+@validate_http(response_model=Out)
+def wrong_shape(req: func.HttpRequest) -> dict[str, str]:
+    return {"msg": "wrong key"}
+
+
+@validate_http(response_model=Out)
+def override(req: func.HttpRequest) -> ResponseSpec[dict[str, str]]:
+    return ResponseSpec(
+        content={"message": "hi"}, status_code=201, headers={"Location": "/api/items/1"}
+    )
+
+
+@validate_http(response_model=Out)
+def bypass(req: func.HttpRequest) -> func.HttpResponse:
+    return func.HttpResponse('{"msg": "not validated"}', status_code=200)
+
+
+logging.disable(logging.NOTSET)
+statuses = {
+    "legacy": call(legacy).status_code,  # 500, log: AttributeError serialize_response
+    "wrong_shape": call(wrong_shape).status_code,  # 500, log: AdapterValidationError
+    "override": call(override).status_code,  # 201, Location header applied
+    "bypass": call(bypass).status_code,  # 200, body never validated
+}
+print(statuses)
+# --- end upgrade-repro ---
+```
+
+Expected output: `{'legacy': 500, 'wrong_shape': 500, 'override': 201, 'bypass': 200}`.
+Your logging configuration decides whether the two tracebacks are shown.
+
 ## Async handler issues
 
 ### Problem: confusion about async support
@@ -180,8 +303,7 @@ import pytest
 
 
 @pytest.mark.anyio
-async def test_async_handler() -> None:
-    ...
+async def test_async_handler() -> None: ...
 ```
 
 ### Problem: unexpected blocking in async handlers
@@ -245,7 +367,7 @@ Fix:
         return {
             "error": {
                 "code": f"VALIDATION_{status_code}",
-            "message": str(exc) if status_code < 500 else "Internal Server Error",
+                "message": str(exc) if status_code < 500 else "Internal Server Error",
             }
         }
     ```
