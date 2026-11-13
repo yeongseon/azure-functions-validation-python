@@ -118,6 +118,7 @@ For dependency setup details, see [Installation](installation.md).
 - [Multi-Source Error Aggregation](examples/validation_aggregation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
 - [CRUD API](examples/crud_api.md)
+- [Testing with MockHttpRequest](examples/mock_request_testing.md)
 
 ## Need help?
 

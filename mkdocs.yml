@@ -35,6 +35,7 @@ nav:
       - Error Aggregation: examples/validation_aggregation.md
       - Custom Error Handler: examples/custom_error_handler.md
       - CRUD API: examples/crud_api.md
+      - Testing with MockHttpRequest: examples/mock_request_testing.md
   - API Reference: api.md
   - Contributing:
       - Development: development.md
