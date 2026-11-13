@@ -6,7 +6,7 @@ By default `@validate_http` is **fail-fast**: the first invalid configured sourc
 the `422`. With `aggregate_validation_errors=True` it validates every configured source and
 returns all errors in one `422`. This walkthrough sends a body and a query string that are
 **both** invalid to two otherwise identical handlers. It does not use any custom error-response
-override (see [error status and media type](error_status_media_type.md) for that).
+override (the separate validation-error response configuration).
 Reference: [Configuration](../configuration.md#aggregate_validation_errors) and
 [Usage](../usage.md#opt-in-aggregation-across-request-sources).
 
