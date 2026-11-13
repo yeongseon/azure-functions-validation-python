@@ -115,6 +115,7 @@ For dependency setup details, see [Installation](installation.md).
 - [Query / Path / Header Validation](examples/query_validation.md)
 - [Async Validation](examples/async_validation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
+- [Custom Adapter Conformance](examples/custom_adapter.md)
 - [CRUD API](examples/crud_api.md)
 
 ## Need help?

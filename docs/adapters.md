@@ -117,6 +117,10 @@ class TestMyAdapter(AdapterConformanceTests):
         return MyAdapter()
 ```
 
+A complete, runnable example with a non-Pydantic adapter, deliberately failing adapters
+and a list of what the suite does not certify is in
+[Custom Adapter Conformance](examples/custom_adapter.md).
+
 The built-in fixtures are Pydantic models. A non-Pydantic backend overrides
 `body_model`, `query_model`, `path_model`, `headers_model`, `response_model`,
 `valid_body`, and `valid_response` as needed. Keep the inherited tests intact;
