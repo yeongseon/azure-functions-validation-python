@@ -209,6 +209,7 @@ validation failure. The default `/comments` example remains unchanged.
 
 ## Further reading
 
+- [Validation-error status and media type recipe](error_status_media_type.md) (default vs override, offline-tested)
 - [Configuration](../configuration.md)
 - [API Reference](../api.md)
 - [Usage](../usage.md)
