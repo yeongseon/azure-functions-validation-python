@@ -114,9 +114,12 @@ For dependency setup details, see [Installation](installation.md).
 - [Basic Validation](examples/basic_validation.md)
 - [Query / Path / Header Validation](examples/query_validation.md)
 - [Header Alias Precedence](examples/header_alias_precedence.md)
+- [Scalar Query Validation](examples/scalar_query.md)
 - [Async Validation](examples/async_validation.md)
+- [Multi-Source Error Aggregation](examples/validation_aggregation.md)
 - [Custom Error Handler](examples/custom_error_handler.md)
 - [CRUD API](examples/crud_api.md)
+- [Testing with MockHttpRequest](examples/mock_request_testing.md)
 
 ## Need help?
 
