@@ -39,6 +39,7 @@ nav:
       - Body Policies: examples/body_policies.md
       - Error Status and Media Type: examples/error_status_media_type.md
       - Response Overrides: examples/response_overrides.md
+      - Response Field Aliases: examples/response_field_aliases.md
       - CRUD API: examples/crud_api.md
       - Testing with MockHttpRequest: examples/mock_request_testing.md
   - API Reference: api.md
