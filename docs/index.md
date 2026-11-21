@@ -122,6 +122,7 @@ For dependency setup details, see [Installation](installation.md).
 - [Opt-In Body Policies](examples/body_policies.md)
 - [Validation-Error Status and Media Type](examples/error_status_media_type.md)
 - [Response Status and Header Overrides](examples/response_overrides.md)
+- [Response Field Aliases](examples/response_field_aliases.md)
 - [CRUD API](examples/crud_api.md)
 - [Testing with MockHttpRequest](examples/mock_request_testing.md)
 

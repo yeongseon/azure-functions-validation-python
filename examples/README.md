@@ -15,6 +15,7 @@
 | Focused | `examples/body_policies` | Opt-in `require_json_content_type` (`415`) and `max_body_bytes` (`413`) vs the relaxed default. |
 | Focused | `examples/error_status_media_type` | Default vs overridden validation-error status and media type. |
 | Focused | `examples/response_overrides` | `ResponseSpec` status and header overrides that keep `response_model` validation. |
+| Focused | `examples/response_field_aliases` | Serialized Pydantic field aliases on the wire under `response_by_alias` settings. |
 | Focused | `examples/query_header_errors` | Offline regression recipe for invalid query and header input (`422` status, `loc`, `type`). |
 | Comprehensive | `examples/crud_api` | Task management CRUD API covering body, query, path, list response, request_model shorthand, and HttpResponse bypass. |
 | E2E | `examples/e2e_app` | End-to-end test app with health check and validated item creation. |

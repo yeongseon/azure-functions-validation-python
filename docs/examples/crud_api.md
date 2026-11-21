@@ -190,6 +190,12 @@ def delete_task(req: func.HttpRequest, path: TaskPath) -> func.HttpResponse:
 
 This catches accidental response drift early.
 
+When response models define Pydantic field aliases (such as `Field(alias="...")` or
+`Field(serialization_alias="...")`), `@validate_http(response_model=...)` serializes
+fields by alias on the wire by default (`response_by_alias=True`). Set
+`response_by_alias=False` on the decorator to serialize by Python field names instead.
+See [Response Field Aliases](response_field_aliases.md) for a focused recipe with exact wire bytes.
+
 ### Step 3: implement create with `body`
 
 `body=TaskCreateRequest` validates the request body and injects `body`.
@@ -309,6 +315,7 @@ HTTP/1.1 204 No Content
 
 ## Related docs
 
+- [Response Field Aliases](response_field_aliases.md)
 - [Usage](../usage.md)
 - [Configuration](../configuration.md)
 - [API Reference](../api.md)
