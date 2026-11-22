@@ -9,6 +9,7 @@ from types import ModuleType
 from typing import Any
 
 import azure.functions as func
+from pydantic import BaseModel, Field
 import pytest
 
 from azure_functions_validation import validate_http
@@ -28,7 +29,9 @@ def _load() -> ModuleType:
 
 
 def test_default_response_serialization_uses_aliases() -> None:
-    """Default: response_by_alias=True emits declared Field aliases on the wire."""
+    """Default: response_by_alias=True emits declared Field aliases
+    and serialization_alias on the wire.
+    """
     app = _load()
     response = app.get_item_summary(MockHttpRequest(method="GET"))
 
@@ -39,7 +42,9 @@ def test_default_response_serialization_uses_aliases() -> None:
 
 
 def test_response_by_alias_false_uses_python_field_names() -> None:
-    """Explicit response_by_alias=False emits Python field names instead of aliases."""
+    """Explicit response_by_alias=False emits Python field names
+    instead of aliases or serialization_alias.
+    """
     app = _load()
     response = app.get_item_summary_by_name(MockHttpRequest(method="GET"))
 
@@ -51,6 +56,35 @@ def test_response_by_alias_false_uses_python_field_names() -> None:
         "title": "Widget",
         "is_active": True,
     }
+
+
+def test_serialization_only_alias_explicit_isolation() -> None:
+    """Field(serialization_alias=...) affects output wire JSON but not model instantiation."""
+
+    class SerializationOnlyResponse(BaseModel):
+        display_name: str = Field(serialization_alias="displayName")
+
+    @validate_http(response_model=SerializationOnlyResponse)
+    def handler_aliased(req: func.HttpRequest) -> SerializationOnlyResponse:
+        return SerializationOnlyResponse(display_name="Ada")
+
+    @validate_http(response_model=SerializationOnlyResponse, response_by_alias=False)
+    def handler_by_name(req: func.HttpRequest) -> SerializationOnlyResponse:
+        return SerializationOnlyResponse(display_name="Ada")
+
+    req = MockHttpRequest(method="GET")
+
+    aliased_response = handler_aliased(req)
+    assert aliased_response.status_code == 200
+    assert aliased_response.headers["Content-Type"] == "application/json"
+    assert aliased_response.get_body() == b'{"displayName":"Ada"}'
+    assert json.loads(aliased_response.get_body()) == {"displayName": "Ada"}
+
+    by_name_response = handler_by_name(req)
+    assert by_name_response.status_code == 200
+    assert by_name_response.headers["Content-Type"] == "application/json"
+    assert by_name_response.get_body() == b'{"display_name":"Ada"}'
+    assert json.loads(by_name_response.get_body()) == {"display_name": "Ada"}
 
 
 def test_response_by_alias_without_response_model_raises_value_error() -> None:

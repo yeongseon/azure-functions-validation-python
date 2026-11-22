@@ -11,7 +11,7 @@ from azure_functions_validation import validate_http
 class ItemSummaryResponse(BaseModel):
     item_id: int = Field(alias="id")
     title: str
-    is_active: bool = Field(default=True, alias="active")
+    is_active: bool = Field(default=True, serialization_alias="active")
 
 
 app = func.FunctionApp()
@@ -24,7 +24,7 @@ app = func.FunctionApp()
 @validate_http(response_model=ItemSummaryResponse)
 def get_item_summary(req: func.HttpRequest) -> ItemSummaryResponse:
     """Default: response_by_alias=True emits declared Field aliases on the wire."""
-    return ItemSummaryResponse(id=1, title="Widget", active=True)
+    return ItemSummaryResponse(id=1, title="Widget", is_active=True)
 
 
 @app.function_name(name="get_item_summary_by_name")
@@ -34,4 +34,4 @@ def get_item_summary(req: func.HttpRequest) -> ItemSummaryResponse:
 @validate_http(response_model=ItemSummaryResponse, response_by_alias=False)
 def get_item_summary_by_name(req: func.HttpRequest) -> ItemSummaryResponse:
     """Explicit response_by_alias=False emits Python field names instead of aliases."""
-    return ItemSummaryResponse(id=1, title="Widget", active=True)
+    return ItemSummaryResponse(id=1, title="Widget", is_active=True)

@@ -5,7 +5,7 @@
 When creating public HTTP APIs, response payloads often need camelCase or renamed JSON keys
 (e.g. `id` instead of `item_id`, or `active` instead of `is_active`) while application code
 prefers snake_case Python attributes. Pydantic models achieve this using field aliases such as
-`Field(alias="id")` or `Field(serialization_alias="id")`.
+`Field(alias="id")` or `Field(serialization_alias="active")`.
 
 This recipe demonstrates how Pydantic field aliases behave in `azure-functions-validation`
 under supported response serialization options. It corresponds to
@@ -27,7 +27,7 @@ from azure_functions_validation import validate_http
 class ItemSummaryResponse(BaseModel):
     item_id: int = Field(alias="id")
     title: str
-    is_active: bool = Field(default=True, alias="active")
+    is_active: bool = Field(default=True, serialization_alias="active")
 
 
 app = func.FunctionApp()
@@ -40,7 +40,7 @@ app = func.FunctionApp()
 @validate_http(response_model=ItemSummaryResponse)
 def get_item_summary(req: func.HttpRequest) -> ItemSummaryResponse:
     """Default: response_by_alias=True emits declared Field aliases on the wire."""
-    return ItemSummaryResponse(id=1, title="Widget", active=True)
+    return ItemSummaryResponse(id=1, title="Widget", is_active=True)
 
 
 @app.function_name(name="get_item_summary_by_name")
@@ -50,7 +50,7 @@ def get_item_summary(req: func.HttpRequest) -> ItemSummaryResponse:
 @validate_http(response_model=ItemSummaryResponse, response_by_alias=False)
 def get_item_summary_by_name(req: func.HttpRequest) -> ItemSummaryResponse:
     """Explicit response_by_alias=False emits Python field names instead of aliases."""
-    return ItemSummaryResponse(id=1, title="Widget", active=True)
+    return ItemSummaryResponse(id=1, title="Widget", is_active=True)
 ```
 
 ## Wire representation & supported settings
@@ -64,19 +64,28 @@ def get_item_summary_by_name(req: func.HttpRequest) -> ItemSummaryResponse:
 
 1. **Default serialization (`response_by_alias=True`)**:
    When `response_model` is configured on `@validate_http`, `response_by_alias` defaults to `True`.
-   Field aliases configured with `Field(alias="...")` or `Field(serialization_alias="...")` are
-   serialized to the wire JSON output. Fields without an alias retain their Python attribute names.
+   Both general aliases (`Field(alias="id")`) and serialization-only aliases
+   (`Field(serialization_alias="active")`) are serialized to their declared wire names.
+   Fields without an alias (`title`) retain their Python attribute names.
 
 2. **Opting out (`response_by_alias=False`)**:
    Passing `response_by_alias=False` instructs the serializer to output Python attribute names
-   (e.g. `item_id` and `is_active`) instead of the aliases.
+   (e.g. `item_id` and `is_active`) instead of any declared `alias` or `serialization_alias`.
 
-3. **Response options require `response_model`**:
+3. **`alias` vs `serialization_alias`**:
+   - `Field(alias="id")` applies to both validation (inbound) and serialization (outbound). Instantiating
+     the model directly in Python requires `ItemSummaryResponse(id=1, ...)` (unless `populate_by_name=True`
+     is configured).
+   - `Field(serialization_alias="active")` is serialization-only. Python instantiation accepts the field
+     name `ItemSummaryResponse(is_active=True, ...)` while the wire output still uses `"active"` when
+     `response_by_alias=True`.
+
+4. **Response options require `response_model`**:
    Setting `response_by_alias=False`, `response_exclude_none=True`, or `response_exclude_unset=True`
    without declaring `response_model` raises a `ValueError` at decoration time:
    `response serialization options require response_model`.
 
-4. **Independent from FastAPI**:
+5. **Independent from FastAPI**:
    `azure-functions-validation` is a standalone library specifically designed for Azure Functions
    Python v2 applications. It does **not** inherit or import FastAPI runtime conventions, middleware,
    or parameters (such as FastAPI's `response_model_by_alias`). All response options are explicitly
