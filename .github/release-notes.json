@@ -1,6 +1,7 @@
 {
   "repo": "yeongseon/azure-functions-validation-python",
   "owner_login": "yeongseon",
+  "pypi_project": "azure-functions-validation",
   "legacy_repos": [
     "yeongseon/azure-functions-validation"
   ],
