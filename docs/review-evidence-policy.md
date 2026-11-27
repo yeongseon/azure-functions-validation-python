@@ -9,17 +9,15 @@
 > verified in this repository (see "Rollout" below).
 
 This repository runs with zero required native GitHub approvals (#631) because the sole
-maintainer cannot approve their own PR. Independent review still happens — Copilot code review,
-or a human — but prior to this policy nothing recorded *who* reviewed *which commit*, *what* was
+maintainer cannot approve their own PR. Before this policy, nothing recorded *who* reviewed *which commit*, *what* was
 found, or whether findings were resolved before merge. This document defines that evidence
 record. It does **not** reopen #403 (zero native approvals stands) and does **not** replace CI.
 
 ## Roles
 
 - **Implementer** — the person or agent that authored the change (may be the maintainer).
-- **Independent reviewer** — a review source distinct from the implementer: GitHub Copilot code
-  review, or a human maintainer/contributor who did not author the diff. A review is only
-  independent evidence if it evaluates the PR's current head commit; a thread opened against an
+- **Independent reviewer** — a maintainer or contributor who did not author the diff.
+  A review is only independent evidence if it evaluates the PR's current head commit; a thread opened against an
   earlier commit is stale once the diff changes (see "SHA binding" below).
 
 Implementer-managed helper reviews (e.g. an agent re-running its own linter and calling the
